@@ -1,0 +1,105 @@
+name: Deploy to Azure Container Apps
+
+# Builds the image in Azure Container Registry and deploys the Bicep template
+# to Azure Container Apps. Authenticates to Azure with OIDC (federated
+# credentials) so no long-lived cloud secrets are stored in GitHub.
+#
+# Required configuration (Settings -> Secrets and variables -> Actions):
+#   Secrets:   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   Variables: AZURE_RESOURCE_GROUP, ACR_NAME, CONTAINER_APP_NAME, ADO_ORG
+# See deploy/azure/README.md ("CI/CD") for one-time setup.
+
+on:
+  workflow_dispatch:
+    inputs:
+      imageTag:
+        description: "Image tag to build and deploy (defaults to the commit SHA)"
+        required: false
+        default: ""
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "Dockerfile"
+      - "deploy/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-aca.yml"
+
+# OIDC login needs id-token: write; contents: read to checkout.
+permissions:
+  contents: read
+  id-token: write
+
+# Never run two deploys against the same environment at once.
+concurrency:
+  group: deploy-aca
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    # Tie to a GitHub Environment so you can require manual approval for prod.
+    environment: production
+
+    steps:
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Resolve image tag
+        id: meta
+        run: |
+          TAG="${{ github.event.inputs.imageTag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_SHA::12}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Azure login (OIDC)
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build image in Azure Container Registry
+        run: |
+          az acr build \
+            --registry "${{ vars.ACR_NAME }}" \
+            --image "${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}" \
+            --file Dockerfile .
+
+      - name: Deploy Bicep to Azure Container Apps
+        id: deploy
+        run: |
+          set -euo pipefail
+          ACR_SERVER=$(az acr show -n "${{ vars.ACR_NAME }}" --query loginServer -o tsv)
+          ACR_USER=$(az acr credential show -n "${{ vars.ACR_NAME }}" --query username -o tsv)
+          ACR_PASS=$(az acr credential show -n "${{ vars.ACR_NAME }}" --query 'passwords[0].value' -o tsv)
+          # Keep the registry password out of any log output.
+          echo "::add-mask::$ACR_PASS"
+
+          DEPLOYMENT_NAME="deploy-${{ steps.meta.outputs.tag }}"
+          az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$DEPLOYMENT_NAME" \
+            --template-file deploy/azure/main.bicep \
+            --parameters \
+              appName="${{ vars.CONTAINER_APP_NAME }}" \
+              adoOrg="${{ vars.ADO_ORG }}" \
+              containerImage="$ACR_SERVER/${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}" \
+              registryServer="$ACR_SERVER" \
+              registryUsername="$ACR_USER" \
+              registryPassword="$ACR_PASS"
+
+          MCP_URL=$(az deployment group show \
+            -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            -n "$DEPLOYMENT_NAME" \
+            --query properties.outputs.mcpUrl.value -o tsv)
+          echo "**Deployed MCP endpoint:** $MCP_URL" >> "$GITHUB_STEP_SUMMARY"

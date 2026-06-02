@@ -107,6 +107,59 @@ az account get-access-token \
 }
 ```
 
+## CI/CD (GitHub Actions)
+
+The workflow `.github/workflows/deploy-aca.yml` builds the image in ACR and
+deploys the Bicep template. It runs on pushes to `main` that touch the app or
+deployment files, and can also be triggered manually (`workflow_dispatch`). It
+authenticates to Azure with **OIDC federated credentials**, so no cloud
+passwords are stored in GitHub.
+
+### Required GitHub configuration
+
+Under **Settings → Secrets and variables → Actions**:
+
+| Kind     | Name                    | Example / meaning                     |
+| -------- | ----------------------- | ------------------------------------- |
+| Secret   | `AZURE_CLIENT_ID`       | App registration (client) ID for OIDC |
+| Secret   | `AZURE_TENANT_ID`       | Entra tenant ID                       |
+| Secret   | `AZURE_SUBSCRIPTION_ID` | Target subscription ID                |
+| Variable | `AZURE_RESOURCE_GROUP`  | `ado-mcp-rg`                          |
+| Variable | `ACR_NAME`              | Your Azure Container Registry name    |
+| Variable | `CONTAINER_APP_NAME`    | `ado-mcp`                             |
+| Variable | `ADO_ORG`               | Your Azure DevOps organization name   |
+
+### One-time OIDC setup
+
+```bash
+# 1. Create an app registration (or reuse a service principal).
+APP_ID=$(az ad app create --display-name "ado-mcp-deploy" --query appId -o tsv)
+az ad sp create --id "$APP_ID"
+
+# 2. Federated credential matching this repo's "production" environment.
+az ad app federated-credential create --id "$APP_ID" --parameters '{
+  "name": "github-prod",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:DL-Solution/azure-devops-mcp:environment:production",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+
+# 3. Grant it rights on the resource group (covers ACR build + ACA deploy).
+SUB=$(az account show --query id -o tsv)
+az role assignment create \
+  --assignee "$APP_ID" \
+  --role Contributor \
+  --scope "/subscriptions/$SUB/resourceGroups/ado-mcp-rg"
+```
+
+Then set `AZURE_CLIENT_ID=$APP_ID`, `AZURE_TENANT_ID`, and
+`AZURE_SUBSCRIPTION_ID` as repository secrets.
+
+> The workflow targets a GitHub **Environment** named `production`. Add
+> required reviewers to that environment (Settings → Environments) if you want
+> a manual approval gate before each production deploy. The federated
+> credential `subject` above must match the environment name.
+
 ## Configuration reference
 
 The image is configured entirely through environment variables (see
