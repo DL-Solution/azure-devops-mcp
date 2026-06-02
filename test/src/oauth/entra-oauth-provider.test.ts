@@ -7,6 +7,10 @@ jest.mock("../../../src/logger", () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
+// jose is ESM-only; these tests inject their own JWT verifier, so the real
+// implementation is never exercised — a stub satisfies the module import.
+jest.mock("jose", () => ({ createRemoteJWKSet: jest.fn(), jwtVerify: jest.fn() }));
+
 import { EntraOAuthProvider } from "../../../src/shared/oauth/entra-oauth-provider";
 
 const config = {
@@ -136,17 +140,35 @@ describe("EntraOAuthProvider", () => {
   });
 
   describe("verifyAccessToken", () => {
-    it("rejects an expired JWT", async () => {
-      const payload = Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 })).toString("base64url");
-      const expired = `h.${payload}.s`;
-      await expect(provider.verifyAccessToken(expired)).rejects.toThrow(/expired/);
+    it("verifies a JWT against the injected verifier and uses its exp", async () => {
+      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const verifyJwt = jest.fn(async () => ({ exp }));
+      const p = new EntraOAuthProvider(config, { verifyJwt: verifyJwt as never });
+
+      const info = await p.verifyAccessToken("header.payload.sig");
+
+      expect(verifyJwt).toHaveBeenCalledWith("header.payload.sig");
+      expect(info.token).toBe("header.payload.sig");
+      expect(info.expiresAt).toBe(exp);
+    });
+
+    it("rejects a JWT that fails signature/issuer verification", async () => {
+      const verifyJwt = jest.fn(async () => {
+        throw new Error("signature verification failed");
+      });
+      const p = new EntraOAuthProvider(config, { verifyJwt: verifyJwt as never });
+
+      await expect(p.verifyAccessToken("header.payload.sig")).rejects.toThrow(/Invalid access token/);
     });
 
     it("accepts a non-JWT opaque token with a fallback expiry (validated downstream by ADO)", async () => {
-      const info = await provider.verifyAccessToken("opaque-token");
+      const verifyJwt = jest.fn();
+      const p = new EntraOAuthProvider(config, { verifyJwt: verifyJwt as never });
+
+      const info = await p.verifyAccessToken("opaque-token");
+
+      expect(verifyJwt).not.toHaveBeenCalled(); // not a JWT → signature check skipped
       expect(info.token).toBe("opaque-token");
-      expect(info.clientId).toBe("app-1");
-      // Fallback numeric expiry so the SDK bearer middleware doesn't reject a valid opaque token.
       expect(typeof info.expiresAt).toBe("number");
       expect(info.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
     });

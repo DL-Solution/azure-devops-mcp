@@ -14,6 +14,7 @@
 
 import { randomUUID } from "node:crypto";
 import { Response } from "express";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 import { OAuthRegisteredClientsStore } from "@modelcontextprotocol/sdk/server/auth/clients.js";
 import { AuthorizationParams, OAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/provider.js";
@@ -21,6 +22,22 @@ import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { OAuthClientInformationFull, OAuthTokens } from "@modelcontextprotocol/sdk/shared/auth.js";
 
 import { logger } from "../../logger.js";
+
+/** Verifies a JWT and returns its claims (at least `exp`). Throws on any failure. */
+export type JwtVerifier = (token: string) => Promise<{ exp?: number }>;
+
+/** Default verifier: validates the signature against the Entra tenant JWKS and the issuer (v1 or v2). */
+function createEntraJwtVerifier(tenantId: string): JwtVerifier {
+  const jwks = createRemoteJWKSet(new URL(`https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`));
+  // Audience is intentionally not enforced here — the token targets Azure DevOps,
+  // which validates the audience on every API call. We verify signature + issuer
+  // to reject forged/unsigned tokens.
+  const issuer = [`https://login.microsoftonline.com/${tenantId}/v2.0`, `https://sts.windows.net/${tenantId}/`];
+  return async (token: string) => {
+    const { payload } = await jwtVerify(token, jwks, { issuer });
+    return payload;
+  };
+}
 
 export interface EntraOAuthConfig {
   /** Entra tenant ID. */
@@ -88,10 +105,15 @@ export class EntraOAuthProvider implements OAuthServerProvider {
   private readonly callbackPath: string;
   /** Scopes requested from Entra; also advertised as the server's supported scopes. */
   public readonly scopes: string[];
+  private readonly verifyJwt: JwtVerifier;
 
-  constructor(private readonly config: EntraOAuthConfig) {
+  constructor(
+    private readonly config: EntraOAuthConfig,
+    options?: { verifyJwt?: JwtVerifier }
+  ) {
     this.callbackPath = config.callbackPath ?? "/auth/callback";
     this.scopes = config.scopes ?? [ADO_DEFAULT_SCOPE, "offline_access"];
+    this.verifyJwt = options?.verifyJwt ?? createEntraJwtVerifier(config.tenantId);
   }
 
   get redirectUri(): string {
@@ -216,17 +238,27 @@ export class EntraOAuthProvider implements OAuthServerProvider {
   }
 
   async verifyAccessToken(token: string): Promise<AuthInfo> {
-    // The token is an Entra-issued access token for Azure DevOps; ADO validates
-    // it on every call. Here we only do a lightweight structural/expiry check so
-    // an obviously invalid token is rejected before establishing the session.
-    const exp = decodeJwtExpiry(token);
-    if (exp !== undefined && exp * 1000 < Date.now()) {
-      throw new Error("Access token has expired.");
+    const fallbackExpiry = Math.floor(Date.now() / 1000) + 3600;
+
+    // JWTs (the normal case for Azure DevOps tokens) are cryptographically
+    // verified against the Entra JWKS — this rejects forged/unsigned tokens and
+    // also enforces expiry. Opaque (non-JWT) tokens can't be verified here, so
+    // they pass through; Azure DevOps remains the authority and rejects them on
+    // the actual API call.
+    let expiresAt = fallbackExpiry;
+    if (token.split(".").length === 3) {
+      try {
+        const payload = await this.verifyJwt(token);
+        if (typeof payload.exp === "number") {
+          expiresAt = payload.exp;
+        }
+      } catch (error) {
+        // Never log the token itself.
+        logger.warn("Access token verification failed", error instanceof Error ? error.message : String(error));
+        throw new Error("Invalid access token.");
+      }
     }
-    // The SDK's bearer middleware requires a numeric expiry. Opaque (non-JWT)
-    // tokens have none, so fall back to a short window — Azure DevOps remains
-    // the authority and rejects the token on the actual API call if invalid.
-    const expiresAt = exp ?? Math.floor(Date.now() / 1000) + 3600;
+
     return {
       token,
       clientId: this.config.clientId,
@@ -273,17 +305,5 @@ export class EntraOAuthProvider implements OAuthServerProvider {
     for (const [k, v] of this.issuedCodes) {
       if (v.expiresAt < now) this.issuedCodes.delete(k);
     }
-  }
-}
-
-/** Best-effort decode of a JWT `exp` claim (seconds since epoch). Returns undefined if not a JWT. */
-function decodeJwtExpiry(token: string): number | undefined {
-  const parts = token.split(".");
-  if (parts.length !== 3) return undefined;
-  try {
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as { exp?: number };
-    return typeof payload.exp === "number" ? payload.exp : undefined;
-  } catch {
-    return undefined;
   }
 }
