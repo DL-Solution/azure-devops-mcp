@@ -11,6 +11,12 @@ on:
 permissions:
   contents: read
 
+# Run JavaScript actions on Node.js 24. The actions pinned below ship on
+# Node.js 20, which GitHub is deprecating; this opts them into the Node.js 24
+# runtime without changing the pinned SHAs.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     name: Build the project
