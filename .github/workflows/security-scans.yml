@@ -1,0 +1,73 @@
+name: Security scans
+
+# Supply-chain and configuration scanning for the repo, image, IaC, and
+# workflows. Tools run from their official container images / az CLI so the
+# workflow doesn't depend on pinning third-party marketplace action versions.
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# JS actions below still ship on Node.js 20; opt them into the Node.js 24 runtime.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  dependencies:
+    name: Dependency vulnerabilities (Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Trivy filesystem scan (vulnerabilities)
+        run: |
+          docker run --rm -v "$PWD:/src" aquasec/trivy:latest fs \
+            --scanners vuln \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            /src
+
+  dockerfile:
+    name: Dockerfile lint (hadolint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: hadolint
+        run: docker run --rm -i hadolint/hadolint:latest hadolint --failure-threshold error - < Dockerfile
+
+  workflows:
+    name: Workflow lint (actionlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
+
+  bicep:
+    name: Bicep validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: az bicep build
+        run: |
+          az bicep install
+          az bicep build --file deploy/azure/main.bicep
+          az bicep build --file deploy/azure/acr-pull-role.bicep
