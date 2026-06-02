@@ -56,10 +56,11 @@ param memory string = '1Gi'
 // Built-in AcrPull role definition ID.
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
-resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' existing = {
-  name: acrName
-  scope: resourceGroup(acrResourceGroup)
-}
+// Registry login server. Derived from the name (public cloud convention
+// "<name>.azurecr.io") rather than read from the registry resource, so the
+// deploying identity needs no control-plane read on the registry — which may
+// live in another resource group it cannot read.
+var acrLoginServer = '${acrName}.azurecr.io'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${appName}-logs'
@@ -137,7 +138,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       }
       registries: [
         {
-          server: acr.properties.loginServer
+          server: acrLoginServer
           identity: identity.id
         }
       ]
