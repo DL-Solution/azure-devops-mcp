@@ -120,6 +120,15 @@
 | Work              | [mcp_ado_work_get_backlog_configuration](#mcp_ado_work_get_backlog_configuration)                         | Get a team's backlog configuration                                |
 | Work              | [mcp_ado_work_get_team_days_off](#mcp_ado_work_get_team_days_off)                                         | Get a team's days off for an iteration                            |
 | Work              | [mcp_ado_work_set_team_days_off](#mcp_ado_work_set_team_days_off)                                         | Set a team's days off for an iteration                            |
+| Work              | [mcp_ado_work_update_board_columns](#mcp_ado_work_update_board_columns)                                   | Replace a board's columns                                         |
+| Work              | [mcp_ado_work_update_board_rows](#mcp_ado_work_update_board_rows)                                         | Replace a board's rows (swimlanes)                                |
+| Work              | [mcp_ado_work_get_board_card_settings](#mcp_ado_work_get_board_card_settings)                             | Get a board's card field settings                                 |
+| Work              | [mcp_ado_work_update_board_card_settings](#mcp_ado_work_update_board_card_settings)                       | Update a board's card field settings                              |
+| Work              | [mcp_ado_work_get_board_card_rule_settings](#mcp_ado_work_get_board_card_rule_settings)                   | Get a board's card style/rule settings                            |
+| Work              | [mcp_ado_work_update_board_card_rule_settings](#mcp_ado_work_update_board_card_rule_settings)             | Update a board's card style/rule settings                         |
+| Work              | [mcp_ado_work_list_board_charts](#mcp_ado_work_list_board_charts)                                         | List a board's charts                                             |
+| Work              | [mcp_ado_work_get_board_chart](#mcp_ado_work_get_board_chart)                                             | Get a board chart by name                                         |
+| Work              | [mcp_ado_work_update_board_chart](#mcp_ado_work_update_board_chart)                                       | Update a board chart                                              |
 
 ## Advanced Security
 
@@ -973,4 +982,67 @@ Get a team's days off for a specific iteration.
 Set a team's days off for a specific iteration (replaces the existing set).
 
 - **Required**: `iterationId`, `daysOff`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_board_columns
+
+Replace a board's columns. Fetch the current columns with `work_get_board_columns`, edit, and pass back the full set.
+
+- **Required**: `board`, `columns`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_board_rows
+
+Replace a board's rows (swimlanes). Fetch the current rows with `work_get_board_rows`, edit, and pass back the full set.
+
+- **Required**: `board`, `rows`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_board_card_settings
+
+Get a board's card field settings.
+
+- **Required**: `board`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_board_card_settings
+
+Update a board's card field settings (fetch via `work_get_board_card_settings`, edit, pass back the full object).
+
+- **Required**: `board`, `cardSettings`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_board_card_rule_settings
+
+Get a board's card style/rule settings.
+
+- **Required**: `board`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_board_card_rule_settings
+
+Update a board's card style/rule settings (fetch via `work_get_board_card_rule_settings`, edit, pass back the full object).
+
+- **Required**: `board`, `ruleSettings`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_list_board_charts
+
+List the charts available on a board.
+
+- **Required**: `board`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_board_chart
+
+Get a specific board chart by name.
+
+- **Required**: `board`, `name`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_board_chart
+
+Update a board chart by name (fetch via `work_get_board_chart`, edit, pass back the full object).
+
+- **Required**: `board`, `name`, `chart`
 - **Optional**: `project`, `team`
