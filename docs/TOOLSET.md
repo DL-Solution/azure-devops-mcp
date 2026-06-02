@@ -142,6 +142,12 @@
 | Work              | [mcp_ado_work_get_process_configuration](#mcp_ado_work_get_process_configuration)                         | Get a project's process configuration                             |
 | Work              | [mcp_ado_work_list_predefined_queries](#mcp_ado_work_list_predefined_queries)                             | List predefined portfolio queries                                 |
 | Work              | [mcp_ado_work_get_predefined_query_results](#mcp_ado_work_get_predefined_query_results)                   | Get predefined query results                                      |
+| Work              | [mcp_ado_work_get_taskboard_columns](#mcp_ado_work_get_taskboard_columns)                                 | Get taskboard columns                                             |
+| Work              | [mcp_ado_work_update_taskboard_columns](#mcp_ado_work_update_taskboard_columns)                           | Replace taskboard columns                                         |
+| Work              | [mcp_ado_work_get_taskboard_work_item_columns](#mcp_ado_work_get_taskboard_work_item_columns)             | Get per-work-item taskboard columns                               |
+| Work              | [mcp_ado_work_update_taskboard_work_item_column](#mcp_ado_work_update_taskboard_work_item_column)         | Move a work item's taskboard column                               |
+| Work              | [mcp_ado_work_update_taskboard_card_settings](#mcp_ado_work_update_taskboard_card_settings)               | Update taskboard card field settings                              |
+| Work              | [mcp_ado_work_update_taskboard_card_rule_settings](#mcp_ado_work_update_taskboard_card_rule_settings)     | Update taskboard card style/rule settings                         |
 
 ## Advanced Security
 
@@ -1150,3 +1156,45 @@ Get the results of a predefined query for a project's portfolio backlogs.
 
 - **Required**: `id`
 - **Optional**: `project`, `top`, `includeCompleted`
+
+### mcp_ado_work_get_taskboard_columns
+
+Get the taskboard (sprint board) columns for a team.
+
+- **Required**: none
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_taskboard_columns
+
+Replace the taskboard columns for a team. Fetch the current columns via `work_get_taskboard_columns`, edit, and pass back the full set.
+
+- **Required**: `columns`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_taskboard_work_item_columns
+
+Get the taskboard column assignment for each work item in an iteration.
+
+- **Required**: `iterationId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_taskboard_work_item_column
+
+Move a work item to a different taskboard column within an iteration.
+
+- **Required**: `iterationId`, `workItemId`, `newColumn`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_taskboard_card_settings
+
+Update the taskboard card field settings for a team.
+
+- **Required**: `cardSettings`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_taskboard_card_rule_settings
+
+Update the taskboard card style/rule settings for a team.
+
+- **Required**: `ruleSettings`
+- **Optional**: `project`, `team`
