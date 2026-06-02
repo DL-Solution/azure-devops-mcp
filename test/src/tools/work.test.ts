@@ -39,6 +39,19 @@ interface WorkApiMock {
   getBoardCharts: jest.Mock;
   getBoardChart: jest.Mock;
   updateBoardChart: jest.Mock;
+  getBacklogs: jest.Mock;
+  getBacklog: jest.Mock;
+  getBacklogLevelWorkItems: jest.Mock;
+  getIterationWorkItems: jest.Mock;
+  deleteTeamIteration: jest.Mock;
+  reorderBacklogWorkItems: jest.Mock;
+  reorderIterationWorkItems: jest.Mock;
+  getBoard: jest.Mock;
+  getBoardUserSettings: jest.Mock;
+  getDeliveryTimelineData: jest.Mock;
+  getProcessConfiguration: jest.Mock;
+  getPredefinedQueries: jest.Mock;
+  getPredefinedQueryResults: jest.Mock;
 }
 
 interface WorkItemTrackingApiMock {
@@ -95,6 +108,19 @@ describe("configureWorkTools", () => {
       getBoardCharts: jest.fn(),
       getBoardChart: jest.fn(),
       updateBoardChart: jest.fn(),
+      getBacklogs: jest.fn(),
+      getBacklog: jest.fn(),
+      getBacklogLevelWorkItems: jest.fn(),
+      getIterationWorkItems: jest.fn(),
+      deleteTeamIteration: jest.fn(),
+      reorderBacklogWorkItems: jest.fn(),
+      reorderIterationWorkItems: jest.fn(),
+      getBoard: jest.fn(),
+      getBoardUserSettings: jest.fn(),
+      getDeliveryTimelineData: jest.fn(),
+      getProcessConfiguration: jest.fn(),
+      getPredefinedQueries: jest.fn(),
+      getPredefinedQueryResults: jest.fn(),
     };
 
     mockWorkItemTrackingApi = {
@@ -3569,6 +3595,163 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.updateBoardChart).toHaveBeenCalledWith(chart, { project: "Proj", team: "Team" }, "Stories", "CumulativeFlow");
       expect(result.content[0].text).toContain("CumulativeFlow");
+    });
+  });
+
+  describe("backlogs and iteration work item tools", () => {
+    it("list_backlogs returns backlog levels", async () => {
+      const handler = getPlanHandler("work_list_backlogs");
+      mockWorkApi.getBacklogs.mockResolvedValue([{ id: "Microsoft.EpicCategory", name: "Epics" }]);
+
+      const result = await handler({ project: "Proj", team: "Team" });
+
+      expect(mockWorkApi.getBacklogs).toHaveBeenCalledWith({ project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("Epics");
+    });
+
+    it("list_backlogs reports when none found", async () => {
+      const handler = getPlanHandler("work_list_backlogs");
+      mockWorkApi.getBacklogs.mockResolvedValue([]);
+
+      const result = await handler({ project: "Proj", team: "Team" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("No backlogs found");
+    });
+
+    it("get_backlog passes the backlog id", async () => {
+      const handler = getPlanHandler("work_get_backlog");
+      mockWorkApi.getBacklog.mockResolvedValue({ id: "Microsoft.EpicCategory" });
+
+      const result = await handler({ project: "Proj", team: "Team", id: "Microsoft.EpicCategory" });
+
+      expect(mockWorkApi.getBacklog).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Microsoft.EpicCategory");
+      expect(result.content[0].text).toContain("Microsoft.EpicCategory");
+    });
+
+    it("get_backlog_work_items passes the backlog id", async () => {
+      const handler = getPlanHandler("work_get_backlog_work_items");
+      mockWorkApi.getBacklogLevelWorkItems.mockResolvedValue({ workItems: [] });
+
+      const result = await handler({ project: "Proj", team: "Team", backlogId: "Microsoft.RequirementCategory" });
+
+      expect(mockWorkApi.getBacklogLevelWorkItems).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Microsoft.RequirementCategory");
+      expect(result.content[0].text).toContain("workItems");
+    });
+
+    it("get_iteration_work_items passes the iteration id", async () => {
+      const handler = getPlanHandler("work_get_iteration_work_items");
+      mockWorkApi.getIterationWorkItems.mockResolvedValue({ workItemRelations: [] });
+
+      const result = await handler({ project: "Proj", team: "Team", iterationId: "iter-1" });
+
+      expect(mockWorkApi.getIterationWorkItems).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "iter-1");
+      expect(result.content[0].text).toContain("workItemRelations");
+    });
+
+    it("remove_team_iteration deletes the iteration", async () => {
+      const handler = getPlanHandler("work_remove_team_iteration");
+      mockWorkApi.deleteTeamIteration.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", team: "Team", id: "iter-1" });
+
+      expect(mockWorkApi.deleteTeamIteration).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "iter-1");
+      expect(result.content[0].text).toContain("removed from team");
+    });
+
+    it("reorder_backlog_work_items builds the reorder operation", async () => {
+      const handler = getPlanHandler("work_reorder_backlog_work_items");
+      mockWorkApi.reorderBacklogWorkItems.mockResolvedValue([{ id: 1, order: 100 }]);
+
+      const result = await handler({ project: "Proj", team: "Team", ids: [1, 2], previousId: 0, nextId: 3 });
+
+      expect(mockWorkApi.reorderBacklogWorkItems).toHaveBeenCalledWith({ ids: [1, 2], previousId: 0, nextId: 3, parentId: undefined, iterationPath: undefined }, { project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("order");
+    });
+
+    it("reorder_iteration_work_items builds the reorder operation", async () => {
+      const handler = getPlanHandler("work_reorder_iteration_work_items");
+      mockWorkApi.reorderIterationWorkItems.mockResolvedValue([{ id: 1, order: 100 }]);
+
+      const result = await handler({ project: "Proj", team: "Team", iterationId: "iter-1", ids: [5] });
+
+      expect(mockWorkApi.reorderIterationWorkItems).toHaveBeenCalledWith(
+        { ids: [5], previousId: undefined, nextId: undefined, parentId: undefined, iterationPath: undefined },
+        { project: "Proj", team: "Team" },
+        "iter-1"
+      );
+      expect(result.content[0].text).toContain("order");
+    });
+  });
+
+  describe("board, delivery timeline, process and query tools", () => {
+    it("get_board passes the board id", async () => {
+      const handler = getPlanHandler("work_get_board");
+      mockWorkApi.getBoard.mockResolvedValue({ name: "Stories" });
+
+      const result = await handler({ project: "Proj", team: "Team", id: "Stories" });
+
+      expect(mockWorkApi.getBoard).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("Stories");
+    });
+
+    it("get_board_user_settings returns settings", async () => {
+      const handler = getPlanHandler("work_get_board_user_settings");
+      mockWorkApi.getBoardUserSettings.mockResolvedValue({ autoRefreshState: true });
+
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories" });
+
+      expect(mockWorkApi.getBoardUserSettings).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("autoRefreshState");
+    });
+
+    it("get_delivery_timeline converts date filters", async () => {
+      const handler = getPlanHandler("work_get_delivery_timeline");
+      mockWorkApi.getDeliveryTimelineData.mockResolvedValue({ id: "plan-1" });
+
+      const result = await handler({ project: "Proj", id: "plan-1", revision: 2, startDate: "2024-01-01T00:00:00Z", endDate: "2024-03-31T00:00:00Z" });
+
+      expect(mockWorkApi.getDeliveryTimelineData).toHaveBeenCalledWith("Proj", "plan-1", 2, new Date("2024-01-01T00:00:00Z"), new Date("2024-03-31T00:00:00Z"));
+      expect(result.content[0].text).toContain("plan-1");
+    });
+
+    it("get_delivery_timeline passes undefined dates when omitted", async () => {
+      const handler = getPlanHandler("work_get_delivery_timeline");
+      mockWorkApi.getDeliveryTimelineData.mockResolvedValue({ id: "plan-1" });
+
+      await handler({ project: "Proj", id: "plan-1" });
+
+      expect(mockWorkApi.getDeliveryTimelineData).toHaveBeenCalledWith("Proj", "plan-1", undefined, undefined, undefined);
+    });
+
+    it("get_process_configuration returns config", async () => {
+      const handler = getPlanHandler("work_get_process_configuration");
+      mockWorkApi.getProcessConfiguration.mockResolvedValue({ typeFields: {} });
+
+      const result = await handler({ project: "Proj" });
+
+      expect(mockWorkApi.getProcessConfiguration).toHaveBeenCalledWith("Proj");
+      expect(result.content[0].text).toContain("typeFields");
+    });
+
+    it("list_predefined_queries returns queries", async () => {
+      const handler = getPlanHandler("work_list_predefined_queries");
+      mockWorkApi.getPredefinedQueries.mockResolvedValue([{ id: "UnparentedWorkItems" }]);
+
+      const result = await handler({ project: "Proj" });
+
+      expect(mockWorkApi.getPredefinedQueries).toHaveBeenCalledWith("Proj");
+      expect(result.content[0].text).toContain("UnparentedWorkItems");
+    });
+
+    it("get_predefined_query_results passes paging options", async () => {
+      const handler = getPlanHandler("work_get_predefined_query_results");
+      mockWorkApi.getPredefinedQueryResults.mockResolvedValue({ id: "UnparentedWorkItems", results: [] });
+
+      const result = await handler({ project: "Proj", id: "UnparentedWorkItems", top: 50, includeCompleted: true });
+
+      expect(mockWorkApi.getPredefinedQueryResults).toHaveBeenCalledWith("Proj", "UnparentedWorkItems", 50, true);
+      expect(result.content[0].text).toContain("UnparentedWorkItems");
     });
   });
 });

@@ -129,6 +129,19 @@
 | Work              | [mcp_ado_work_list_board_charts](#mcp_ado_work_list_board_charts)                                         | List a board's charts                                             |
 | Work              | [mcp_ado_work_get_board_chart](#mcp_ado_work_get_board_chart)                                             | Get a board chart by name                                         |
 | Work              | [mcp_ado_work_update_board_chart](#mcp_ado_work_update_board_chart)                                       | Update a board chart                                              |
+| Work              | [mcp_ado_work_list_backlogs](#mcp_ado_work_list_backlogs)                                                 | List a team's backlog levels                                      |
+| Work              | [mcp_ado_work_get_backlog](#mcp_ado_work_get_backlog)                                                     | Get a backlog level configuration                                 |
+| Work              | [mcp_ado_work_get_backlog_work_items](#mcp_ado_work_get_backlog_work_items)                               | Get work items in a backlog level                                 |
+| Work              | [mcp_ado_work_get_iteration_work_items](#mcp_ado_work_get_iteration_work_items)                           | Get work items in an iteration                                    |
+| Work              | [mcp_ado_work_remove_team_iteration](#mcp_ado_work_remove_team_iteration)                                 | Remove an iteration from a team                                   |
+| Work              | [mcp_ado_work_reorder_backlog_work_items](#mcp_ado_work_reorder_backlog_work_items)                       | Reorder work items on a backlog                                   |
+| Work              | [mcp_ado_work_reorder_iteration_work_items](#mcp_ado_work_reorder_iteration_work_items)                   | Reorder work items in an iteration                                |
+| Work              | [mcp_ado_work_get_board](#mcp_ado_work_get_board)                                                         | Get a board                                                       |
+| Work              | [mcp_ado_work_get_board_user_settings](#mcp_ado_work_get_board_user_settings)                             | Get a board's user settings                                       |
+| Work              | [mcp_ado_work_get_delivery_timeline](#mcp_ado_work_get_delivery_timeline)                                 | Get delivery timeline (plan) data                                 |
+| Work              | [mcp_ado_work_get_process_configuration](#mcp_ado_work_get_process_configuration)                         | Get a project's process configuration                             |
+| Work              | [mcp_ado_work_list_predefined_queries](#mcp_ado_work_list_predefined_queries)                             | List predefined portfolio queries                                 |
+| Work              | [mcp_ado_work_get_predefined_query_results](#mcp_ado_work_get_predefined_query_results)                   | Get predefined query results                                      |
 
 ## Advanced Security
 
@@ -1046,3 +1059,94 @@ Update a board chart by name (fetch via `work_get_board_chart`, edit, pass back 
 
 - **Required**: `board`, `name`, `chart`
 - **Optional**: `project`, `team`
+
+### mcp_ado_work_list_backlogs
+
+List the backlog levels (e.g. Epics, Features, Stories) configured for a team.
+
+- **Required**: none
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_backlog
+
+Get the configuration of a specific backlog level for a team.
+
+- **Required**: `id`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_backlog_work_items
+
+Get the work items belonging to a specific backlog level for a team.
+
+- **Required**: `backlogId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_iteration_work_items
+
+Get the work items assigned to a specific iteration for a team.
+
+- **Required**: `iterationId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_remove_team_iteration
+
+Remove (unassign) an iteration from a team. Does not delete the iteration from the project.
+
+- **Required**: `id`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_reorder_backlog_work_items
+
+Reorder work items on a team's backlog.
+
+- **Required**: `ids`
+- **Optional**: `project`, `team`, `previousId`, `nextId`, `parentId`, `iterationPath`
+
+### mcp_ado_work_reorder_iteration_work_items
+
+Reorder work items within a team's iteration.
+
+- **Required**: `iterationId`, `ids`
+- **Optional**: `project`, `team`, `previousId`, `nextId`, `parentId`, `iterationPath`
+
+### mcp_ado_work_get_board
+
+Get a board (including its columns, rows and allowed mappings) for a team.
+
+- **Required**: `id`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_board_user_settings
+
+Get the current user's settings for a board (e.g. which swimlanes are collapsed).
+
+- **Required**: `board`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_delivery_timeline
+
+Get the delivery timeline (delivery plan) data for a plan.
+
+- **Required**: `id`
+- **Optional**: `project`, `revision`, `startDate`, `endDate`
+
+### mcp_ado_work_get_process_configuration
+
+Get the process configuration (backlog levels, fields and work item types) for a project.
+
+- **Required**: none
+- **Optional**: `project`
+
+### mcp_ado_work_list_predefined_queries
+
+List the predefined queries available for a project's portfolio backlogs.
+
+- **Required**: none
+- **Optional**: `project`
+
+### mcp_ado_work_get_predefined_query_results
+
+Get the results of a predefined query for a project's portfolio backlogs.
+
+- **Required**: `id`
+- **Optional**: `project`, `top`, `includeCompleted`
