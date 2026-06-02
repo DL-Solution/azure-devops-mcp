@@ -9,12 +9,15 @@ jest.mock("../../../src/logger", () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
-import { createMcpRequestListener, extractBearerToken, getRequestToken, HttpTransportOptions } from "../../../src/transports/http";
+import { createMcpRequestListener, extractBearerToken, getRequestToken, HttpTransportOptions, isOriginAllowed } from "../../../src/transports/http";
 
-function mockReq(opts: { url?: string; host?: string; authorization?: string } = {}): IncomingMessage {
+function mockReq(opts: { url?: string; host?: string; authorization?: string; origin?: string } = {}): IncomingMessage {
   const headers: Record<string, string> = { host: opts.host ?? "127.0.0.1:3000" };
   if (opts.authorization !== undefined) {
     headers.authorization = opts.authorization;
+  }
+  if (opts.origin !== undefined) {
+    headers.origin = opts.origin;
   }
   return { method: "POST", url: opts.url ?? "/mcp", headers } as unknown as IncomingMessage;
 }
@@ -84,6 +87,23 @@ describe("getRequestToken", () => {
   });
 });
 
+describe("isOriginAllowed", () => {
+  it("allows requests without an Origin header (non-browser clients)", () => {
+    expect(isOriginAllowed(undefined, undefined)).toBe(true);
+    expect(isOriginAllowed(undefined, ["https://app.example"])).toBe(true);
+  });
+
+  it("rejects any Origin when no allow-list is configured", () => {
+    expect(isOriginAllowed("https://evil.example", undefined)).toBe(false);
+    expect(isOriginAllowed("https://evil.example", [])).toBe(false);
+  });
+
+  it("allows only origins present in the allow-list", () => {
+    expect(isOriginAllowed("https://app.example", ["https://app.example"])).toBe(true);
+    expect(isOriginAllowed("https://evil.example", ["https://app.example"])).toBe(false);
+  });
+});
+
 describe("createMcpRequestListener", () => {
   const makeOptions = (
     overrides: Partial<HttpTransportOptions> = {}
@@ -143,6 +163,27 @@ describe("createMcpRequestListener", () => {
 
     expect(res._status).toBe(401);
     expect(server.connect).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when a disallowed Origin header is present", async () => {
+    const { options, server } = makeOptions();
+    const listener = createMcpRequestListener(options);
+    const res = mockRes();
+
+    await listener(mockReq({ authorization: "Bearer my-ado-token", origin: "https://evil.example" }), res);
+
+    expect(res._status).toBe(403);
+    expect(server.connect).not.toHaveBeenCalled();
+  });
+
+  it("allows a request whose Origin is in the allow-list", async () => {
+    const { options, transport } = makeOptions({ allowedOrigins: ["https://app.example"] });
+    const listener = createMcpRequestListener(options);
+    const res = mockRes();
+
+    await listener(mockReq({ authorization: "Bearer my-ado-token", origin: "https://app.example" }), res);
+
+    expect(transport.handleRequest).toHaveBeenCalledTimes(1);
   });
 
   it("connects the server and handles the request with the token in context", async () => {

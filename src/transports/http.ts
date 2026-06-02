@@ -62,7 +62,7 @@ export interface HttpTransportOptions {
   mcpPath: string;
   /** Hosts permitted in the Host header (DNS rebinding protection). */
   allowedHosts: string[];
-  /** Origins permitted in the Origin header. Empty means same-origin/no Origin only. */
+  /** Origins permitted in the Origin header. When omitted/empty, requests carrying any Origin header are rejected (non-browser clients send no Origin). */
   allowedOrigins?: string[];
   /** Builds a fully configured MCP server. Called once per request (stateless). */
   createServer: () => McpServer;
@@ -83,6 +83,22 @@ function defaultCreateTransport(opts: HttpTransportOptions): TransportLike {
   });
 }
 
+/**
+ * Decide whether a request's Origin header is acceptable.
+ *
+ * Non-browser MCP clients send no Origin, so the absence of the header is
+ * always allowed. When an Origin is present it must be explicitly listed in
+ * `allowedOrigins`; by default (no allow-list) any cross-origin browser
+ * request is rejected. This complements the SDK's Host-header (DNS rebinding)
+ * check, which only validates Origin when an allow-list is configured.
+ */
+export function isOriginAllowed(origin: string | undefined, allowedOrigins?: string[]): boolean {
+  if (!origin) {
+    return true;
+  }
+  return Boolean(allowedOrigins?.includes(origin));
+}
+
 function sendJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
   res.writeHead(status, { "Content-Type": "application/json", ...headers });
   res.end(JSON.stringify(body));
@@ -100,6 +116,12 @@ export function createMcpRequestListener(opts: HttpTransportOptions): (req: Inco
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
       if (url.pathname !== opts.mcpPath) {
         sendJson(res, 404, { error: "Not found" });
+        return;
+      }
+
+      const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
+      if (!isOriginAllowed(origin, opts.allowedOrigins)) {
+        sendJson(res, 403, { error: "Origin not allowed." });
         return;
       }
 
