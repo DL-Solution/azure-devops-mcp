@@ -16,6 +16,7 @@ import { configureWikiTools } from "./tools/wiki.js";
 import { configureWorkTools } from "./tools/work.js";
 import { configureWorkItemTools } from "./tools/work-items.js";
 import { configureDashboardTools } from "./tools/dashboards.js";
+import { configurePolicyTools } from "./tools/policy.js";
 
 function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
@@ -35,6 +36,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.SEARCH, () => configureSearchTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.ADVANCED_SECURITY, () => configureAdvSecTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.DASHBOARDS, () => configureDashboardTools(server, tokenProvider, connectionProvider));
+  configureIfDomainEnabled(Domain.POLICY, () => configurePolicyTools(server, tokenProvider, connectionProvider));
 }
 
 export { configureAllTools };

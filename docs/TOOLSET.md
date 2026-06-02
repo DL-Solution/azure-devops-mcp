@@ -165,6 +165,18 @@
 | Dashboards        | [mcp_ado_dashboard_delete_widget](#mcp_ado_dashboard_delete_widget)                                       | Remove a widget from a dashboard                                  |
 | Dashboards        | [mcp_ado_dashboard_list_widget_types](#mcp_ado_dashboard_list_widget_types)                               | List available widget types                                       |
 | Dashboards        | [mcp_ado_dashboard_get_widget_metadata](#mcp_ado_dashboard_get_widget_metadata)                           | Get widget type metadata by contribution ID                       |
+| Policy            | [mcp_ado_policy_list_configurations](#mcp_ado_policy_list_configurations)                                 | List policy configurations                                        |
+| Policy            | [mcp_ado_policy_get_configuration](#mcp_ado_policy_get_configuration)                                     | Get a policy configuration                                        |
+| Policy            | [mcp_ado_policy_create_configuration](#mcp_ado_policy_create_configuration)                               | Create a policy configuration                                     |
+| Policy            | [mcp_ado_policy_update_configuration](#mcp_ado_policy_update_configuration)                               | Update a policy configuration                                     |
+| Policy            | [mcp_ado_policy_delete_configuration](#mcp_ado_policy_delete_configuration)                               | Delete a policy configuration                                     |
+| Policy            | [mcp_ado_policy_list_types](#mcp_ado_policy_list_types)                                                   | List policy types                                                 |
+| Policy            | [mcp_ado_policy_get_type](#mcp_ado_policy_get_type)                                                       | Get a policy type                                                 |
+| Policy            | [mcp_ado_policy_list_configuration_revisions](#mcp_ado_policy_list_configuration_revisions)               | List policy configuration revisions                               |
+| Policy            | [mcp_ado_policy_get_configuration_revision](#mcp_ado_policy_get_configuration_revision)                   | Get a policy configuration revision                               |
+| Policy            | [mcp_ado_policy_list_evaluations](#mcp_ado_policy_list_evaluations)                                       | List policy evaluations for an artifact                           |
+| Policy            | [mcp_ado_policy_get_evaluation](#mcp_ado_policy_get_evaluation)                                           | Get a policy evaluation                                           |
+| Policy            | [mcp_ado_policy_requeue_evaluation](#mcp_ado_policy_requeue_evaluation)                                   | Requeue a policy evaluation                                       |
 
 ## Advanced Security
 
@@ -1335,4 +1347,90 @@ List the widget types available to add to dashboards, including their contributi
 Get the metadata for a widget type by its contribution ID.
 
 - **Required**: `contributionId`
+- **Optional**: `project`
+
+## 🛡️ Policy
+
+### mcp_ado_policy_list_configurations
+
+List the policy configurations in a project, optionally filtered by scope (repository) or policy type.
+
+- **Required**: none
+- **Optional**: `project`, `scope`, `policyType`
+
+### mcp_ado_policy_get_configuration
+
+Get a specific policy configuration by ID.
+
+- **Required**: `configurationId`
+- **Optional**: `project`
+
+### mcp_ado_policy_create_configuration
+
+Create a new policy configuration (e.g. a branch policy). Use `policy_list_types` to discover type IDs and settings.
+
+- **Required**: `configuration`
+- **Optional**: `project`
+
+### mcp_ado_policy_update_configuration
+
+Update an existing policy configuration. Fetch via `policy_get_configuration`, edit, and pass back the full object.
+
+- **Required**: `configurationId`, `configuration`
+- **Optional**: `project`
+
+### mcp_ado_policy_delete_configuration
+
+Delete a policy configuration by ID.
+
+- **Required**: `configurationId`
+- **Optional**: `project`
+
+### mcp_ado_policy_list_types
+
+List the policy types available in a project.
+
+- **Required**: none
+- **Optional**: `project`
+
+### mcp_ado_policy_get_type
+
+Get a specific policy type by ID.
+
+- **Required**: `typeId`
+- **Optional**: `project`
+
+### mcp_ado_policy_list_configuration_revisions
+
+List the revisions of a policy configuration.
+
+- **Required**: `configurationId`
+- **Optional**: `project`, `top`, `skip`
+
+### mcp_ado_policy_get_configuration_revision
+
+Get a specific revision of a policy configuration.
+
+- **Required**: `configurationId`, `revisionId`
+- **Optional**: `project`
+
+### mcp_ado_policy_list_evaluations
+
+List the policy evaluations for an artifact (e.g. a pull request).
+
+- **Required**: `artifactId`
+- **Optional**: `project`, `includeNotApplicable`, `top`, `skip`
+
+### mcp_ado_policy_get_evaluation
+
+Get a specific policy evaluation record by ID.
+
+- **Required**: `evaluationId`
+- **Optional**: `project`
+
+### mcp_ado_policy_requeue_evaluation
+
+Requeue (re-run) a policy evaluation by ID.
+
+- **Required**: `evaluationId`
 - **Optional**: `project`
