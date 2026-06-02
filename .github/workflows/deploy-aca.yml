@@ -34,6 +34,12 @@ permissions:
   contents: read
   id-token: write
 
+# Run JavaScript actions on Node.js 24. The actions pinned below ship on
+# Node.js 20, which GitHub is deprecating; this opts them into the Node.js 24
+# runtime without changing the pinned SHAs.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 # Never run two deploys against the same environment at once.
 concurrency:
   group: deploy-aca
