@@ -3155,15 +3155,29 @@ describe("configureWorkTools", () => {
   });
 
   describe("update_plan tool", () => {
-    it("updates a delivery plan with the provided revision", async () => {
+    it("merges provided fields onto the existing plan, preserving the rest", async () => {
       const handler = getPlanHandler("work_update_plan");
 
+      mockWorkApi.getPlan.mockResolvedValue({ id: "plan-1", name: "Old", description: "old desc", type: 0, properties: { team: "A" } });
       mockWorkApi.updatePlan.mockResolvedValue({ id: "plan-1", name: "Updated" });
 
       const result = await handler({ project: "Proj", id: "plan-1", revision: 3, name: "Updated" });
 
-      expect(mockWorkApi.updatePlan).toHaveBeenCalledWith({ name: "Updated", description: undefined, revision: 3, type: 0, properties: undefined }, "Proj", "plan-1");
+      expect(mockWorkApi.getPlan).toHaveBeenCalledWith("Proj", "plan-1");
+      // description and properties were not supplied, so the existing values are preserved.
+      expect(mockWorkApi.updatePlan).toHaveBeenCalledWith({ name: "Updated", description: "old desc", revision: 3, type: 0, properties: { team: "A" } }, "Proj", "plan-1");
       expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-1", name: "Updated" }, null, 2));
+    });
+
+    it("returns an error when the plan does not exist", async () => {
+      const handler = getPlanHandler("work_update_plan");
+
+      mockWorkApi.getPlan.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", id: "missing", revision: 1, name: "x" });
+
+      expect(result.isError).toBe(true);
+      expect(mockWorkApi.updatePlan).not.toHaveBeenCalled();
     });
   });
 

@@ -137,9 +137,7 @@ function createConfiguredServer(authenticator: () => Promise<string>, connection
 }
 
 async function runHttpTransport(userAgentComposer: UserAgentComposer) {
-  if (argv.authentication !== defaultAuthenticationType) {
-    logger.warn("HTTP transport uses token pass-through; the '--authentication' option is ignored. Each request must supply an Azure DevOps bearer token in the 'Authorization' header.");
-  }
+  logger.info("HTTP transport uses token pass-through; the '--authentication' option is ignored. Each request must supply an Azure DevOps bearer token in the 'Authorization' header.");
 
   // Token pass-through: resolve the bearer token from the in-flight request rather
   // than from process-wide credentials, so each caller acts as themselves and no

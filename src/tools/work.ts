@@ -647,12 +647,20 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         }
 
         const workApi = await connection.getWorkApi();
+
+        // updatePlan is a full replacement (PUT); merge the caller's changes onto the
+        // existing plan so unspecified fields (e.g. properties/backlog mappings) are preserved.
+        const existing = await workApi.getPlan(resolvedProject, id);
+        if (!existing) {
+          return { content: [{ type: "text", text: `Delivery plan '${id}' not found` }], isError: true };
+        }
+
         const updatedPlan: UpdatePlan = {
-          name,
-          description,
+          name: name ?? existing.name,
+          description: description ?? existing.description,
           revision,
-          type: PlanType.DeliveryTimelineView,
-          properties,
+          type: existing.type ?? PlanType.DeliveryTimelineView,
+          properties: properties ?? existing.properties,
         };
 
         const plan = await workApi.updatePlan(updatedPlan, resolvedProject, id);
