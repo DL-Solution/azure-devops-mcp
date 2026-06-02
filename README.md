@@ -15,11 +15,12 @@ This project provides Azure DevOps MCP tooling for AI agents, with a **remote-fi
 4. [⚙️ Supported Tools](#️-supported-tools)
 5. [🔌 Local MCP Server Installation (Optional)](#-local-mcp-server-installation-optional)
 6. [🌏 Using Domains (local)](#-using-domains-local)
-7. [🐥 Project and Team Defaults (local)](#-project-and-team-defaults-local)
-8. [📝 Troubleshooting](#-troubleshooting)
-9. [🎩 Examples & Best Practices](#-examples--best-practices)
-10. [🙋‍♀️ Frequently Asked Questions](#️-frequently-asked-questions)
-11. [📌 Contributing](#-contributing)
+7. [🔐 HTTP Transport (self-hosted)](#-http-transport-self-hosted)
+8. [🐥 Project and Team Defaults (local)](#-project-and-team-defaults-local)
+9. [📝 Troubleshooting](#-troubleshooting)
+10. [🎩 Examples & Best Practices](#-examples--best-practices)
+11. [🙋‍♀️ Frequently Asked Questions](#️-frequently-asked-questions)
+12. [📌 Contributing](#-contributing)
 
 ## 📺 Overview
 
@@ -197,6 +198,63 @@ Domains that are available are: `core`, `work`, `work-items`, `search`, `test-pl
 We recommend that you always enable `core` tools so that you can fetch project level information.
 
 > By default all domains are loaded
+
+## 🔐 HTTP Transport (self-hosted)
+
+By default the server communicates over **stdio**, which is ideal when the MCP client launches the server as a local child process. If instead you need a long-running, network-reachable endpoint, start the server with the **Streamable HTTP** transport:
+
+```bash
+npx -y @azure-devops/mcp contoso --transport http --port 3000
+```
+
+### Authentication: token pass-through
+
+The HTTP transport uses **token pass-through**. The server stores no credentials of its own — every request must carry the caller's Azure DevOps **bearer token** (an Entra ID access token for the `499b84ac-1321-427f-aa17-267ca6975798` resource) in the `Authorization` header:
+
+```
+Authorization: Bearer <azure-devops-access-token>
+```
+
+Each request therefore acts as the calling user, with exactly their permissions. Requests without a valid bearer token are rejected with `401 Unauthorized`.
+
+> [!NOTE]
+> Personal Access Tokens (PAT) and the `--authentication` option are only used by the stdio transport. The HTTP transport always uses bearer pass-through.
+
+### Security expectations
+
+The HTTP transport is intended to run **behind your own TLS-terminating reverse proxy** (for example nginx or Caddy). It ships with safe defaults:
+
+- **Loopback binding** — it listens on `127.0.0.1` by default. Use `--host` to change the bind interface (do this only behind a proxy/firewall).
+- **DNS rebinding protection** is always on. Only requests whose `Host` header matches `--allowed-hosts` are served (defaults to the bound host/port plus `localhost`). When running behind a proxy, set `--allowed-hosts your.public.hostname`.
+- **Origin allow-listing** — by default only non-browser clients (no `Origin` header) are accepted. Use `--allowed-origins https://your.app` to permit specific browser origins.
+- The server never logs tokens or request bodies.
+
+### HTTP options
+
+| Option              | Default     | Description                                                      |
+| ------------------- | ----------- | ---------------------------------------------------------------- |
+| `--transport`       | `stdio`     | `stdio` or `http`.                                               |
+| `--host`            | `127.0.0.1` | Interface to bind (http transport).                              |
+| `--port`            | `3000`      | Port to listen on (http transport).                              |
+| `--path`            | `/mcp`      | URL path that serves the MCP endpoint.                           |
+| `--allowed-hosts`   | bound host  | Hosts permitted in the `Host` header (DNS rebinding protection). |
+| `--allowed-origins` | none        | Browser origins permitted in the `Origin` header.                |
+
+### Example client configuration
+
+```json
+{
+  "servers": {
+    "ado_http": {
+      "type": "http",
+      "url": "https://your.public.hostname/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:ado_token}"
+      }
+    }
+  }
+}
+```
 
 ## 🐥 Project and Team Defaults (local)
 

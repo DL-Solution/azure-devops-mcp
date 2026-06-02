@@ -173,7 +173,10 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
         const process = lowerProcess ? processes.find((p) => p.name?.toLowerCase() === lowerProcess || p.id?.toLowerCase() === lowerProcess) : (processes.find((p) => p.isDefault) ?? processes[0]);
 
         if (!process?.id) {
-          return { content: [{ type: "text", text: `Process template '${processTemplate}' not found. Available processes: ${processes.map((p) => p.name).join(", ")}` }], isError: true };
+          const message = lowerProcess
+            ? `Process template '${processTemplate}' not found. Available processes: ${processes.map((p) => p.name).join(", ")}`
+            : "Could not determine a default process template for this organization. Specify 'processTemplate' explicitly.";
+          return { content: [{ type: "text", text: message }], isError: true };
         }
 
         const projectToCreate: TeamProject = {
@@ -213,6 +216,10 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     },
     async ({ project, name, description, visibility }) => {
       try {
+        if (name === undefined && description === undefined && visibility === undefined) {
+          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: name, description, visibility." }], isError: true };
+        }
+
         const connection = await connectionProvider();
         const coreApi = await connection.getCoreApi();
 
@@ -226,10 +233,6 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
         const existing = await coreApi.getProject(resolvedProject);
         if (!existing?.id) {
           return { content: [{ type: "text", text: `Project '${resolvedProject}' not found.` }], isError: true };
-        }
-
-        if (name === undefined && description === undefined && visibility === undefined) {
-          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: name, description, visibility." }], isError: true };
         }
 
         const projectUpdate: TeamProject = {
@@ -341,6 +344,10 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     },
     async ({ project, team, name, description }) => {
       try {
+        if (name === undefined && description === undefined) {
+          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: name, description." }], isError: true };
+        }
+
         const connection = await connectionProvider();
         const coreApi = await connection.getCoreApi();
 
@@ -349,10 +356,6 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
           const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the team.");
           if ("response" in result) return result.response;
           resolvedProject = result.resolved;
-        }
-
-        if (name === undefined && description === undefined) {
-          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: name, description." }], isError: true };
         }
 
         const teamData: WebApiTeam = { name, description };
