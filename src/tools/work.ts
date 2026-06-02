@@ -17,6 +17,8 @@ import {
   BoardCardRuleSettings,
   BoardChart,
   ReorderOperation,
+  UpdateTaskboardColumn,
+  UpdateTaskboardWorkItemColumn,
 } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
@@ -69,6 +71,12 @@ const WORK_TOOLS = {
   get_process_configuration: "work_get_process_configuration",
   list_predefined_queries: "work_list_predefined_queries",
   get_predefined_query_results: "work_get_predefined_query_results",
+  get_taskboard_columns: "work_get_taskboard_columns",
+  update_taskboard_columns: "work_update_taskboard_columns",
+  get_taskboard_work_item_columns: "work_get_taskboard_work_item_columns",
+  update_taskboard_work_item_column: "work_update_taskboard_work_item_column",
+  update_taskboard_card_settings: "work_update_taskboard_card_settings",
+  update_taskboard_card_rule_settings: "work_update_taskboard_card_rule_settings",
 };
 
 function configureWorkTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
@@ -1948,6 +1956,175 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error fetching predefined query results: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_taskboard_columns,
+    "Get the taskboard (sprint board) columns for a team. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+    },
+    async ({ project, team }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const columns = await workApi.getColumns(ctx.teamContext);
+
+        return { content: [{ type: "text", text: JSON.stringify(columns, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching taskboard columns: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_taskboard_columns,
+    "Replace the taskboard (sprint board) columns for a team. Obtain the current columns via work_get_taskboard_columns, modify them, and pass back the full set.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      columns: z
+        .array(
+          z.object({
+            id: z.string().optional().describe("Column ID. Leave empty for a new column."),
+            name: z.string().describe("Column name (required)."),
+            order: z.number().optional().describe("Column position relative to other columns."),
+            mappings: z
+              .array(
+                z.object({
+                  state: z.string().optional().describe("State of the work item type mapped to this column."),
+                  workItemType: z.string().optional().describe("Work item type whose state is mapped to this column."),
+                })
+              )
+              .optional()
+              .describe("Work item type states mapped to this column for auto state updates."),
+          })
+        )
+        .describe("The full ordered set of taskboard columns."),
+    },
+    async ({ project, team, columns }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateColumns(columns as UpdateTaskboardColumn[], ctx.teamContext);
+
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating taskboard columns: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_taskboard_work_item_columns,
+    "Get the taskboard column assignment for each work item in an iteration. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      iterationId: z.string().describe("The ID (GUID) of the iteration. Use work_list_team_iterations to discover iteration IDs."),
+    },
+    async ({ project, team, iterationId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const columns = await workApi.getWorkItemColumns(ctx.teamContext, iterationId);
+
+        return { content: [{ type: "text", text: JSON.stringify(columns, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching taskboard work item columns: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_taskboard_work_item_column,
+    "Move a work item to a different taskboard column within an iteration. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      iterationId: z.string().describe("The ID (GUID) of the iteration containing the work item."),
+      workItemId: z.number().describe("The ID of the work item to move."),
+      newColumn: z.string().describe("The name of the taskboard column to move the work item into."),
+    },
+    async ({ project, team, iterationId, workItemId, newColumn }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const update: UpdateTaskboardWorkItemColumn = { newColumn };
+        const workApi = await connection.getWorkApi();
+        await workApi.updateWorkItemColumn(update, ctx.teamContext, iterationId, workItemId);
+
+        return { content: [{ type: "text", text: `Work item ${workItemId} moved to taskboard column '${newColumn}'` }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating taskboard work item column: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_taskboard_card_settings,
+    "Update the taskboard card field settings for a team. Obtain a card settings shape via work_get_board_card_settings, modify it, and pass back the full object.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      cardSettings: z.record(z.unknown()).describe("The full card settings object."),
+    },
+    async ({ project, team, cardSettings }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        await workApi.updateTaskboardCardSettings(cardSettings as unknown as BoardCardSettings, ctx.teamContext);
+
+        return { content: [{ type: "text", text: "Taskboard card settings updated" }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating taskboard card settings: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_taskboard_card_rule_settings,
+    "Update the taskboard card style/rule settings for a team. Obtain a rule settings shape via work_get_board_card_rule_settings, modify it, and pass back the full object.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      ruleSettings: z.record(z.unknown()).describe("The full card rule settings object."),
+    },
+    async ({ project, team, ruleSettings }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        await workApi.updateTaskboardCardRuleSettings(ruleSettings as unknown as BoardCardRuleSettings, ctx.teamContext);
+
+        return { content: [{ type: "text", text: "Taskboard card rule settings updated" }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating taskboard card rule settings: ${errorMessage}` }], isError: true };
       }
     }
   );

@@ -52,6 +52,12 @@ interface WorkApiMock {
   getProcessConfiguration: jest.Mock;
   getPredefinedQueries: jest.Mock;
   getPredefinedQueryResults: jest.Mock;
+  getColumns: jest.Mock;
+  updateColumns: jest.Mock;
+  getWorkItemColumns: jest.Mock;
+  updateWorkItemColumn: jest.Mock;
+  updateTaskboardCardSettings: jest.Mock;
+  updateTaskboardCardRuleSettings: jest.Mock;
 }
 
 interface WorkItemTrackingApiMock {
@@ -121,6 +127,12 @@ describe("configureWorkTools", () => {
       getProcessConfiguration: jest.fn(),
       getPredefinedQueries: jest.fn(),
       getPredefinedQueryResults: jest.fn(),
+      getColumns: jest.fn(),
+      updateColumns: jest.fn(),
+      getWorkItemColumns: jest.fn(),
+      updateWorkItemColumn: jest.fn(),
+      updateTaskboardCardSettings: jest.fn(),
+      updateTaskboardCardRuleSettings: jest.fn(),
     };
 
     mockWorkItemTrackingApi = {
@@ -3752,6 +3764,71 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.getPredefinedQueryResults).toHaveBeenCalledWith("Proj", "UnparentedWorkItems", 50, true);
       expect(result.content[0].text).toContain("UnparentedWorkItems");
+    });
+  });
+
+  describe("taskboard tools", () => {
+    it("get_taskboard_columns returns columns", async () => {
+      const handler = getPlanHandler("work_get_taskboard_columns");
+      mockWorkApi.getColumns.mockResolvedValue({ columns: [{ name: "To Do" }] });
+
+      const result = await handler({ project: "Proj", team: "Team" });
+
+      expect(mockWorkApi.getColumns).toHaveBeenCalledWith({ project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("To Do");
+    });
+
+    it("update_taskboard_columns passes the full column set", async () => {
+      const handler = getPlanHandler("work_update_taskboard_columns");
+      mockWorkApi.updateColumns.mockResolvedValue({ columns: [{ name: "In Progress" }] });
+
+      const columns = [{ name: "In Progress", order: 1, mappings: [{ state: "Active", workItemType: "Task" }] }];
+      const result = await handler({ project: "Proj", team: "Team", columns });
+
+      expect(mockWorkApi.updateColumns).toHaveBeenCalledWith(columns, { project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("In Progress");
+    });
+
+    it("get_taskboard_work_item_columns passes the iteration id", async () => {
+      const handler = getPlanHandler("work_get_taskboard_work_item_columns");
+      mockWorkApi.getWorkItemColumns.mockResolvedValue([{ workItemId: 5, column: "To Do" }]);
+
+      const result = await handler({ project: "Proj", team: "Team", iterationId: "iter-1" });
+
+      expect(mockWorkApi.getWorkItemColumns).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "iter-1");
+      expect(result.content[0].text).toContain("To Do");
+    });
+
+    it("update_taskboard_work_item_column moves a work item", async () => {
+      const handler = getPlanHandler("work_update_taskboard_work_item_column");
+      mockWorkApi.updateWorkItemColumn.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", team: "Team", iterationId: "iter-1", workItemId: 5, newColumn: "Done" });
+
+      expect(mockWorkApi.updateWorkItemColumn).toHaveBeenCalledWith({ newColumn: "Done" }, { project: "Proj", team: "Team" }, "iter-1", 5);
+      expect(result.content[0].text).toContain("moved to taskboard column 'Done'");
+    });
+
+    it("update_taskboard_card_settings passes the settings object", async () => {
+      const handler = getPlanHandler("work_update_taskboard_card_settings");
+      mockWorkApi.updateTaskboardCardSettings.mockResolvedValue(undefined);
+
+      const cardSettings = { cards: { Task: [] } };
+      const result = await handler({ project: "Proj", team: "Team", cardSettings });
+
+      expect(mockWorkApi.updateTaskboardCardSettings).toHaveBeenCalledWith(cardSettings, { project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("Taskboard card settings updated");
+    });
+
+    it("update_taskboard_card_rule_settings passes the rule settings object", async () => {
+      const handler = getPlanHandler("work_update_taskboard_card_rule_settings");
+      mockWorkApi.updateTaskboardCardRuleSettings.mockResolvedValue(undefined);
+
+      const ruleSettings = { rules: { fill: [] } };
+      const result = await handler({ project: "Proj", team: "Team", ruleSettings });
+
+      expect(mockWorkApi.updateTaskboardCardRuleSettings).toHaveBeenCalledWith(ruleSettings, { project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("Taskboard card rule settings updated");
     });
   });
 });
