@@ -19,6 +19,7 @@ export enum Domain {
   MCP_APPS = "mcp-apps",
   DASHBOARDS = "dashboards",
   POLICY = "policy",
+  TASK_AGENT = "task-agent",
 }
 
 export const ALL_DOMAINS = "all";

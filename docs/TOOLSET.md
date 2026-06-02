@@ -177,6 +177,19 @@
 | Policy            | [mcp_ado_policy_list_evaluations](#mcp_ado_policy_list_evaluations)                                       | List policy evaluations for an artifact                           |
 | Policy            | [mcp_ado_policy_get_evaluation](#mcp_ado_policy_get_evaluation)                                           | Get a policy evaluation                                           |
 | Policy            | [mcp_ado_policy_requeue_evaluation](#mcp_ado_policy_requeue_evaluation)                                   | Requeue a policy evaluation                                       |
+| Task Agent        | [mcp_ado_taskagent_list_variable_groups](#mcp_ado_taskagent_list_variable_groups)                         | List variable groups                                              |
+| Task Agent        | [mcp_ado_taskagent_get_variable_group](#mcp_ado_taskagent_get_variable_group)                             | Get a variable group                                              |
+| Task Agent        | [mcp_ado_taskagent_add_variable_group](#mcp_ado_taskagent_add_variable_group)                             | Create a variable group                                           |
+| Task Agent        | [mcp_ado_taskagent_update_variable_group](#mcp_ado_taskagent_update_variable_group)                       | Update a variable group                                           |
+| Task Agent        | [mcp_ado_taskagent_delete_variable_group](#mcp_ado_taskagent_delete_variable_group)                       | Delete a variable group                                           |
+| Task Agent        | [mcp_ado_taskagent_share_variable_group](#mcp_ado_taskagent_share_variable_group)                         | Share a variable group with projects                              |
+| Task Agent        | [mcp_ado_taskagent_list_agent_pools](#mcp_ado_taskagent_list_agent_pools)                                 | List agent pools                                                  |
+| Task Agent        | [mcp_ado_taskagent_list_agent_queues](#mcp_ado_taskagent_list_agent_queues)                               | List agent queues                                                 |
+| Task Agent        | [mcp_ado_taskagent_list_environments](#mcp_ado_taskagent_list_environments)                               | List environments                                                 |
+| Task Agent        | [mcp_ado_taskagent_get_environment](#mcp_ado_taskagent_get_environment)                                   | Get an environment                                                |
+| Task Agent        | [mcp_ado_taskagent_add_environment](#mcp_ado_taskagent_add_environment)                                   | Create an environment                                             |
+| Task Agent        | [mcp_ado_taskagent_update_environment](#mcp_ado_taskagent_update_environment)                             | Update an environment                                             |
+| Task Agent        | [mcp_ado_taskagent_delete_environment](#mcp_ado_taskagent_delete_environment)                             | Delete an environment                                             |
 
 ## Advanced Security
 
@@ -1433,4 +1446,97 @@ Get a specific policy evaluation record by ID.
 Requeue (re-run) a policy evaluation by ID.
 
 - **Required**: `evaluationId`
+- **Optional**: `project`
+
+## 🤖 Task Agent
+
+### mcp_ado_taskagent_list_variable_groups
+
+List the variable groups in a project.
+
+- **Required**: none
+- **Optional**: `project`, `groupName`, `top`
+
+### mcp_ado_taskagent_get_variable_group
+
+Get a specific variable group by ID.
+
+- **Required**: `groupId`
+- **Optional**: `project`
+
+### mcp_ado_taskagent_add_variable_group
+
+Create a new variable group. The parameters must include `variableGroupProjectReferences` specifying the target project(s).
+
+- **Required**: `variableGroup`
+- **Optional**: none
+
+### mcp_ado_taskagent_update_variable_group
+
+Update an existing variable group. Fetch via `taskagent_get_variable_group`, build the parameters, and pass them back.
+
+- **Required**: `groupId`, `variableGroup`
+- **Optional**: none
+
+### mcp_ado_taskagent_delete_variable_group
+
+Delete a variable group from the specified project(s).
+
+- **Required**: `groupId`, `projectIds`
+- **Optional**: none
+
+### mcp_ado_taskagent_share_variable_group
+
+Share a variable group with additional projects.
+
+- **Required**: `variableGroupId`, `projectReferences`
+- **Optional**: none
+
+### mcp_ado_taskagent_list_agent_pools
+
+List the agent pools in the organization.
+
+- **Required**: none
+- **Optional**: `poolName`
+
+### mcp_ado_taskagent_list_agent_queues
+
+List the agent queues in a project.
+
+- **Required**: none
+- **Optional**: `project`, `queueName`
+
+### mcp_ado_taskagent_list_environments
+
+List the environments (deployment targets) in a project.
+
+- **Required**: none
+- **Optional**: `project`, `name`, `top`
+
+### mcp_ado_taskagent_get_environment
+
+Get a specific environment by ID.
+
+- **Required**: `environmentId`
+- **Optional**: `project`
+
+### mcp_ado_taskagent_add_environment
+
+Create a new environment in a project.
+
+- **Required**: `name`
+- **Optional**: `project`, `description`
+
+### mcp_ado_taskagent_update_environment
+
+Update an existing environment's name or description.
+
+- **Required**: `environmentId`
+- **Optional**: `project`, `name`, `description`
+
+### mcp_ado_taskagent_delete_environment
+
+Delete an environment by ID.
+
+- **Required**: `environmentId`
 - **Optional**: `project`
