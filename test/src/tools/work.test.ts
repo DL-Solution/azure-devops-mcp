@@ -23,11 +23,14 @@ interface WorkApiMock {
   createPlan: jest.Mock;
   updatePlan: jest.Mock;
   deletePlan: jest.Mock;
+  updateTeamFieldValues: jest.Mock;
 }
 
 interface WorkItemTrackingApiMock {
   createOrUpdateClassificationNode: jest.Mock;
   getClassificationNodes: jest.Mock;
+  updateClassificationNode: jest.Mock;
+  deleteClassificationNode: jest.Mock;
 }
 
 interface CoreApiMock {
@@ -61,11 +64,14 @@ describe("configureWorkTools", () => {
       createPlan: jest.fn(),
       updatePlan: jest.fn(),
       deletePlan: jest.fn(),
+      updateTeamFieldValues: jest.fn(),
     };
 
     mockWorkItemTrackingApi = {
       createOrUpdateClassificationNode: jest.fn(),
       getClassificationNodes: jest.fn(),
+      updateClassificationNode: jest.fn(),
+      deleteClassificationNode: jest.fn(),
     };
 
     mockCoreApi = {
@@ -3202,6 +3208,170 @@ describe("configureWorkTools", () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe("Error deleting delivery plan: denied");
+    });
+  });
+
+  describe("list_areas tool", () => {
+    it("returns only Area nodes from the project", async () => {
+      const handler = getPlanHandler("work_list_areas");
+
+      mockWorkItemTrackingApi.getClassificationNodes.mockResolvedValue([
+        { id: 1, name: "AreaRoot", structureType: TreeNodeStructureType.Area },
+        { id: 2, name: "IterationRoot", structureType: TreeNodeStructureType.Iteration },
+      ]);
+
+      const result = await handler({ project: "Proj", depth: 2 });
+
+      expect(mockWorkItemTrackingApi.getClassificationNodes).toHaveBeenCalledWith("Proj", [], 2);
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, name: "AreaRoot", structureType: TreeNodeStructureType.Area }], null, 2));
+    });
+
+    it("returns an error when no areas are found", async () => {
+      const handler = getPlanHandler("work_list_areas");
+
+      mockWorkItemTrackingApi.getClassificationNodes.mockResolvedValue([{ id: 2, name: "IterationRoot", structureType: TreeNodeStructureType.Iteration }]);
+
+      const result = await handler({ project: "Proj", depth: 2 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("No area paths found");
+    });
+  });
+
+  describe("create_area tool", () => {
+    it("creates an area under the given parent path", async () => {
+      const handler = getPlanHandler("work_create_area");
+
+      mockWorkItemTrackingApi.createOrUpdateClassificationNode.mockResolvedValue({ id: 5, name: "NewArea" });
+
+      const result = await handler({ project: "Proj", name: "NewArea", parentPath: "Parent" });
+
+      expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).toHaveBeenCalledWith({ name: "NewArea" }, "Proj", TreeStructureGroup.Areas, "Parent");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "NewArea" }, null, 2));
+    });
+
+    it("handles API errors", async () => {
+      const handler = getPlanHandler("work_create_area");
+
+      mockWorkItemTrackingApi.createOrUpdateClassificationNode.mockRejectedValue(new Error("boom"));
+
+      const result = await handler({ project: "Proj", name: "NewArea" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error creating area path: boom");
+    });
+  });
+
+  describe("update_area tool", () => {
+    it("renames an area at the given path", async () => {
+      const handler = getPlanHandler("work_update_area");
+
+      mockWorkItemTrackingApi.updateClassificationNode.mockResolvedValue({ id: 5, name: "Renamed" });
+
+      const result = await handler({ project: "Proj", path: "Parent/Child", name: "Renamed" });
+
+      expect(mockWorkItemTrackingApi.updateClassificationNode).toHaveBeenCalledWith({ name: "Renamed" }, "Proj", TreeStructureGroup.Areas, "Parent/Child");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "Renamed" }, null, 2));
+    });
+  });
+
+  describe("delete_area tool", () => {
+    it("deletes an area and reclassifies to the given id", async () => {
+      const handler = getPlanHandler("work_delete_area");
+
+      mockWorkItemTrackingApi.deleteClassificationNode.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", path: "Parent/Child", reclassifyId: 7 });
+
+      expect(mockWorkItemTrackingApi.deleteClassificationNode).toHaveBeenCalledWith("Proj", TreeStructureGroup.Areas, "Parent/Child", 7);
+      expect(result.content[0].text).toContain("reclassified to area ID 7");
+    });
+
+    it("handles API errors", async () => {
+      const handler = getPlanHandler("work_delete_area");
+
+      mockWorkItemTrackingApi.deleteClassificationNode.mockRejectedValue(new Error("denied"));
+
+      const result = await handler({ project: "Proj", path: "Parent/Child", reclassifyId: 7 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error deleting area path: denied");
+    });
+  });
+
+  describe("update_iteration tool", () => {
+    it("updates name and dates", async () => {
+      const handler = getPlanHandler("work_update_iteration");
+
+      mockWorkItemTrackingApi.updateClassificationNode.mockResolvedValue({ id: 9, name: "Sprint 1b" });
+
+      const result = await handler({ project: "Proj", path: "Sprint 1", name: "Sprint 1b", startDate: "2023-01-01T00:00:00Z", finishDate: "2023-01-14T00:00:00Z" });
+
+      expect(mockWorkItemTrackingApi.updateClassificationNode).toHaveBeenCalledWith(
+        { name: "Sprint 1b", attributes: { startDate: new Date("2023-01-01T00:00:00Z"), finishDate: new Date("2023-01-14T00:00:00Z") } },
+        "Proj",
+        TreeStructureGroup.Iterations,
+        "Sprint 1"
+      );
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 9, name: "Sprint 1b" }, null, 2));
+    });
+
+    it("returns an error when no fields are provided", async () => {
+      const handler = getPlanHandler("work_update_iteration");
+
+      const result = await handler({ project: "Proj", path: "Sprint 1" });
+
+      expect(result.isError).toBe(true);
+      expect(mockWorkItemTrackingApi.updateClassificationNode).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("delete_iteration tool", () => {
+    it("deletes an iteration and reclassifies to the given id", async () => {
+      const handler = getPlanHandler("work_delete_iteration");
+
+      mockWorkItemTrackingApi.deleteClassificationNode.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", path: "Sprint 1", reclassifyId: 3 });
+
+      expect(mockWorkItemTrackingApi.deleteClassificationNode).toHaveBeenCalledWith("Proj", TreeStructureGroup.Iterations, "Sprint 1", 3);
+      expect(result.content[0].text).toContain("reclassified to iteration ID 3");
+    });
+  });
+
+  describe("set_team_area_paths tool", () => {
+    it("sets the team's default and owned area paths", async () => {
+      const handler = getPlanHandler("work_set_team_area_paths");
+
+      mockWorkApi.updateTeamFieldValues.mockResolvedValue({ defaultValue: "Proj\\A" });
+
+      const result = await handler({
+        project: "Proj",
+        team: "Team",
+        defaultAreaPath: "Proj\\A",
+        areaPaths: [{ path: "Proj\\A", includeChildren: true }, { path: "Proj\\B" }],
+      });
+
+      expect(mockWorkApi.updateTeamFieldValues).toHaveBeenCalledWith(
+        {
+          defaultValue: "Proj\\A",
+          values: [
+            { value: "Proj\\A", includeChildren: true },
+            { value: "Proj\\B", includeChildren: false },
+          ],
+        },
+        { project: "Proj", team: "Team" }
+      );
+      expect(result.content[1].text).toBe(JSON.stringify({ defaultValue: "Proj\\A" }, null, 2));
+    });
+
+    it("returns an error when no fields are provided", async () => {
+      const handler = getPlanHandler("work_set_team_area_paths");
+
+      const result = await handler({ project: "Proj", team: "Team" });
+
+      expect(result.isError).toBe(true);
+      expect(mockWorkApi.updateTeamFieldValues).not.toHaveBeenCalled();
     });
   });
 });
