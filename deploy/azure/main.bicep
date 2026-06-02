@@ -38,8 +38,8 @@ param allowedOrigins string = ''
 @description('Container port the server listens on.')
 param targetPort int = 3000
 
-@description('Minimum number of replicas.')
-param minReplicas int = 1
+@description('Minimum number of replicas. 0 enables scale-to-zero (lowest cost; adds cold-start latency to the first request after idle).')
+param minReplicas int = 0
 
 @description('Maximum number of replicas.')
 param maxReplicas int = 3
