@@ -198,7 +198,9 @@ The image is configured entirely through environment variables (see
   user **disabled** (`az acr update -n <myregistry> --admin-enabled false`).
 - Keep ingress `allowInsecure: false` (HTTP is redirected to HTTPS).
 - The server never logs tokens or request bodies.
-- Scale-to-zero (`minReplicas: 0`) is possible but adds cold-start latency to
-  the first request; the template defaults to `1`.
+- The template defaults to **scale-to-zero** (`minReplicas: 0`) for lowest cost:
+  with no traffic there are no running replicas. The first request after an idle
+  period pays a cold-start delay (a few seconds). Set `minReplicas: 1` for an
+  always-warm instance (instant response, higher cost).
 - Restrict who can reach the ingress with ACA IP restrictions or a private
   environment if you do not need public access.
