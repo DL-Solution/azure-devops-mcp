@@ -142,10 +142,13 @@ describe("EntraOAuthProvider", () => {
       await expect(provider.verifyAccessToken(expired)).rejects.toThrow(/expired/);
     });
 
-    it("accepts a non-JWT opaque token (validated downstream by ADO)", async () => {
+    it("accepts a non-JWT opaque token with a fallback expiry (validated downstream by ADO)", async () => {
       const info = await provider.verifyAccessToken("opaque-token");
       expect(info.token).toBe("opaque-token");
       expect(info.clientId).toBe("app-1");
+      // Fallback numeric expiry so the SDK bearer middleware doesn't reject a valid opaque token.
+      expect(typeof info.expiresAt).toBe("number");
+      expect(info.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
     });
   });
 });

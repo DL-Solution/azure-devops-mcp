@@ -16,7 +16,7 @@ import { mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 
 import { logger } from "../logger.js";
-import { runWithRequestToken } from "./http.js";
+import { isOriginAllowed, runWithRequestToken } from "./http.js";
 import { EntraOAuthProvider } from "../shared/oauth/entra-oauth-provider.js";
 
 export interface OAuthHttpTransportOptions {
@@ -45,7 +45,7 @@ export async function startOAuthHttpServer(opts: OAuthHttpTransportOptions): Pro
     mcpAuthRouter({
       provider: opts.provider,
       issuerUrl,
-      scopesSupported: ["499b84ac-1321-427f-aa17-267ca6975798/.default", "offline_access"],
+      scopesSupported: opts.provider.scopes,
       resourceName: "Azure DevOps MCP Server",
       resourceServerUrl: issuerUrl,
     })
@@ -58,6 +58,14 @@ export async function startOAuthHttpServer(opts: OAuthHttpTransportOptions): Pro
 
   // The MCP endpoint, gated by a valid bearer token (validated by the provider).
   app.post(opts.mcpPath, requireBearerAuth({ verifier: opts.provider, resourceMetadataUrl }), async (req, res) => {
+    // Match the passthrough transport's Origin policy: reject any browser Origin
+    // not on the allow-list (the SDK only checks Origin when one is configured).
+    const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
+    if (!isOriginAllowed(origin, opts.allowedOrigins)) {
+      res.status(403).json({ error: "Origin not allowed." });
+      return;
+    }
+
     const server = opts.createServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,

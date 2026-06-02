@@ -150,7 +150,7 @@ export function createMcpRequestListener(opts: HttpTransportOptions): (req: Inco
       });
 
       await server.connect(transport as unknown as Transport);
-      await requestAuthStore.run({ token }, () => transport.handleRequest(req, res));
+      await runWithRequestToken(token, () => transport.handleRequest(req, res));
     } catch (error) {
       // Never include the token or request body in logs.
       logger.error("Error handling MCP HTTP request", error instanceof Error ? error.message : String(error));

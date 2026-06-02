@@ -78,14 +78,16 @@ class InMemoryClientsStore implements OAuthRegisteredClientsStore {
 
 export class EntraOAuthProvider implements OAuthServerProvider {
   public readonly clientsStore = new InMemoryClientsStore();
-  // PKCE is validated by Entra (we forward the verifier upstream is not used here);
-  // the SDK token handler validates the client's PKCE against challengeForAuthorizationCode.
+  // false → the MCP SDK token handler validates the client's PKCE locally
+  // against the challenge we stored (challengeForAuthorizationCode). Entra is
+  // not involved in the client's PKCE; the upstream leg uses our own redirect.
   public readonly skipLocalPkceValidation = false;
 
   private readonly pending = new Map<string, PendingAuthorization>();
   private readonly issuedCodes = new Map<string, IssuedCode>();
   private readonly callbackPath: string;
-  private readonly scopes: string[];
+  /** Scopes requested from Entra; also advertised as the server's supported scopes. */
+  public readonly scopes: string[];
 
   constructor(private readonly config: EntraOAuthConfig) {
     this.callbackPath = config.callbackPath ?? "/auth/callback";
@@ -217,10 +219,14 @@ export class EntraOAuthProvider implements OAuthServerProvider {
     // The token is an Entra-issued access token for Azure DevOps; ADO validates
     // it on every call. Here we only do a lightweight structural/expiry check so
     // an obviously invalid token is rejected before establishing the session.
-    const expiresAt = decodeJwtExpiry(token);
-    if (expiresAt !== undefined && expiresAt * 1000 < Date.now()) {
+    const exp = decodeJwtExpiry(token);
+    if (exp !== undefined && exp * 1000 < Date.now()) {
       throw new Error("Access token has expired.");
     }
+    // The SDK's bearer middleware requires a numeric expiry. Opaque (non-JWT)
+    // tokens have none, so fall back to a short window — Azure DevOps remains
+    // the authority and rejects the token on the actual API call if invalid.
+    const expiresAt = exp ?? Math.floor(Date.now() / 1000) + 3600;
     return {
       token,
       clientId: this.config.clientId,
