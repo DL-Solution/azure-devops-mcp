@@ -154,6 +154,17 @@
 | Work              | [mcp_ado_work_get_team_member_capacity](#mcp_ado_work_get_team_member_capacity)                           | Get a team member's iteration capacity                            |
 | Work              | [mcp_ado_work_replace_team_capacities](#mcp_ado_work_replace_team_capacities)                             | Replace all team capacities for an iteration                      |
 | Work              | [mcp_ado_work_update_automation_rule](#mcp_ado_work_update_automation_rule)                               | Enable/disable backlog automation rules                           |
+| Dashboards        | [mcp_ado_dashboard_list_dashboards](#mcp_ado_dashboard_list_dashboards)                                   | List dashboards in a project/team                                 |
+| Dashboards        | [mcp_ado_dashboard_get_dashboard](#mcp_ado_dashboard_get_dashboard)                                       | Get a dashboard and its widgets                                   |
+| Dashboards        | [mcp_ado_dashboard_create_dashboard](#mcp_ado_dashboard_create_dashboard)                                 | Create a dashboard                                                |
+| Dashboards        | [mcp_ado_dashboard_replace_dashboard](#mcp_ado_dashboard_replace_dashboard)                               | Replace (update) a dashboard                                      |
+| Dashboards        | [mcp_ado_dashboard_delete_dashboard](#mcp_ado_dashboard_delete_dashboard)                                 | Delete a dashboard                                                |
+| Dashboards        | [mcp_ado_dashboard_get_widget](#mcp_ado_dashboard_get_widget)                                             | Get a widget on a dashboard                                       |
+| Dashboards        | [mcp_ado_dashboard_create_widget](#mcp_ado_dashboard_create_widget)                                       | Add a widget to a dashboard                                       |
+| Dashboards        | [mcp_ado_dashboard_update_widget](#mcp_ado_dashboard_update_widget)                                       | Update a widget on a dashboard                                    |
+| Dashboards        | [mcp_ado_dashboard_delete_widget](#mcp_ado_dashboard_delete_widget)                                       | Remove a widget from a dashboard                                  |
+| Dashboards        | [mcp_ado_dashboard_list_widget_types](#mcp_ado_dashboard_list_widget_types)                               | List available widget types                                       |
+| Dashboards        | [mcp_ado_dashboard_get_widget_metadata](#mcp_ado_dashboard_get_widget_metadata)                           | Get widget type metadata by contribution ID                       |
 
 ## Advanced Security
 
@@ -1246,3 +1257,82 @@ Enable or disable a team's backlog automation rules for a backlog level.
 
 - **Required**: `rulesStates`
 - **Optional**: `project`, `team`, `backlogLevelName`
+
+## 📊 Dashboards
+
+### mcp_ado_dashboard_list_dashboards
+
+List the dashboards in a project (or team).
+
+- **Required**: none
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_get_dashboard
+
+Get a specific dashboard (including its widgets) by ID.
+
+- **Required**: `dashboardId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_create_dashboard
+
+Create a new dashboard in a project (or team).
+
+- **Required**: `dashboard`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_replace_dashboard
+
+Replace (fully update) an existing dashboard. Fetch the current dashboard via `dashboard_get_dashboard`, edit, and pass back the full object.
+
+- **Required**: `dashboardId`, `dashboard`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_delete_dashboard
+
+Delete a dashboard by ID.
+
+- **Required**: `dashboardId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_get_widget
+
+Get a specific widget on a dashboard.
+
+- **Required**: `dashboardId`, `widgetId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_create_widget
+
+Add a widget to a dashboard. Use `dashboard_list_widget_types` to discover the contribution ID and default sizing.
+
+- **Required**: `dashboardId`, `widget`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_update_widget
+
+Update a widget on a dashboard. Fetch the current widget via `dashboard_get_widget`, edit, and pass back the full object.
+
+- **Required**: `dashboardId`, `widgetId`, `widget`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_delete_widget
+
+Remove a widget from a dashboard. Returns the updated dashboard.
+
+- **Required**: `dashboardId`, `widgetId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_dashboard_list_widget_types
+
+List the widget types available to add to dashboards, including their contribution ID and default sizing.
+
+- **Required**: none
+- **Optional**: `project`, `scope` (`project_team` | `collection_user`)
+
+### mcp_ado_dashboard_get_widget_metadata
+
+Get the metadata for a widget type by its contribution ID.
+
+- **Required**: `contributionId`
+- **Optional**: `project`

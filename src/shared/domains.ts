@@ -17,6 +17,7 @@ export enum Domain {
   WORK = "work",
   WORK_ITEMS = "work-items",
   MCP_APPS = "mcp-apps",
+  DASHBOARDS = "dashboards",
 }
 
 export const ALL_DOMAINS = "all";
