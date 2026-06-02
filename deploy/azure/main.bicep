@@ -93,13 +93,17 @@ resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' 
   location: location
 }
 
-resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (assignAcrPullRole) {
-  name: guid(acr.id, identity.id, acrPullRoleId)
-  scope: acr
-  properties: {
+// Grant the app identity AcrPull on the registry. Done via a module so it works
+// even when the ACR lives in another resource group. Skipped when
+// assignAcrPullRole is false (e.g. the grant is made out-of-band by a registry
+// admin you do not have rights over).
+module acrPullAssignment 'acr-pull-role.bicep' = if (assignAcrPullRole) {
+  name: 'acrPullAssignment'
+  scope: resourceGroup(acrResourceGroup)
+  params: {
+    acrName: acrName
     principalId: identity.properties.principalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
-    principalType: 'ServicePrincipal'
+    roleId: acrPullRoleId
   }
 }
 
@@ -119,7 +123,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   }
   // Ensure the AcrPull role exists before the app attempts its first image pull.
   dependsOn: [
-    acrPull
+    acrPullAssignment
   ]
   properties: {
     managedEnvironmentId: environment.id
