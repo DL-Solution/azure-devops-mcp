@@ -7,13 +7,26 @@ import { z } from "zod";
 import { searchIdentities } from "./auth.js";
 import { elicitProject } from "../shared/elicitations.js";
 
-import type { ProjectInfo } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
+import type { ProjectInfo, TeamProject, WebApiTeam } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
+import { ProjectVisibility } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
 import { IdentityBase } from "azure-devops-node-api/interfaces/IdentitiesInterfaces.js";
 
 const CORE_TOOLS = {
   list_project_teams: "core_list_project_teams",
   list_projects: "core_list_projects",
   get_identity_ids: "core_get_identity_ids",
+  create_project: "core_create_project",
+  update_project: "core_update_project",
+  delete_project: "core_delete_project",
+  create_team: "core_create_team",
+  update_team: "core_update_team",
+  delete_team: "core_delete_team",
+};
+
+const projectVisibilityMap: Record<string, ProjectVisibility> = {
+  private: ProjectVisibility.Private,
+  public: ProjectVisibility.Public,
+  organization: ProjectVisibility.Organization,
 };
 
 function filterProjectsByName(projects: ProjectInfo[], projectNameFilter: string): ProjectInfo[] {
@@ -130,6 +143,264 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         return {
           content: [{ type: "text", text: `Error fetching identities: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.create_project,
+    "Create a new project in your Azure DevOps organization. This queues an asynchronous operation and returns an operation reference.",
+    {
+      name: z.string().describe("The name of the project to create."),
+      description: z.string().optional().describe("The description of the project."),
+      visibility: z.enum(["private", "public", "organization"]).default("private").describe("The visibility of the project. Defaults to 'private'."),
+      sourceControlType: z.enum(["Git", "Tfvc"]).default("Git").describe("The version control system for the project. Defaults to 'Git'."),
+      processTemplate: z.string().optional().describe("The name or ID of the process template (e.g., 'Agile', 'Scrum', 'Basic', 'CMMI'). If not provided, the organization's default process is used."),
+    },
+    async ({ name, description, visibility, sourceControlType, processTemplate }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        const processes = await coreApi.getProcesses();
+        if (!processes || processes.length === 0) {
+          return { content: [{ type: "text", text: "No processes found to create a project with." }], isError: true };
+        }
+
+        const lowerProcess = processTemplate?.toLowerCase();
+        const process = lowerProcess ? processes.find((p) => p.name?.toLowerCase() === lowerProcess || p.id?.toLowerCase() === lowerProcess) : (processes.find((p) => p.isDefault) ?? processes[0]);
+
+        if (!process?.id) {
+          return { content: [{ type: "text", text: `Process template '${processTemplate}' not found. Available processes: ${processes.map((p) => p.name).join(", ")}` }], isError: true };
+        }
+
+        const projectToCreate: TeamProject = {
+          name,
+          description,
+          visibility: projectVisibilityMap[visibility],
+          capabilities: {
+            versioncontrol: { sourceControlType },
+            processTemplate: { templateTypeId: process.id },
+          },
+        };
+
+        const operation = await coreApi.queueCreateProject(projectToCreate);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(operation, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating project: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.update_project,
+    "Update an existing project in your Azure DevOps organization. This queues an asynchronous operation and returns an operation reference. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project to update. If not provided, a project selection prompt will be shown."),
+      name: z.string().optional().describe("The new name of the project."),
+      description: z.string().optional().describe("The new description of the project."),
+      visibility: z.enum(["private", "public", "organization"]).optional().describe("The new visibility of the project."),
+    },
+    async ({ project, name, description, visibility }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to update.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const existing = await coreApi.getProject(resolvedProject);
+        if (!existing?.id) {
+          return { content: [{ type: "text", text: `Project '${resolvedProject}' not found.` }], isError: true };
+        }
+
+        if (name === undefined && description === undefined && visibility === undefined) {
+          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: name, description, visibility." }], isError: true };
+        }
+
+        const projectUpdate: TeamProject = {
+          name,
+          description,
+          visibility: visibility ? projectVisibilityMap[visibility] : undefined,
+        };
+
+        const operation = await coreApi.updateProject(projectUpdate, existing.id);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(operation, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating project: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.delete_project,
+    "Permanently delete a project from your Azure DevOps organization. This is a destructive operation that queues an asynchronous delete and returns an operation reference. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project to delete. If not provided, a project selection prompt will be shown."),
+    },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to delete.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const existing = await coreApi.getProject(resolvedProject);
+        if (!existing?.id) {
+          return { content: [{ type: "text", text: `Project '${resolvedProject}' not found.` }], isError: true };
+        }
+
+        const operation = await coreApi.queueDeleteProject(existing.id);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(operation, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting project: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.create_team,
+    "Create a new team in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      name: z.string().describe("The name of the team to create."),
+      description: z.string().optional().describe("The description of the team."),
+    },
+    async ({ project, name, description }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to create the team in.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const team: WebApiTeam = { name, description };
+        const createdTeam = await coreApi.createTeam(team, resolvedProject);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(createdTeam, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating team: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.update_team,
+    "Update an existing team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().describe("The name or ID of the team to update."),
+      name: z.string().optional().describe("The new name of the team."),
+      description: z.string().optional().describe("The new description of the team."),
+    },
+    async ({ project, team, name, description }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the team.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        if (name === undefined && description === undefined) {
+          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: name, description." }], isError: true };
+        }
+
+        const teamData: WebApiTeam = { name, description };
+        const updatedTeam = await coreApi.updateTeam(teamData, resolvedProject, team);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(updatedTeam, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating team: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.delete_team,
+    "Permanently delete a team from an Azure DevOps project. This is a destructive operation. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().describe("The name or ID of the team to delete."),
+    },
+    async ({ project, team }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the team.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        await coreApi.deleteTeam(resolvedProject, team);
+
+        return {
+          content: [{ type: "text", text: `Team '${team}' deleted from project '${resolvedProject}'.` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting team: ${errorMessage}` }],
           isError: true,
         };
       }

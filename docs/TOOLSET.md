@@ -9,6 +9,12 @@
 | Core              | [mcp_ado_core_list_projects](#mcp_ado_core_list_projects)                                                 | List all projects in the organization                             |
 | Core              | [mcp_ado_core_list_project_teams](#mcp_ado_core_list_project_teams)                                       | List teams within a project                                       |
 | Core              | [mcp_ado_core_get_identity_ids](#mcp_ado_core_get_identity_ids)                                           | Retrieve identity IDs by search filter                            |
+| Core              | [mcp_ado_core_create_project](#mcp_ado_core_create_project)                                               | Create a new project in the organization                          |
+| Core              | [mcp_ado_core_update_project](#mcp_ado_core_update_project)                                               | Update an existing project                                        |
+| Core              | [mcp_ado_core_delete_project](#mcp_ado_core_delete_project)                                               | Delete a project from the organization                            |
+| Core              | [mcp_ado_core_create_team](#mcp_ado_core_create_team)                                                     | Create a new team in a project                                    |
+| Core              | [mcp_ado_core_update_team](#mcp_ado_core_update_team)                                                     | Update an existing team in a project                              |
+| Core              | [mcp_ado_core_delete_team](#mcp_ado_core_delete_team)                                                     | Delete a team from a project                                      |
 | Pipelines         | [mcp_ado_pipelines_create_pipeline](#mcp_ado_pipelines_create_pipeline)                                   | Create a new pipeline with YAML configuration                     |
 | Pipelines         | [mcp_ado_pipelines_get_builds](#mcp_ado_pipelines_get_builds)                                             | Retrieve a list of builds with optional filters                   |
 | Pipelines         | [mcp_ado_pipelines_get_build_status](#mcp_ado_pipelines_get_build_status)                                 | Get the status of a specific build                                |
@@ -92,6 +98,11 @@
 | Work              | [mcp_ado_work_get_team_capacity](#mcp_ado_work_get_team_capacity)                                         | Get capacity for a specific team in iteration                     |
 | Work              | [mcp_ado_work_update_team_capacity](#mcp_ado_work_update_team_capacity)                                   | Update team member capacity for iteration                         |
 | Work              | [mcp_ado_work_get_team_settings](#mcp_ado_work_get_team_settings)                                         | Get team settings including default iteration and area            |
+| Work              | [mcp_ado_work_list_plans](#mcp_ado_work_list_plans)                                                       | List delivery plans for a project                                 |
+| Work              | [mcp_ado_work_get_plan](#mcp_ado_work_get_plan)                                                           | Get a single delivery plan by ID                                  |
+| Work              | [mcp_ado_work_create_plan](#mcp_ado_work_create_plan)                                                     | Create a new delivery plan                                        |
+| Work              | [mcp_ado_work_update_plan](#mcp_ado_work_update_plan)                                                     | Update an existing delivery plan                                  |
+| Work              | [mcp_ado_work_delete_plan](#mcp_ado_work_delete_plan)                                                     | Delete a delivery plan                                            |
 
 ## Advanced Security
 
@@ -131,6 +142,48 @@ Retrieve Azure DevOps identity IDs for a provided search filter.
 
 - **Required**: `searchFilter`
 - **Optional**: None
+
+### mcp_ado_core_create_project
+
+Create a new project in your Azure DevOps organization. This queues an asynchronous operation and returns an operation reference.
+
+- **Required**: `name`
+- **Optional**: `description`, `visibility`, `sourceControlType`, `processTemplate`
+
+### mcp_ado_core_update_project
+
+Update an existing project in your Azure DevOps organization. This queues an asynchronous operation and returns an operation reference.
+
+- **Required**: None
+- **Optional**: `project`, `name`, `description`, `visibility`
+
+### mcp_ado_core_delete_project
+
+Permanently delete a project from your Azure DevOps organization. This is a destructive operation that queues an asynchronous delete and returns an operation reference.
+
+- **Required**: None
+- **Optional**: `project`
+
+### mcp_ado_core_create_team
+
+Create a new team in an Azure DevOps project.
+
+- **Required**: `name`
+- **Optional**: `project`, `description`
+
+### mcp_ado_core_update_team
+
+Update an existing team in an Azure DevOps project.
+
+- **Required**: `team`
+- **Optional**: `project`, `name`, `description`
+
+### mcp_ado_core_delete_team
+
+Permanently delete a team from an Azure DevOps project. This is a destructive operation.
+
+- **Required**: `team`
+- **Optional**: `project`
 
 ## Pipelines
 
@@ -750,3 +803,38 @@ Get team settings including default iteration, backlog iteration, and default ar
 
 - **Required**: `project`
 - **Optional**: `team`
+
+### mcp_ado_work_list_plans
+
+Retrieve a list of delivery plans for an Azure DevOps project.
+
+- **Required**: None
+- **Optional**: `project`
+
+### mcp_ado_work_get_plan
+
+Retrieve a single delivery plan by ID for an Azure DevOps project.
+
+- **Required**: `id`
+- **Optional**: `project`
+
+### mcp_ado_work_create_plan
+
+Create a new delivery plan in an Azure DevOps project.
+
+- **Required**: `name`
+- **Optional**: `project`, `description`, `properties`
+
+### mcp_ado_work_update_plan
+
+Update an existing delivery plan in an Azure DevOps project.
+
+- **Required**: `id`, `revision`
+- **Optional**: `project`, `name`, `description`, `properties`
+
+### mcp_ado_work_delete_plan
+
+Permanently delete a delivery plan from an Azure DevOps project. This is a destructive operation.
+
+- **Required**: `id`
+- **Optional**: `project`

@@ -12,6 +12,14 @@ type ConnectionProviderMock = () => Promise<WebApi>;
 interface CoreApiMock {
   getTeams: jest.Mock;
   getProjects: jest.Mock;
+  getProcesses: jest.Mock;
+  getProject: jest.Mock;
+  queueCreateProject: jest.Mock;
+  updateProject: jest.Mock;
+  queueDeleteProject: jest.Mock;
+  createTeam: jest.Mock;
+  updateTeam: jest.Mock;
+  deleteTeam: jest.Mock;
 }
 
 describe("configureCoreTools", () => {
@@ -30,6 +38,14 @@ describe("configureCoreTools", () => {
     mockCoreApi = {
       getProjects: jest.fn(),
       getTeams: jest.fn(),
+      getProcesses: jest.fn(),
+      getProject: jest.fn(),
+      queueCreateProject: jest.fn(),
+      updateProject: jest.fn(),
+      queueDeleteProject: jest.fn(),
+      createTeam: jest.fn(),
+      updateTeam: jest.fn(),
+      deleteTeam: jest.fn(),
     };
 
     mockConnection = {
@@ -741,6 +757,206 @@ describe("configureCoreTools", () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe("Error fetching identities: Token acquisition failed");
+    });
+  });
+
+  const getHandler = (toolName: string) => {
+    configureCoreTools(server, tokenProvider, connectionProvider, userAgentProvider);
+    const call = (server.tool as jest.Mock).mock.calls.find(([name]) => name === toolName);
+    if (!call) throw new Error(`${toolName} tool not registered`);
+    return call[3];
+  };
+
+  describe("create_project tool", () => {
+    it("creates a project with the resolved process template", async () => {
+      const handler = getHandler("core_create_project");
+
+      mockCoreApi.getProcesses.mockResolvedValue([
+        { id: "agile-id", name: "Agile", isDefault: false },
+        { id: "basic-id", name: "Basic", isDefault: true },
+      ]);
+      mockCoreApi.queueCreateProject.mockResolvedValue({ id: "op-1", status: "queued" });
+
+      const result = await handler({ name: "NewProject", description: "desc", visibility: "private", sourceControlType: "Git", processTemplate: "Agile" });
+
+      expect(mockCoreApi.queueCreateProject).toHaveBeenCalledWith({
+        name: "NewProject",
+        description: "desc",
+        visibility: 0,
+        capabilities: {
+          versioncontrol: { sourceControlType: "Git" },
+          processTemplate: { templateTypeId: "agile-id" },
+        },
+      });
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-1", status: "queued" }, null, 2));
+    });
+
+    it("falls back to the default process when none is provided", async () => {
+      const handler = getHandler("core_create_project");
+
+      mockCoreApi.getProcesses.mockResolvedValue([
+        { id: "agile-id", name: "Agile", isDefault: false },
+        { id: "basic-id", name: "Basic", isDefault: true },
+      ]);
+      mockCoreApi.queueCreateProject.mockResolvedValue({ id: "op-2" });
+
+      await handler({ name: "NewProject", visibility: "private", sourceControlType: "Git" });
+
+      expect(mockCoreApi.queueCreateProject).toHaveBeenCalledWith(expect.objectContaining({ capabilities: expect.objectContaining({ processTemplate: { templateTypeId: "basic-id" } }) }));
+    });
+
+    it("returns an error when the process template is not found", async () => {
+      const handler = getHandler("core_create_project");
+
+      mockCoreApi.getProcesses.mockResolvedValue([{ id: "agile-id", name: "Agile" }]);
+
+      const result = await handler({ name: "NewProject", visibility: "private", sourceControlType: "Git", processTemplate: "Nonexistent" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("not found");
+      expect(mockCoreApi.queueCreateProject).not.toHaveBeenCalled();
+    });
+
+    it("handles API errors", async () => {
+      const handler = getHandler("core_create_project");
+
+      mockCoreApi.getProcesses.mockRejectedValue(new Error("boom"));
+
+      const result = await handler({ name: "NewProject", visibility: "private", sourceControlType: "Git" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error creating project: boom");
+    });
+  });
+
+  describe("update_project tool", () => {
+    it("updates a project using the resolved project ID", async () => {
+      const handler = getHandler("core_update_project");
+
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-id", name: "Old" });
+      mockCoreApi.updateProject.mockResolvedValue({ id: "op-3", status: "queued" });
+
+      const result = await handler({ project: "Old", name: "New", description: "d", visibility: "public" });
+
+      expect(mockCoreApi.updateProject).toHaveBeenCalledWith({ name: "New", description: "d", visibility: 2 }, "proj-id");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-3", status: "queued" }, null, 2));
+    });
+
+    it("returns an error when no fields are provided", async () => {
+      const handler = getHandler("core_update_project");
+
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-id", name: "Old" });
+
+      const result = await handler({ project: "Old" });
+
+      expect(result.isError).toBe(true);
+      expect(mockCoreApi.updateProject).not.toHaveBeenCalled();
+    });
+
+    it("returns an error when the project is not found", async () => {
+      const handler = getHandler("core_update_project");
+
+      mockCoreApi.getProject.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Missing", name: "New" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("not found");
+    });
+  });
+
+  describe("delete_project tool", () => {
+    it("queues a project delete using the resolved project ID", async () => {
+      const handler = getHandler("core_delete_project");
+
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-id", name: "Old" });
+      mockCoreApi.queueDeleteProject.mockResolvedValue({ id: "op-4", status: "queued" });
+
+      const result = await handler({ project: "Old" });
+
+      expect(mockCoreApi.queueDeleteProject).toHaveBeenCalledWith("proj-id");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-4", status: "queued" }, null, 2));
+    });
+
+    it("returns an error when the project is not found", async () => {
+      const handler = getHandler("core_delete_project");
+
+      mockCoreApi.getProject.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Missing" });
+
+      expect(result.isError).toBe(true);
+      expect(mockCoreApi.queueDeleteProject).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("create_team tool", () => {
+    it("creates a team in the given project", async () => {
+      const handler = getHandler("core_create_team");
+
+      mockCoreApi.createTeam.mockResolvedValue({ id: "team-id", name: "Team A" });
+
+      const result = await handler({ project: "Proj", name: "Team A", description: "desc" });
+
+      expect(mockCoreApi.createTeam).toHaveBeenCalledWith({ name: "Team A", description: "desc" }, "Proj");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "team-id", name: "Team A" }, null, 2));
+    });
+
+    it("handles API errors", async () => {
+      const handler = getHandler("core_create_team");
+
+      mockCoreApi.createTeam.mockRejectedValue(new Error("nope"));
+
+      const result = await handler({ project: "Proj", name: "Team A" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error creating team: nope");
+    });
+  });
+
+  describe("update_team tool", () => {
+    it("updates a team in the given project", async () => {
+      const handler = getHandler("core_update_team");
+
+      mockCoreApi.updateTeam.mockResolvedValue({ id: "team-id", name: "Team B" });
+
+      const result = await handler({ project: "Proj", team: "team-id", name: "Team B" });
+
+      expect(mockCoreApi.updateTeam).toHaveBeenCalledWith({ name: "Team B", description: undefined }, "Proj", "team-id");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "team-id", name: "Team B" }, null, 2));
+    });
+
+    it("returns an error when no fields are provided", async () => {
+      const handler = getHandler("core_update_team");
+
+      const result = await handler({ project: "Proj", team: "team-id" });
+
+      expect(result.isError).toBe(true);
+      expect(mockCoreApi.updateTeam).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("delete_team tool", () => {
+    it("deletes a team in the given project", async () => {
+      const handler = getHandler("core_delete_team");
+
+      mockCoreApi.deleteTeam.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", team: "team-id" });
+
+      expect(mockCoreApi.deleteTeam).toHaveBeenCalledWith("Proj", "team-id");
+      expect(result.content[0].text).toContain("deleted");
+    });
+
+    it("handles API errors", async () => {
+      const handler = getHandler("core_delete_team");
+
+      mockCoreApi.deleteTeam.mockRejectedValue(new Error("denied"));
+
+      const result = await handler({ project: "Proj", team: "team-id" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error deleting team: denied");
     });
   });
 });

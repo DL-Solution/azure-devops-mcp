@@ -5,6 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { TreeStructureGroup, TreeNodeStructureType, WorkItemClassificationNode } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
+import { CreatePlan, UpdatePlan, PlanType } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
 const WORK_TOOLS = {
@@ -16,6 +17,11 @@ const WORK_TOOLS = {
   update_team_capacity: "work_update_team_capacity",
   get_iteration_capacities: "work_get_iteration_capacities",
   get_team_settings: "work_get_team_settings",
+  list_plans: "work_list_plans",
+  get_plan: "work_get_plan",
+  create_plan: "work_create_plan",
+  update_plan: "work_update_plan",
+  delete_plan: "work_delete_plan",
 };
 
 function configureWorkTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
@@ -491,6 +497,209 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return {
           content: [{ type: "text", text: `Error fetching team settings: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.list_plans,
+    "Retrieve a list of delivery plans for an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+    },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to list delivery plans for.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const plans = await workApi.getPlans(resolvedProject);
+
+        if (!plans || plans.length === 0) {
+          return { content: [{ type: "text", text: "No delivery plans found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(plans, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching delivery plans: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_plan,
+    "Retrieve a single delivery plan by ID for an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      id: z.string().describe("The ID of the delivery plan to retrieve."),
+    },
+    async ({ project, id }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to get the delivery plan from.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const plan = await workApi.getPlan(resolvedProject, id);
+
+        if (!plan) {
+          return { content: [{ type: "text", text: `Delivery plan '${id}' not found` }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(plan, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching delivery plan: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.create_plan,
+    "Create a new delivery plan in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      name: z.string().describe("The name of the delivery plan to create."),
+      description: z.string().optional().describe("The description of the delivery plan."),
+      properties: z.record(z.unknown()).optional().describe("Optional delivery plan properties (e.g., team backlog mappings, criteria). Provided as an object."),
+    },
+    async ({ project, name, description, properties }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to create the delivery plan in.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const postedPlan: CreatePlan = {
+          name,
+          description,
+          type: PlanType.DeliveryTimelineView,
+          properties,
+        };
+
+        const plan = await workApi.createPlan(postedPlan, resolvedProject);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(plan, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating delivery plan: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_plan,
+    "Update an existing delivery plan in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      id: z.string().describe("The ID of the delivery plan to update."),
+      revision: z.coerce.number().describe("The revision of the plan being updated. Must match the current revision returned by the server to avoid conflicts."),
+      name: z.string().optional().describe("The new name of the delivery plan."),
+      description: z.string().optional().describe("The new description of the delivery plan."),
+      properties: z.record(z.unknown()).optional().describe("Optional delivery plan properties to update. Provided as an object."),
+    },
+    async ({ project, id, revision, name, description, properties }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the delivery plan.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const updatedPlan: UpdatePlan = {
+          name,
+          description,
+          revision,
+          type: PlanType.DeliveryTimelineView,
+          properties,
+        };
+
+        const plan = await workApi.updatePlan(updatedPlan, resolvedProject, id);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(plan, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating delivery plan: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.delete_plan,
+    "Permanently delete a delivery plan from an Azure DevOps project. This is a destructive operation. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      id: z.string().describe("The ID of the delivery plan to delete."),
+    },
+    async ({ project, id }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the delivery plan.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        await workApi.deletePlan(resolvedProject, id);
+
+        return {
+          content: [{ type: "text", text: `Delivery plan '${id}' deleted from project '${resolvedProject}'.` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting delivery plan: ${errorMessage}` }],
           isError: true,
         };
       }
