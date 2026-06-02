@@ -148,6 +148,12 @@
 | Work              | [mcp_ado_work_update_taskboard_work_item_column](#mcp_ado_work_update_taskboard_work_item_column)         | Move a work item's taskboard column                               |
 | Work              | [mcp_ado_work_update_taskboard_card_settings](#mcp_ado_work_update_taskboard_card_settings)               | Update taskboard card field settings                              |
 | Work              | [mcp_ado_work_update_taskboard_card_rule_settings](#mcp_ado_work_update_taskboard_card_rule_settings)     | Update taskboard card style/rule settings                         |
+| Work              | [mcp_ado_work_get_column_suggested_values](#mcp_ado_work_get_column_suggested_values)                     | Get suggested board column values                                 |
+| Work              | [mcp_ado_work_get_row_suggested_values](#mcp_ado_work_get_row_suggested_values)                           | Get suggested board row values                                    |
+| Work              | [mcp_ado_work_get_board_mapping_parent_items](#mcp_ado_work_get_board_mapping_parent_items)               | Get parent items mapped to child work items                       |
+| Work              | [mcp_ado_work_get_team_member_capacity](#mcp_ado_work_get_team_member_capacity)                           | Get a team member's iteration capacity                            |
+| Work              | [mcp_ado_work_replace_team_capacities](#mcp_ado_work_replace_team_capacities)                             | Replace all team capacities for an iteration                      |
+| Work              | [mcp_ado_work_update_automation_rule](#mcp_ado_work_update_automation_rule)                               | Enable/disable backlog automation rules                           |
 
 ## Advanced Security
 
@@ -1198,3 +1204,45 @@ Update the taskboard card style/rule settings for a team.
 
 - **Required**: `ruleSettings`
 - **Optional**: `project`, `team`
+
+### mcp_ado_work_get_column_suggested_values
+
+Get the suggested values that can be used for board columns in a project.
+
+- **Required**: none
+- **Optional**: `project`
+
+### mcp_ado_work_get_row_suggested_values
+
+Get the suggested values that can be used for board rows (swimlanes) in a project.
+
+- **Required**: none
+- **Optional**: `project`
+
+### mcp_ado_work_get_board_mapping_parent_items
+
+Get the parent work items mapped to a set of child work items for a board.
+
+- **Required**: `childBacklogContextCategoryRefName`, `workItemIds`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_team_member_capacity
+
+Get the capacity of a specific team member for an iteration.
+
+- **Required**: `iterationId`, `teamMemberId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_replace_team_capacities
+
+Replace the capacities of all team members for an iteration (overwrites the entire set).
+
+- **Required**: `iterationId`, `capacities`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_update_automation_rule
+
+Enable or disable a team's backlog automation rules for a backlog level.
+
+- **Required**: `rulesStates`
+- **Optional**: `project`, `team`, `backlogLevelName`

@@ -58,6 +58,12 @@ interface WorkApiMock {
   updateWorkItemColumn: jest.Mock;
   updateTaskboardCardSettings: jest.Mock;
   updateTaskboardCardRuleSettings: jest.Mock;
+  getColumnSuggestedValues: jest.Mock;
+  getRowSuggestedValues: jest.Mock;
+  getBoardMappingParentItems: jest.Mock;
+  getCapacityWithIdentityRef: jest.Mock;
+  replaceCapacitiesWithIdentityRef: jest.Mock;
+  updateAutomationRule: jest.Mock;
 }
 
 interface WorkItemTrackingApiMock {
@@ -133,6 +139,12 @@ describe("configureWorkTools", () => {
       updateWorkItemColumn: jest.fn(),
       updateTaskboardCardSettings: jest.fn(),
       updateTaskboardCardRuleSettings: jest.fn(),
+      getColumnSuggestedValues: jest.fn(),
+      getRowSuggestedValues: jest.fn(),
+      getBoardMappingParentItems: jest.fn(),
+      getCapacityWithIdentityRef: jest.fn(),
+      replaceCapacitiesWithIdentityRef: jest.fn(),
+      updateAutomationRule: jest.fn(),
     };
 
     mockWorkItemTrackingApi = {
@@ -3829,6 +3841,83 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.updateTaskboardCardRuleSettings).toHaveBeenCalledWith(ruleSettings, { project: "Proj", team: "Team" });
       expect(result.content[0].text).toContain("Taskboard card rule settings updated");
+    });
+  });
+
+  describe("suggested values, mapping, capacity and automation tools", () => {
+    it("get_column_suggested_values passes the project", async () => {
+      const handler = getPlanHandler("work_get_column_suggested_values");
+      mockWorkApi.getColumnSuggestedValues.mockResolvedValue([{ shortName: "Active" }]);
+
+      const result = await handler({ project: "Proj" });
+
+      expect(mockWorkApi.getColumnSuggestedValues).toHaveBeenCalledWith("Proj");
+      expect(result.content[0].text).toContain("Active");
+    });
+
+    it("get_row_suggested_values passes the project", async () => {
+      const handler = getPlanHandler("work_get_row_suggested_values");
+      mockWorkApi.getRowSuggestedValues.mockResolvedValue([{ shortName: "Expedite" }]);
+
+      const result = await handler({ project: "Proj" });
+
+      expect(mockWorkApi.getRowSuggestedValues).toHaveBeenCalledWith("Proj");
+      expect(result.content[0].text).toContain("Expedite");
+    });
+
+    it("get_board_mapping_parent_items passes category and ids", async () => {
+      const handler = getPlanHandler("work_get_board_mapping_parent_items");
+      mockWorkApi.getBoardMappingParentItems.mockResolvedValue([{ childWorkItemId: 5, parentWorkItemId: 1 }]);
+
+      const result = await handler({ project: "Proj", team: "Team", childBacklogContextCategoryRefName: "Microsoft.RequirementCategory", workItemIds: [5, 6] });
+
+      expect(mockWorkApi.getBoardMappingParentItems).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Microsoft.RequirementCategory", [5, 6]);
+      expect(result.content[0].text).toContain("parentWorkItemId");
+    });
+
+    it("get_team_member_capacity passes iteration and member", async () => {
+      const handler = getPlanHandler("work_get_team_member_capacity");
+      mockWorkApi.getCapacityWithIdentityRef.mockResolvedValue({ activities: [] });
+
+      const result = await handler({ project: "Proj", team: "Team", iterationId: "iter-1", teamMemberId: "member-1" });
+
+      expect(mockWorkApi.getCapacityWithIdentityRef).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "iter-1", "member-1");
+      expect(result.content[0].text).toContain("activities");
+    });
+
+    it("replace_team_capacities builds the identity-ref payload", async () => {
+      const handler = getPlanHandler("work_replace_team_capacities");
+      mockWorkApi.replaceCapacitiesWithIdentityRef.mockResolvedValue([{ teamMember: { id: "member-1" } }]);
+
+      const result = await handler({
+        project: "Proj",
+        team: "Team",
+        iterationId: "iter-1",
+        capacities: [{ teamMemberId: "member-1", activities: [{ name: "Development", capacityPerDay: 6 }], daysOff: [{ start: "2024-01-01T00:00:00Z", end: "2024-01-02T00:00:00Z" }] }],
+      });
+
+      expect(mockWorkApi.replaceCapacitiesWithIdentityRef).toHaveBeenCalledWith(
+        [
+          {
+            teamMember: { id: "member-1" },
+            activities: [{ name: "Development", capacityPerDay: 6 }],
+            daysOff: [{ start: new Date("2024-01-01T00:00:00Z"), end: new Date("2024-01-02T00:00:00Z") }],
+          },
+        ],
+        { project: "Proj", team: "Team" },
+        "iter-1"
+      );
+      expect(result.content[0].text).toContain("member-1");
+    });
+
+    it("update_automation_rule builds the request model", async () => {
+      const handler = getPlanHandler("work_update_automation_rule");
+      mockWorkApi.updateAutomationRule.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", team: "Team", backlogLevelName: "Stories", rulesStates: { ClosedParentRule: true } });
+
+      expect(mockWorkApi.updateAutomationRule).toHaveBeenCalledWith({ backlogLevelName: "Stories", rulesStates: { ClosedParentRule: true } }, { project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("Automation rules updated");
     });
   });
 });
