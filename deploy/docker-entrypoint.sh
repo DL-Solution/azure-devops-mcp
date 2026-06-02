@@ -17,6 +17,11 @@
 #                        protection). Set to the public FQDN of the app.
 #   MCP_ALLOWED_ORIGINS  Space-separated browser Origin allow-list.
 #   MCP_DOMAINS          Space-separated tool domains to enable (default: all).
+#   MCP_AUTH=passthrough HTTP auth mode (passthrough|oauth).
+#
+# OAuth mode (MCP_AUTH=oauth) additionally requires these (read directly from
+# the environment by the app):
+#   ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET, MCP_PUBLIC_URL
 #
 set -e
 
@@ -27,6 +32,7 @@ fi
 
 set -- "$AZURE_DEVOPS_ORG" \
   --transport "${MCP_TRANSPORT:-http}" \
+  --auth "${MCP_AUTH:-passthrough}" \
   --host "${MCP_HOST:-0.0.0.0}" \
   --port "${MCP_PORT:-3000}"
 

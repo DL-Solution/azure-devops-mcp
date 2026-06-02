@@ -34,6 +34,11 @@ export function getRequestToken(): string {
   return ctx.token;
 }
 
+/** Run `fn` within a request context carrying the given Azure DevOps token, so tool handlers resolve it via {@link getRequestToken}. */
+export function runWithRequestToken<T>(token: string, fn: () => T): T {
+  return requestAuthStore.run({ token }, fn);
+}
+
 /**
  * Extract a bearer token from an Authorization header value.
  * Returns null if the header is missing, malformed, or the token is empty.
