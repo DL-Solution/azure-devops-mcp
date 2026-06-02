@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { TreeStructureGroup, TreeNodeStructureType, WorkItemClassificationNode } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
-import { CreatePlan, UpdatePlan, PlanType } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
+import { CreatePlan, UpdatePlan, PlanType, TeamFieldValuesPatch } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
 const WORK_TOOLS = {
@@ -22,6 +22,13 @@ const WORK_TOOLS = {
   create_plan: "work_create_plan",
   update_plan: "work_update_plan",
   delete_plan: "work_delete_plan",
+  list_areas: "work_list_areas",
+  create_area: "work_create_area",
+  update_area: "work_update_area",
+  delete_area: "work_delete_area",
+  update_iteration: "work_update_iteration",
+  delete_iteration: "work_delete_iteration",
+  set_team_area_paths: "work_set_team_area_paths",
 };
 
 function configureWorkTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
@@ -708,6 +715,305 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return {
           content: [{ type: "text", text: `Error deleting delivery plan: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.list_areas,
+    "List the area paths for an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      depth: z.coerce.number().default(2).describe("Depth of child area paths to fetch. Defaults to 2."),
+    },
+    async ({ project, depth }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to list area paths for.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        const results = await workItemTrackingApi.getClassificationNodes(resolvedProject, [], depth);
+
+        const areas = (results ?? []).filter((node) => node.structureType === TreeNodeStructureType.Area);
+
+        if (areas.length === 0) {
+          return { content: [{ type: "text", text: "No area paths found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(areas, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching area paths: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.create_area,
+    "Create a new area path in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      name: z.string().describe("The name of the area path to create."),
+      parentPath: z.string().optional().describe("The path of the parent area under which to create the new area (e.g. 'ParentArea/Child'). If omitted, the area is created at the project root."),
+    },
+    async ({ project, name, parentPath }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to create the area path in.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        const area = await workItemTrackingApi.createOrUpdateClassificationNode({ name }, resolvedProject, TreeStructureGroup.Areas, parentPath);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(area, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating area path: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_area,
+    "Rename an existing area path in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      path: z.string().describe("The current path of the area to rename (e.g. 'ParentArea/Child')."),
+      name: z.string().describe("The new name for the area path."),
+    },
+    async ({ project, path, name }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the area path.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        const area = await workItemTrackingApi.updateClassificationNode({ name }, resolvedProject, TreeStructureGroup.Areas, path);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(area, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating area path: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.delete_area,
+    "Permanently delete an area path from an Azure DevOps project. This is a destructive operation: work items assigned to the deleted area are reclassified to the area identified by reclassifyId. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      path: z.string().describe("The path of the area to delete (e.g. 'ParentArea/Child')."),
+      reclassifyId: z.coerce.number().describe("The ID of the area path to which work items (and child nodes) currently under the deleted area will be reclassified."),
+    },
+    async ({ project, path, reclassifyId }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the area path.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        await workItemTrackingApi.deleteClassificationNode(resolvedProject, TreeStructureGroup.Areas, path, reclassifyId);
+
+        return {
+          content: [{ type: "text", text: `Area path '${path}' deleted from project '${resolvedProject}'. Work items reclassified to area ID ${reclassifyId}.` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting area path: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_iteration,
+    "Update an existing iteration (rename and/or change its start/finish dates) in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      path: z.string().describe("The current path of the iteration to update (e.g. 'ParentIteration/Sprint 1')."),
+      name: z.string().optional().describe("The new name for the iteration."),
+      startDate: z.string().optional().describe("The start date of the iteration in ISO format (e.g., '2023-01-01T00:00:00Z')."),
+      finishDate: z.string().optional().describe("The finish date of the iteration in ISO format (e.g., '2023-01-31T23:59:59Z')."),
+    },
+    async ({ project, path, name, startDate, finishDate }) => {
+      try {
+        if (name === undefined && startDate === undefined && finishDate === undefined) {
+          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: name, startDate, finishDate." }], isError: true };
+        }
+
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the iteration.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const node: WorkItemClassificationNode = { name };
+        if (startDate !== undefined || finishDate !== undefined) {
+          node.attributes = {
+            startDate: startDate ? new Date(startDate) : undefined,
+            finishDate: finishDate ? new Date(finishDate) : undefined,
+          };
+        }
+
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        const iteration = await workItemTrackingApi.updateClassificationNode(node, resolvedProject, TreeStructureGroup.Iterations, path);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(iteration, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating iteration: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.delete_iteration,
+    "Permanently delete an iteration from an Azure DevOps project. This is a destructive operation: work items assigned to the deleted iteration are reclassified to the iteration identified by reclassifyId. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      path: z.string().describe("The path of the iteration to delete (e.g. 'ParentIteration/Sprint 1')."),
+      reclassifyId: z.coerce.number().describe("The ID of the iteration to which work items currently under the deleted iteration will be reclassified."),
+    },
+    async ({ project, path, reclassifyId }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the iteration.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        await workItemTrackingApi.deleteClassificationNode(resolvedProject, TreeStructureGroup.Iterations, path, reclassifyId);
+
+        return {
+          content: [{ type: "text", text: `Iteration '${path}' deleted from project '${resolvedProject}'. Work items reclassified to iteration ID ${reclassifyId}.` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting iteration: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.set_team_area_paths,
+    "Set the area paths owned by a team in an Azure DevOps project (the default area path and/or the full list of area paths). If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. Reuse from prior context if already known. If not provided, a team selection prompt will be shown."),
+      defaultAreaPath: z.string().optional().describe("The team's default area path (new work items are assigned here). Must be one of the team's area paths."),
+      areaPaths: z
+        .array(
+          z.object({
+            path: z.string().describe("An area path owned by the team (e.g. 'Project\\\\Area\\\\SubArea')."),
+            includeChildren: z.boolean().optional().describe("Whether work items under child area paths also belong to the team. Defaults to false."),
+          })
+        )
+        .optional()
+        .describe("The full set of area paths owned by the team. Replaces the existing set."),
+    },
+    async ({ project, team, defaultAreaPath, areaPaths }) => {
+      try {
+        if (defaultAreaPath === undefined && areaPaths === undefined) {
+          return { content: [{ type: "text", text: "No updates provided. Specify at least one of: defaultAreaPath, areaPaths." }], isError: true };
+        }
+
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project that contains the team.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team to set area paths for.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const patch: TeamFieldValuesPatch = {
+          defaultValue: defaultAreaPath,
+          values: areaPaths?.map((a) => ({ value: a.path, includeChildren: a.includeChildren ?? false })),
+        };
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateTeamFieldValues(patch, { project: resolvedProject, team: resolvedTeam });
+
+        return {
+          content: [
+            { type: "text", text: `Project: ${resolvedProject}, Team: ${resolvedTeam}` },
+            { type: "text", text: JSON.stringify(result, null, 2) },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error setting team area paths: ${errorMessage}` }],
           isError: true,
         };
       }

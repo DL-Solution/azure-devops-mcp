@@ -103,6 +103,13 @@
 | Work              | [mcp_ado_work_create_plan](#mcp_ado_work_create_plan)                                                     | Create a new delivery plan                                        |
 | Work              | [mcp_ado_work_update_plan](#mcp_ado_work_update_plan)                                                     | Update an existing delivery plan                                  |
 | Work              | [mcp_ado_work_delete_plan](#mcp_ado_work_delete_plan)                                                     | Delete a delivery plan                                            |
+| Work              | [mcp_ado_work_list_areas](#mcp_ado_work_list_areas)                                                       | List area paths for a project                                     |
+| Work              | [mcp_ado_work_create_area](#mcp_ado_work_create_area)                                                     | Create a new area path                                            |
+| Work              | [mcp_ado_work_update_area](#mcp_ado_work_update_area)                                                     | Rename an area path                                               |
+| Work              | [mcp_ado_work_delete_area](#mcp_ado_work_delete_area)                                                     | Delete an area path (reclassify work items)                       |
+| Work              | [mcp_ado_work_update_iteration](#mcp_ado_work_update_iteration)                                           | Update an iteration's name or dates                               |
+| Work              | [mcp_ado_work_delete_iteration](#mcp_ado_work_delete_iteration)                                           | Delete an iteration (reclassify work items)                       |
+| Work              | [mcp_ado_work_set_team_area_paths](#mcp_ado_work_set_team_area_paths)                                     | Set a team's default and owned area paths                         |
 
 ## Advanced Security
 
@@ -838,3 +845,52 @@ Permanently delete a delivery plan from an Azure DevOps project. This is a destr
 
 - **Required**: `id`
 - **Optional**: `project`
+
+### mcp_ado_work_list_areas
+
+List the area paths for an Azure DevOps project.
+
+- **Required**: None
+- **Optional**: `project`, `depth`
+
+### mcp_ado_work_create_area
+
+Create a new area path in an Azure DevOps project.
+
+- **Required**: `name`
+- **Optional**: `project`, `parentPath`
+
+### mcp_ado_work_update_area
+
+Rename an existing area path in an Azure DevOps project.
+
+- **Required**: `path`, `name`
+- **Optional**: `project`
+
+### mcp_ado_work_delete_area
+
+Permanently delete an area path. Work items under the deleted area are reclassified to the area identified by `reclassifyId`. This is a destructive operation.
+
+- **Required**: `path`, `reclassifyId`
+- **Optional**: `project`
+
+### mcp_ado_work_update_iteration
+
+Update an existing iteration's name and/or start/finish dates.
+
+- **Required**: `path`
+- **Optional**: `project`, `name`, `startDate`, `finishDate`
+
+### mcp_ado_work_delete_iteration
+
+Permanently delete an iteration. Work items under the deleted iteration are reclassified to the iteration identified by `reclassifyId`. This is a destructive operation.
+
+- **Required**: `path`, `reclassifyId`
+- **Optional**: `project`
+
+### mcp_ado_work_set_team_area_paths
+
+Set the area paths owned by a team (the default area path and/or the full set of owned area paths).
+
+- **Required**: None
+- **Optional**: `project`, `team`, `defaultAreaPath`, `areaPaths`
