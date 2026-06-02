@@ -47,11 +47,17 @@ export function extractBearerToken(authorizationHeader?: string): string | null 
   if (!authorizationHeader) {
     return null;
   }
-  const match = /^Bearer\s+(.+)$/i.exec(authorizationHeader.trim());
-  if (!match) {
+  // Parsed without an ambiguous regex (avoids polynomial backtracking): split
+  // the "Bearer" scheme from the token at the first run of whitespace.
+  const value = authorizationHeader.trim();
+  const firstSpace = value.search(/\s/);
+  if (firstSpace === -1) {
     return null;
   }
-  const token = match[1].trim();
+  if (value.slice(0, firstSpace).toLowerCase() !== "bearer") {
+    return null;
+  }
+  const token = value.slice(firstSpace + 1).trim();
   return token.length > 0 ? token : null;
 }
 
