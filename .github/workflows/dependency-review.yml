@@ -25,6 +25,13 @@ permissions:
 
 jobs:
   dependency-review:
+    # Dependency review requires the Dependency Graph, and on PRIVATE repos it
+    # also requires GitHub Advanced Security. On a private fork without GHAS the
+    # action errors and fails the PR, so this job is opt-in: it only runs when
+    # the `RUN_DEPENDENCY_REVIEW` repository variable is set to 'true'. Enable it
+    # (Settings -> Secrets and variables -> Actions -> Variables) once GHAS /
+    # Dependency graph is available.
+    if: vars.RUN_DEPENDENCY_REVIEW == 'true'
     runs-on: windows-latest
     steps:
       - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
