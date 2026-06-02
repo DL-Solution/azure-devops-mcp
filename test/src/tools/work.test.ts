@@ -30,6 +30,15 @@ interface WorkApiMock {
   getBacklogConfigurations: jest.Mock;
   getTeamDaysOff: jest.Mock;
   updateTeamDaysOff: jest.Mock;
+  updateBoardColumns: jest.Mock;
+  updateBoardRows: jest.Mock;
+  getBoardCardSettings: jest.Mock;
+  updateBoardCardSettings: jest.Mock;
+  getBoardCardRuleSettings: jest.Mock;
+  updateBoardCardRuleSettings: jest.Mock;
+  getBoardCharts: jest.Mock;
+  getBoardChart: jest.Mock;
+  updateBoardChart: jest.Mock;
 }
 
 interface WorkItemTrackingApiMock {
@@ -77,6 +86,15 @@ describe("configureWorkTools", () => {
       getBacklogConfigurations: jest.fn(),
       getTeamDaysOff: jest.fn(),
       updateTeamDaysOff: jest.fn(),
+      updateBoardColumns: jest.fn(),
+      updateBoardRows: jest.fn(),
+      getBoardCardSettings: jest.fn(),
+      updateBoardCardSettings: jest.fn(),
+      getBoardCardRuleSettings: jest.fn(),
+      updateBoardCardRuleSettings: jest.fn(),
+      getBoardCharts: jest.fn(),
+      getBoardChart: jest.fn(),
+      updateBoardChart: jest.fn(),
     };
 
     mockWorkItemTrackingApi = {
@@ -3474,6 +3492,83 @@ describe("configureWorkTools", () => {
         "iter-1"
       );
       expect(result.content[0].text).toContain("daysOff");
+    });
+  });
+
+  describe("board write tools", () => {
+    it("update_board_columns passes the full column set", async () => {
+      const handler = getPlanHandler("work_update_board_columns");
+      mockWorkApi.updateBoardColumns.mockResolvedValue([{ name: "To Do" }]);
+
+      const cols = [{ name: "To Do" }, { name: "Done" }];
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories", columns: cols });
+
+      expect(mockWorkApi.updateBoardColumns).toHaveBeenCalledWith(cols, { project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("To Do");
+    });
+
+    it("update_board_rows passes the full row set", async () => {
+      const handler = getPlanHandler("work_update_board_rows");
+      mockWorkApi.updateBoardRows.mockResolvedValue([{ name: "Default" }]);
+
+      const rows = [{ name: "Default" }, { name: "Expedite" }];
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories", rows });
+
+      expect(mockWorkApi.updateBoardRows).toHaveBeenCalledWith(rows, { project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("Default");
+    });
+
+    it("get_board_card_settings returns settings", async () => {
+      const handler = getPlanHandler("work_get_board_card_settings");
+      mockWorkApi.getBoardCardSettings.mockResolvedValue({ cards: {} });
+
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories" });
+
+      expect(mockWorkApi.getBoardCardSettings).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("cards");
+    });
+
+    it("update_board_card_settings passes the settings object", async () => {
+      const handler = getPlanHandler("work_update_board_card_settings");
+      mockWorkApi.updateBoardCardSettings.mockResolvedValue({ cards: {} });
+
+      const cardSettings = { cards: { foo: [] } };
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories", cardSettings });
+
+      expect(mockWorkApi.updateBoardCardSettings).toHaveBeenCalledWith(cardSettings, { project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("cards");
+    });
+
+    it("update_board_card_rule_settings passes the rule settings object", async () => {
+      const handler = getPlanHandler("work_update_board_card_rule_settings");
+      mockWorkApi.updateBoardCardRuleSettings.mockResolvedValue({ rules: {} });
+
+      const ruleSettings = { rules: { fill: [] } };
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories", ruleSettings });
+
+      expect(mockWorkApi.updateBoardCardRuleSettings).toHaveBeenCalledWith(ruleSettings, { project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("rules");
+    });
+
+    it("list_board_charts returns charts", async () => {
+      const handler = getPlanHandler("work_list_board_charts");
+      mockWorkApi.getBoardCharts.mockResolvedValue([{ name: "CumulativeFlow" }]);
+
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories" });
+
+      expect(mockWorkApi.getBoardCharts).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("CumulativeFlow");
+    });
+
+    it("update_board_chart passes name and chart", async () => {
+      const handler = getPlanHandler("work_update_board_chart");
+      mockWorkApi.updateBoardChart.mockResolvedValue({ name: "CumulativeFlow" });
+
+      const chart = { name: "CumulativeFlow", settings: {} };
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories", name: "CumulativeFlow", chart });
+
+      expect(mockWorkApi.updateBoardChart).toHaveBeenCalledWith(chart, { project: "Proj", team: "Team" }, "Stories", "CumulativeFlow");
+      expect(result.content[0].text).toContain("CumulativeFlow");
     });
   });
 });

@@ -5,7 +5,18 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { TreeStructureGroup, TreeNodeStructureType, WorkItemClassificationNode } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
-import { CreatePlan, UpdatePlan, PlanType, TeamFieldValuesPatch, TeamSettingsDaysOffPatch } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
+import {
+  CreatePlan,
+  UpdatePlan,
+  PlanType,
+  TeamFieldValuesPatch,
+  TeamSettingsDaysOffPatch,
+  BoardColumn,
+  BoardRow,
+  BoardCardSettings,
+  BoardCardRuleSettings,
+  BoardChart,
+} from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
 const WORK_TOOLS = {
@@ -35,6 +46,15 @@ const WORK_TOOLS = {
   get_backlog_configuration: "work_get_backlog_configuration",
   get_team_days_off: "work_get_team_days_off",
   set_team_days_off: "work_set_team_days_off",
+  update_board_columns: "work_update_board_columns",
+  update_board_rows: "work_update_board_rows",
+  get_board_card_settings: "work_get_board_card_settings",
+  update_board_card_settings: "work_update_board_card_settings",
+  get_board_card_rule_settings: "work_get_board_card_rule_settings",
+  update_board_card_rule_settings: "work_update_board_card_rule_settings",
+  list_board_charts: "work_list_board_charts",
+  get_board_chart: "work_get_board_chart",
+  update_board_chart: "work_update_board_chart",
 };
 
 function configureWorkTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
@@ -1302,6 +1322,258 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           content: [{ type: "text", text: `Error setting team days off: ${errorMessage}` }],
           isError: true,
         };
+      }
+    }
+  );
+
+  // Resolve project + team (eliciting if not supplied) for the board write tools.
+  const resolveTeamContext = async (connection: WebApi, project: string | undefined, team: string | undefined) => {
+    let resolvedProject = project;
+    if (!resolvedProject) {
+      const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
+      if ("response" in result) return result;
+      resolvedProject = result.resolved;
+    }
+    let resolvedTeam = team;
+    if (!resolvedTeam) {
+      const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team.");
+      if ("response" in result) return result;
+      resolvedTeam = result.resolved;
+    }
+    return { teamContext: { project: resolvedProject, team: resolvedTeam } };
+  };
+
+  server.tool(
+    WORK_TOOLS.update_board_columns,
+    "Replace the columns of a board. Obtain the current columns via work_get_board_columns, modify them, and pass back the full set.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+      columns: z.array(z.record(z.unknown())).describe("The full ordered set of board columns (as returned by work_get_board_columns, with edits applied)."),
+    },
+    async ({ project, team, board, columns }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateBoardColumns(columns as unknown as BoardColumn[], ctx.teamContext, board);
+
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating board columns: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_board_rows,
+    "Replace the rows (swimlanes) of a board. Obtain the current rows via work_get_board_rows, modify them, and pass back the full set.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+      rows: z.array(z.record(z.unknown())).describe("The full ordered set of board rows (as returned by work_get_board_rows, with edits applied)."),
+    },
+    async ({ project, team, board, rows }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateBoardRows(rows as unknown as BoardRow[], ctx.teamContext, board);
+
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating board rows: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_board_card_settings,
+    "Get the card field settings of a board. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+    },
+    async ({ project, team, board }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const settings = await workApi.getBoardCardSettings(ctx.teamContext, board);
+
+        return { content: [{ type: "text", text: JSON.stringify(settings, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching board card settings: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_board_card_settings,
+    "Update the card field settings of a board. Obtain the current settings via work_get_board_card_settings, modify them, and pass back the full object.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+      cardSettings: z.record(z.unknown()).describe("The full card settings object (as returned by work_get_board_card_settings, with edits applied)."),
+    },
+    async ({ project, team, board, cardSettings }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateBoardCardSettings(cardSettings as unknown as BoardCardSettings, ctx.teamContext, board);
+
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating board card settings: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_board_card_rule_settings,
+    "Get the card style/rule settings of a board. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+    },
+    async ({ project, team, board }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const settings = await workApi.getBoardCardRuleSettings(ctx.teamContext, board);
+
+        return { content: [{ type: "text", text: JSON.stringify(settings, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching board card rule settings: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_board_card_rule_settings,
+    "Update the card style/rule settings of a board. Obtain the current settings via work_get_board_card_rule_settings, modify them, and pass back the full object.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+      ruleSettings: z.record(z.unknown()).describe("The full card rule settings object (as returned by work_get_board_card_rule_settings, with edits applied)."),
+    },
+    async ({ project, team, board, ruleSettings }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateBoardCardRuleSettings(ruleSettings as unknown as BoardCardRuleSettings, ctx.teamContext, board);
+
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating board card rule settings: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.list_board_charts,
+    "List the charts available on a board. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+    },
+    async ({ project, team, board }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const charts = await workApi.getBoardCharts(ctx.teamContext, board);
+
+        if (!charts || charts.length === 0) {
+          return { content: [{ type: "text", text: "No board charts found" }], isError: true };
+        }
+        return { content: [{ type: "text", text: JSON.stringify(charts, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching board charts: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_board_chart,
+    "Get a specific chart of a board by name. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+      name: z.string().describe("The name of the chart (e.g. 'CumulativeFlow')."),
+    },
+    async ({ project, team, board, name }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const chart = await workApi.getBoardChart(ctx.teamContext, board, name);
+
+        return { content: [{ type: "text", text: JSON.stringify(chart, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching board chart: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_board_chart,
+    "Update a board chart by name. Obtain the current chart via work_get_board_chart, modify it, and pass back the full object.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board."),
+      name: z.string().describe("The name of the chart to update."),
+      chart: z.record(z.unknown()).describe("The full chart object (as returned by work_get_board_chart, with edits applied)."),
+    },
+    async ({ project, team, board, name, chart }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateBoardChart(chart as unknown as BoardChart, ctx.teamContext, board, name);
+
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating board chart: ${errorMessage}` }], isError: true };
       }
     }
   );
