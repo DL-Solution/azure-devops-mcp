@@ -24,6 +24,12 @@ interface WorkApiMock {
   updatePlan: jest.Mock;
   deletePlan: jest.Mock;
   updateTeamFieldValues: jest.Mock;
+  getBoards: jest.Mock;
+  getBoardColumns: jest.Mock;
+  getBoardRows: jest.Mock;
+  getBacklogConfigurations: jest.Mock;
+  getTeamDaysOff: jest.Mock;
+  updateTeamDaysOff: jest.Mock;
 }
 
 interface WorkItemTrackingApiMock {
@@ -65,6 +71,12 @@ describe("configureWorkTools", () => {
       updatePlan: jest.fn(),
       deletePlan: jest.fn(),
       updateTeamFieldValues: jest.fn(),
+      getBoards: jest.fn(),
+      getBoardColumns: jest.fn(),
+      getBoardRows: jest.fn(),
+      getBacklogConfigurations: jest.fn(),
+      getTeamDaysOff: jest.fn(),
+      updateTeamDaysOff: jest.fn(),
     };
 
     mockWorkItemTrackingApi = {
@@ -3372,6 +3384,96 @@ describe("configureWorkTools", () => {
 
       expect(result.isError).toBe(true);
       expect(mockWorkApi.updateTeamFieldValues).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("list_boards tool", () => {
+    it("returns boards for the team", async () => {
+      const handler = getPlanHandler("work_list_boards");
+      mockWorkApi.getBoards.mockResolvedValue([{ id: "b1", name: "Stories" }]);
+
+      const result = await handler({ project: "Proj", team: "Team" });
+
+      expect(mockWorkApi.getBoards).toHaveBeenCalledWith({ project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("Stories");
+    });
+
+    it("returns an error when no boards are found", async () => {
+      const handler = getPlanHandler("work_list_boards");
+      mockWorkApi.getBoards.mockResolvedValue([]);
+
+      const result = await handler({ project: "Proj", team: "Team" });
+
+      expect(result.isError).toBe(true);
+    });
+  });
+
+  describe("get_board_columns tool", () => {
+    it("returns the board columns", async () => {
+      const handler = getPlanHandler("work_get_board_columns");
+      mockWorkApi.getBoardColumns.mockResolvedValue([{ name: "To Do" }, { name: "Done" }]);
+
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories" });
+
+      expect(mockWorkApi.getBoardColumns).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("To Do");
+    });
+  });
+
+  describe("get_board_rows tool", () => {
+    it("returns the board rows", async () => {
+      const handler = getPlanHandler("work_get_board_rows");
+      mockWorkApi.getBoardRows.mockResolvedValue([{ name: "Default" }]);
+
+      const result = await handler({ project: "Proj", team: "Team", board: "Stories" });
+
+      expect(mockWorkApi.getBoardRows).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "Stories");
+      expect(result.content[0].text).toContain("Default");
+    });
+  });
+
+  describe("get_backlog_configuration tool", () => {
+    it("returns the backlog configuration", async () => {
+      const handler = getPlanHandler("work_get_backlog_configuration");
+      mockWorkApi.getBacklogConfigurations.mockResolvedValue({ requirementBacklog: { name: "Stories" } });
+
+      const result = await handler({ project: "Proj", team: "Team" });
+
+      expect(mockWorkApi.getBacklogConfigurations).toHaveBeenCalledWith({ project: "Proj", team: "Team" });
+      expect(result.content[0].text).toContain("Stories");
+    });
+  });
+
+  describe("get_team_days_off tool", () => {
+    it("returns the team's days off for the iteration", async () => {
+      const handler = getPlanHandler("work_get_team_days_off");
+      mockWorkApi.getTeamDaysOff.mockResolvedValue({ daysOff: [] });
+
+      const result = await handler({ project: "Proj", team: "Team", iterationId: "iter-1" });
+
+      expect(mockWorkApi.getTeamDaysOff).toHaveBeenCalledWith({ project: "Proj", team: "Team" }, "iter-1");
+      expect(result.content[0].text).toContain("daysOff");
+    });
+  });
+
+  describe("set_team_days_off tool", () => {
+    it("converts ISO dates and replaces the team's days off", async () => {
+      const handler = getPlanHandler("work_set_team_days_off");
+      mockWorkApi.updateTeamDaysOff.mockResolvedValue({ daysOff: [{}] });
+
+      const result = await handler({
+        project: "Proj",
+        team: "Team",
+        iterationId: "iter-1",
+        daysOff: [{ start: "2023-01-02T00:00:00Z", end: "2023-01-03T00:00:00Z" }],
+      });
+
+      expect(mockWorkApi.updateTeamDaysOff).toHaveBeenCalledWith(
+        { daysOff: [{ start: new Date("2023-01-02T00:00:00Z"), end: new Date("2023-01-03T00:00:00Z") }] },
+        { project: "Proj", team: "Team" },
+        "iter-1"
+      );
+      expect(result.content[0].text).toContain("daysOff");
     });
   });
 });

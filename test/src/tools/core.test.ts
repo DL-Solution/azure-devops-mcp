@@ -20,6 +20,9 @@ interface CoreApiMock {
   createTeam: jest.Mock;
   updateTeam: jest.Mock;
   deleteTeam: jest.Mock;
+  getTeamMembersWithExtendedProperties: jest.Mock;
+  getProjectProperties: jest.Mock;
+  setProjectProperties: jest.Mock;
 }
 
 describe("configureCoreTools", () => {
@@ -46,6 +49,9 @@ describe("configureCoreTools", () => {
       createTeam: jest.fn(),
       updateTeam: jest.fn(),
       deleteTeam: jest.fn(),
+      getTeamMembersWithExtendedProperties: jest.fn(),
+      getProjectProperties: jest.fn(),
+      setProjectProperties: jest.fn(),
     };
 
     mockConnection = {
@@ -957,6 +963,65 @@ describe("configureCoreTools", () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe("Error deleting team: denied");
+    });
+  });
+
+  describe("list_processes tool", () => {
+    it("returns the organization processes", async () => {
+      const handler = getHandler("core_list_processes");
+      mockCoreApi.getProcesses.mockResolvedValue([{ id: "p1", name: "Agile", isDefault: true }]);
+
+      const result = await handler({});
+
+      expect(mockCoreApi.getProcesses).toHaveBeenCalled();
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: "p1", name: "Agile", isDefault: true }], null, 2));
+    });
+  });
+
+  describe("list_team_members tool", () => {
+    it("returns team members for the given project/team", async () => {
+      const handler = getHandler("core_list_team_members");
+      mockCoreApi.getTeamMembersWithExtendedProperties.mockResolvedValue([{ identity: { displayName: "Jane" } }]);
+
+      const result = await handler({ project: "Proj", team: "Team", top: 10, skip: 0 });
+
+      expect(mockCoreApi.getTeamMembersWithExtendedProperties).toHaveBeenCalledWith("Proj", "Team", 10, 0);
+      expect(result.content[0].text).toContain("Jane");
+    });
+  });
+
+  describe("get_project_properties tool", () => {
+    it("resolves the project id and returns properties", async () => {
+      const handler = getHandler("core_get_project_properties");
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-id", name: "Proj" });
+      mockCoreApi.getProjectProperties.mockResolvedValue([{ name: "System.Process", value: "Agile" }]);
+
+      const result = await handler({ project: "Proj", keys: ["System.Process"] });
+
+      expect(mockCoreApi.getProjectProperties).toHaveBeenCalledWith("proj-id", ["System.Process"]);
+      expect(result.content[0].text).toContain("System.Process");
+    });
+  });
+
+  describe("set_project_properties tool", () => {
+    it("builds an add patch document from the properties map", async () => {
+      const handler = getHandler("core_set_project_properties");
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-id", name: "Proj" });
+      mockCoreApi.setProjectProperties.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", properties: { "Custom.Key": "value" } });
+
+      expect(mockCoreApi.setProjectProperties).toHaveBeenCalledWith(undefined, "proj-id", [{ op: "add", path: "/Custom.Key", value: "value" }]);
+      expect(result.content[0].text).toContain("Set 1 property");
+    });
+
+    it("returns an error when no properties are provided", async () => {
+      const handler = getHandler("core_set_project_properties");
+
+      const result = await handler({ project: "Proj", properties: {} });
+
+      expect(result.isError).toBe(true);
+      expect(mockCoreApi.setProjectProperties).not.toHaveBeenCalled();
     });
   });
 });
