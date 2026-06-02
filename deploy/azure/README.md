@@ -148,6 +148,57 @@ az account get-access-token \
 }
 ```
 
+## OAuth mode (browser sign-in)
+
+By default the server uses **token pass-through** (clients send their own Azure
+DevOps bearer token). Set `authMode=oauth` to instead run a full OAuth
+authorization server that bridges sign-in to Microsoft Entra ID. Clients that
+support dynamic client registration (e.g. Claude) can then connect with **just a
+URL** and a browser login — no manually supplied token.
+
+How it works: the server implements DCR + the OAuth metadata/authorize/token
+endpoints itself, and delegates the actual user login to Entra using a
+pre-registered confidential app. The token handed back is the Entra access token
+for Azure DevOps, so every request still acts as the signed-in user.
+
+### One-time Entra app registration (admin)
+
+An Entra admin registers a confidential app (the user can't self-register apps):
+
+1. **App registrations → New registration.** Single tenant is fine.
+2. **Redirect URI** (platform **Web**): `https://<app-fqdn>/auth/callback`
+   (for the current deployment: `https://ado-mcp.<hash>.northeurope.azurecontainerapps.io/auth/callback`).
+3. **API permissions → Add → Azure DevOps → Delegated → `user_impersonation`**, then **Grant admin consent**.
+4. **Certificates & secrets → New client secret.** Copy the value.
+5. Provide back: **tenant ID**, **client (application) ID**, **client secret**.
+
+### Deploy in OAuth mode
+
+```bash
+az deployment group create -g <my-rg> \
+  --template-file deploy/azure/main.bicep \
+  --parameters \
+      appName=ado-mcp adoOrg=<your-ado-org> \
+      acrName=<registry> acrResourceGroup=<registry-rg> assignAcrPullRole=false \
+      containerImage=<registry>.azurecr.io/ado-mcp:1.0.0 \
+      authMode=oauth \
+      entraTenantId=<tenant-id> \
+      entraClientId=<client-id> \
+      entraClientSecret=<client-secret>
+```
+
+The template stores the secret as a Container App secret, sets `MCP_PUBLIC_URL`
+to the app's HTTPS URL, and **pins the app to a single replica** (OAuth state is
+held in memory). Client config is then just the URL:
+
+```json
+{ "servers": { "ado": { "type": "http", "url": "https://<app-fqdn>/mcp" } } }
+```
+
+> Note: OAuth state (client registrations, authorization codes) is in-memory, so
+> the app runs as one always-warm replica (no scale-to-zero). The Entra client
+> secret is the only stored credential; rotate it periodically.
+
 ## CI/CD (GitHub Actions)
 
 The workflow `.github/workflows/deploy-aca.yml` builds the image on the runner,

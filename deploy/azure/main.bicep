@@ -32,6 +32,23 @@ param acrResourceGroup string = resourceGroup().name
 @description('Whether to create the AcrPull role assignment for the app identity. Requires the deployer to have permission to manage role assignments (e.g. Owner or User Access Administrator) on the registry. Set to false to assign the role out-of-band (e.g. when the ACR is in another resource group you do not control).')
 param assignAcrPullRole bool = true
 
+@description('HTTP auth mode: "passthrough" (clients send their own Azure DevOps bearer token) or "oauth" (server runs an OAuth authorization server bridging sign-in to Entra ID).')
+@allowed([
+  'passthrough'
+  'oauth'
+])
+param authMode string = 'passthrough'
+
+@description('Entra tenant ID (required when authMode is "oauth").')
+param entraTenantId string = ''
+
+@description('Entra confidential app (client) ID (required when authMode is "oauth").')
+param entraClientId string = ''
+
+@description('Entra confidential app client secret (required when authMode is "oauth").')
+@secure()
+param entraClientSecret string = ''
+
 @description('Tool domains to enable (space-separated), or "all".')
 param enabledDomains string = 'all'
 
@@ -113,6 +130,30 @@ module acrPullAssignment 'acr-pull-role.bicep' = if (assignAcrPullRole) {
 // allow.
 var appFqdn = '${appName}.${environment.properties.defaultDomain}'
 
+var isOAuth = authMode == 'oauth'
+
+var baseEnv = [
+  { name: 'AZURE_DEVOPS_ORG', value: adoOrg }
+  { name: 'MCP_TRANSPORT', value: 'http' }
+  { name: 'MCP_HOST', value: '0.0.0.0' }
+  { name: 'MCP_PORT', value: string(targetPort) }
+  { name: 'MCP_ALLOWED_HOSTS', value: appFqdn }
+  { name: 'MCP_ALLOWED_ORIGINS', value: allowedOrigins }
+  { name: 'MCP_DOMAINS', value: enabledDomains }
+  { name: 'MCP_AUTH', value: authMode }
+]
+
+// OAuth mode keeps its authorization state (client registrations, codes) in
+// memory, so it must run as a single, always-warm replica.
+var oauthEnv = isOAuth
+  ? [
+      { name: 'ENTRA_TENANT_ID', value: entraTenantId }
+      { name: 'ENTRA_CLIENT_ID', value: entraClientId }
+      { name: 'ENTRA_CLIENT_SECRET', secretRef: 'entra-client-secret' }
+      { name: 'MCP_PUBLIC_URL', value: 'https://${appFqdn}/' }
+    ]
+  : []
+
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
   location: location
@@ -142,6 +183,14 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: identity.id
         }
       ]
+      secrets: isOAuth
+        ? [
+            {
+              name: 'entra-client-secret'
+              value: entraClientSecret
+            }
+          ]
+        : []
     }
     template: {
       containers: [
@@ -152,41 +201,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json(cpu)
             memory: memory
           }
-          env: [
-            {
-              name: 'AZURE_DEVOPS_ORG'
-              value: adoOrg
-            }
-            {
-              name: 'MCP_TRANSPORT'
-              value: 'http'
-            }
-            {
-              name: 'MCP_HOST'
-              value: '0.0.0.0'
-            }
-            {
-              name: 'MCP_PORT'
-              value: string(targetPort)
-            }
-            {
-              name: 'MCP_ALLOWED_HOSTS'
-              value: appFqdn
-            }
-            {
-              name: 'MCP_ALLOWED_ORIGINS'
-              value: allowedOrigins
-            }
-            {
-              name: 'MCP_DOMAINS'
-              value: enabledDomains
-            }
-          ]
+          env: concat(baseEnv, oauthEnv)
         }
       ]
       scale: {
-        minReplicas: minReplicas
-        maxReplicas: maxReplicas
+        minReplicas: isOAuth ? 1 : minReplicas
+        maxReplicas: isOAuth ? 1 : maxReplicas
       }
     }
   }

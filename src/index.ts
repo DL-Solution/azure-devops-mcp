@@ -18,6 +18,8 @@ import { UserAgentComposer } from "./useragent.js";
 import { packageVersion } from "./version.js";
 import { DomainsManager } from "./shared/domains.js";
 import { getRequestToken, startHttpServer } from "./transports/http.js";
+import { startOAuthHttpServer } from "./transports/http-oauth.js";
+import { EntraOAuthProvider } from "./shared/oauth/entra-oauth-provider.js";
 
 function isGitHubCodespaceEnv(): boolean {
   return process.env.CODESPACES === "true" && !!process.env.CODESPACE_NAME;
@@ -62,6 +64,13 @@ const argv = yargs(hideBin(process.argv))
     type: "string",
     choices: ["stdio", "http"],
     default: "stdio",
+  })
+  .option("auth", {
+    describe:
+      "Authentication mode for the 'http' transport. 'passthrough' (default) requires each request to carry an Azure DevOps bearer token. 'oauth' runs a full OAuth authorization server bridging sign-in to Microsoft Entra ID (requires ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET, MCP_PUBLIC_URL).",
+    type: "string",
+    choices: ["passthrough", "oauth"],
+    default: "passthrough",
   })
   .option("host", {
     describe: "Host/interface to bind when using the 'http' transport. Defaults to 127.0.0.1 (loopback only); expose externally via a reverse proxy.",
@@ -137,15 +146,40 @@ function createConfiguredServer(authenticator: () => Promise<string>, connection
 }
 
 async function runHttpTransport(userAgentComposer: UserAgentComposer) {
-  logger.info("HTTP transport uses token pass-through; the '--authentication' option is ignored. Each request must supply an Azure DevOps bearer token in the 'Authorization' header.");
-
-  // Token pass-through: resolve the bearer token from the in-flight request rather
-  // than from process-wide credentials, so each caller acts as themselves and no
-  // credential is ever stored on the server.
+  // In both HTTP auth modes the Azure DevOps bearer token is resolved per-request
+  // from the in-flight context (token pass-through), so no credential is stored.
   const authenticator = () => Promise.resolve(getRequestToken());
   const connectionProvider = getAzureDevOpsClient(authenticator, userAgentComposer, "bearer");
+  const createServer = () => createConfiguredServer(authenticator, connectionProvider, userAgentComposer);
 
   const allowedHosts = argv.allowedHosts && argv.allowedHosts.length > 0 ? argv.allowedHosts : [`${argv.host}:${argv.port}`, `localhost:${argv.port}`, `127.0.0.1:${argv.port}`];
+
+  if (argv.auth === "oauth") {
+    const tenantId = process.env.ENTRA_TENANT_ID;
+    const clientId = process.env.ENTRA_CLIENT_ID;
+    const clientSecret = process.env.ENTRA_CLIENT_SECRET;
+    const publicBaseUrl = process.env.MCP_PUBLIC_URL;
+    if (!tenantId || !clientId || !clientSecret || !publicBaseUrl) {
+      throw new Error("OAuth mode requires ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET, and MCP_PUBLIC_URL environment variables.");
+    }
+
+    const provider = new EntraOAuthProvider({ tenantId, clientId, clientSecret, publicBaseUrl });
+    logger.info("HTTP transport using OAuth (Entra ID bridge). Clients authenticate via browser sign-in; the '--authentication' option is ignored.");
+
+    await startOAuthHttpServer({
+      host: argv.host,
+      port: argv.port,
+      mcpPath: argv.path,
+      publicBaseUrl,
+      allowedHosts,
+      allowedOrigins: argv.allowedOrigins,
+      provider,
+      createServer,
+    });
+    return;
+  }
+
+  logger.info("HTTP transport uses token pass-through; the '--authentication' option is ignored. Each request must supply an Azure DevOps bearer token in the 'Authorization' header.");
 
   await startHttpServer({
     host: argv.host,
@@ -153,7 +187,7 @@ async function runHttpTransport(userAgentComposer: UserAgentComposer) {
     mcpPath: argv.path,
     allowedHosts,
     allowedOrigins: argv.allowedOrigins,
-    createServer: () => createConfiguredServer(authenticator, connectionProvider, userAgentComposer),
+    createServer,
   });
 }
 
