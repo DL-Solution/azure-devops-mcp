@@ -23,10 +23,13 @@ param containerImage string
 @description('Azure DevOps organization name the server is scoped to.')
 param adoOrg string
 
-@description('Name of the existing Azure Container Registry (in this resource group) to pull the image from.')
+@description('Name of the existing Azure Container Registry to pull the image from.')
 param acrName string
 
-@description('Whether to create the AcrPull role assignment for the app identity. Requires the deployer to have permission to manage role assignments (e.g. Owner or User Access Administrator). Set to false to assign the role out-of-band.')
+@description('Resource group of the ACR. Defaults to this deployment\'s resource group; set it when reusing a registry that lives in another resource group.')
+param acrResourceGroup string = resourceGroup().name
+
+@description('Whether to create the AcrPull role assignment for the app identity. Requires the deployer to have permission to manage role assignments (e.g. Owner or User Access Administrator) on the registry. Set to false to assign the role out-of-band (e.g. when the ACR is in another resource group you do not control).')
 param assignAcrPullRole bool = true
 
 @description('Tool domains to enable (space-separated), or "all".')
@@ -55,6 +58,7 @@ var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' existing = {
   name: acrName
+  scope: resourceGroup(acrResourceGroup)
 }
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
