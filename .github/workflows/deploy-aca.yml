@@ -80,10 +80,6 @@ jobs:
         run: |
           set -euo pipefail
           ACR_SERVER=$(az acr show -n "${{ vars.ACR_NAME }}" --query loginServer -o tsv)
-          ACR_USER=$(az acr credential show -n "${{ vars.ACR_NAME }}" --query username -o tsv)
-          ACR_PASS=$(az acr credential show -n "${{ vars.ACR_NAME }}" --query 'passwords[0].value' -o tsv)
-          # Keep the registry password out of any log output.
-          echo "::add-mask::$ACR_PASS"
 
           DEPLOYMENT_NAME="deploy-${{ steps.meta.outputs.tag }}"
           az deployment group create \
@@ -93,10 +89,8 @@ jobs:
             --parameters \
               appName="${{ vars.CONTAINER_APP_NAME }}" \
               adoOrg="${{ vars.ADO_ORG }}" \
-              containerImage="$ACR_SERVER/${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}" \
-              registryServer="$ACR_SERVER" \
-              registryUsername="$ACR_USER" \
-              registryPassword="$ACR_PASS"
+              acrName="${{ vars.ACR_NAME }}" \
+              containerImage="$ACR_SERVER/${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}"
 
           MCP_URL=$(az deployment group show \
             -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
