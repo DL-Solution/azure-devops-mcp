@@ -80,6 +80,34 @@ az deployment group create \
 > (Run the deployment once with `assignAcrPullRole=false` to create the identity
 > first, assign the role, then deploy again.)
 
+### Reusing a registry in another resource group
+
+If the ACR lives in a different resource group (one you may not fully control),
+pass `acrResourceGroup` and assign `AcrPull` out-of-band:
+
+```bash
+# 1. Create the app identity up front so it can be granted AcrPull.
+az identity create -n ado-mcp-id -g <my-rg> -l northeurope
+APP_PID=$(az identity show -n ado-mcp-id -g <my-rg> --query principalId -o tsv)
+
+# 2. A registry admin grants the identity pull access (one time):
+az role assignment create --assignee-object-id "$APP_PID" \
+  --assignee-principal-type ServicePrincipal --role AcrPull \
+  --scope $(az acr show -n <registry> -g <registry-rg> --query id -o tsv)
+
+# 3. Deploy, pointing at the cross-RG registry and skipping the role assignment.
+az deployment group create \
+  --resource-group <my-rg> \
+  --template-file deploy/azure/main.bicep \
+  --parameters \
+      appName=ado-mcp \
+      adoOrg=<your-ado-org> \
+      acrName=<registry> \
+      acrResourceGroup=<registry-rg> \
+      assignAcrPullRole=false \
+      containerImage=<registry>.azurecr.io/ado-mcp:1.0.0
+```
+
 The deployment outputs the public endpoint:
 
 ```bash
