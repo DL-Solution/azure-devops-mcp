@@ -19,6 +19,8 @@ import {
   ReorderOperation,
   UpdateTaskboardColumn,
   UpdateTaskboardWorkItemColumn,
+  TeamMemberCapacityIdentityRef,
+  TeamAutomationRulesSettingsRequestModel,
 } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
@@ -77,6 +79,12 @@ const WORK_TOOLS = {
   update_taskboard_work_item_column: "work_update_taskboard_work_item_column",
   update_taskboard_card_settings: "work_update_taskboard_card_settings",
   update_taskboard_card_rule_settings: "work_update_taskboard_card_rule_settings",
+  get_column_suggested_values: "work_get_column_suggested_values",
+  get_row_suggested_values: "work_get_row_suggested_values",
+  get_board_mapping_parent_items: "work_get_board_mapping_parent_items",
+  get_team_member_capacity: "work_get_team_member_capacity",
+  replace_team_capacities: "work_replace_team_capacities",
+  update_automation_rule: "work_update_automation_rule",
 };
 
 function configureWorkTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
@@ -2125,6 +2133,196 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error updating taskboard card rule settings: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_column_suggested_values,
+    "Get the suggested values that can be used for board columns in a project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+    },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to get column suggested values for.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const values = await workApi.getColumnSuggestedValues(resolvedProject);
+
+        return { content: [{ type: "text", text: JSON.stringify(values, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching column suggested values: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_row_suggested_values,
+    "Get the suggested values that can be used for board rows (swimlanes) in a project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+    },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to get row suggested values for.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const values = await workApi.getRowSuggestedValues(resolvedProject);
+
+        return { content: [{ type: "text", text: JSON.stringify(values, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching row suggested values: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_board_mapping_parent_items,
+    "Get the parent work items mapped to a set of child work items for a board. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      childBacklogContextCategoryRefName: z.string().describe("The category reference name of the child backlog level (e.g. 'Microsoft.RequirementCategory')."),
+      workItemIds: z.array(z.number()).describe("The IDs of the child work items to find parents for."),
+    },
+    async ({ project, team, childBacklogContextCategoryRefName, workItemIds }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const mappings = await workApi.getBoardMappingParentItems(ctx.teamContext, childBacklogContextCategoryRefName, workItemIds);
+
+        return { content: [{ type: "text", text: JSON.stringify(mappings, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching board mapping parent items: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_team_member_capacity,
+    "Get the capacity of a specific team member for an iteration. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      iterationId: z.string().describe("The ID (GUID) of the iteration."),
+      teamMemberId: z.string().describe("The ID of the team member whose capacity to retrieve."),
+    },
+    async ({ project, team, iterationId, teamMemberId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const workApi = await connection.getWorkApi();
+        const capacity = await workApi.getCapacityWithIdentityRef(ctx.teamContext, iterationId, teamMemberId);
+
+        return { content: [{ type: "text", text: JSON.stringify(capacity, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching team member capacity: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.replace_team_capacities,
+    "Replace the capacities of all team members for an iteration. This overwrites the entire capacity set for the iteration. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      iterationId: z.string().describe("The ID (GUID) of the iteration."),
+      capacities: z
+        .array(
+          z.object({
+            teamMemberId: z.string().describe("The ID of the team member."),
+            activities: z
+              .array(
+                z.object({
+                  name: z.string().describe("The name of the activity (e.g., 'Development')."),
+                  capacityPerDay: z.number().describe("The capacity per day for this activity."),
+                })
+              )
+              .describe("Activities and their daily capacities for this team member."),
+            daysOff: z
+              .array(
+                z.object({
+                  start: z.string().describe("Start date of the day off in ISO format."),
+                  end: z.string().describe("End date of the day off in ISO format."),
+                })
+              )
+              .optional()
+              .describe("Days off for this team member, each with a start and end date in ISO format."),
+          })
+        )
+        .describe("The full set of team member capacities for the iteration."),
+    },
+    async ({ project, team, iterationId, capacities }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const payload: TeamMemberCapacityIdentityRef[] = capacities.map((c) => ({
+          teamMember: { id: c.teamMemberId },
+          activities: c.activities.map((a) => ({ name: a.name, capacityPerDay: a.capacityPerDay })),
+          daysOff: (c.daysOff || []).map((d) => ({ start: new Date(d.start), end: new Date(d.end) })),
+        }));
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.replaceCapacitiesWithIdentityRef(payload, ctx.teamContext, iterationId);
+
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error replacing team capacities: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.update_automation_rule,
+    "Enable or disable a team's backlog automation rules (e.g. auto state updates) for a backlog level. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      backlogLevelName: z.string().optional().describe("The name of the backlog level the rules apply to (e.g. 'Stories')."),
+      rulesStates: z.record(z.boolean()).describe("Map of automation rule name to enabled/disabled state."),
+    },
+    async ({ project, team, backlogLevelName, rulesStates }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveTeamContext(connection, project, team);
+        if ("response" in ctx) return ctx.response;
+
+        const ruleRequestModel: TeamAutomationRulesSettingsRequestModel = { backlogLevelName, rulesStates };
+        const workApi = await connection.getWorkApi();
+        await workApi.updateAutomationRule(ruleRequestModel, ctx.teamContext);
+
+        return { content: [{ type: "text", text: "Automation rules updated" }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error updating automation rule: ${errorMessage}` }], isError: true };
       }
     }
   );
