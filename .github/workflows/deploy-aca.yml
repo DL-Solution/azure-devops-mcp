@@ -1,12 +1,14 @@
 name: Deploy to Azure Container Apps
 
-# Builds the image in Azure Container Registry and deploys the Bicep template
-# to Azure Container Apps. Authenticates to Azure with OIDC (federated
-# credentials) so no long-lived cloud secrets are stored in GitHub.
+# Builds the image and deploys the Bicep template to Azure Container Apps.
+# Authenticates to Azure with OIDC (federated credentials) so no long-lived
+# cloud secrets are stored in GitHub. The image is built on the runner and
+# pushed to the registry with `docker push` (the deploy identity needs AcrPush).
 #
 # Required configuration (Settings -> Secrets and variables -> Actions):
 #   Secrets:   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
-#   Variables: AZURE_RESOURCE_GROUP, ACR_NAME, CONTAINER_APP_NAME, ADO_ORG
+#   Variables: AZURE_RESOURCE_GROUP, ACR_NAME, ACR_RESOURCE_GROUP,
+#              CONTAINER_APP_NAME, ADO_ORG
 # See deploy/azure/README.md ("CI/CD") for one-time setup.
 
 on:
@@ -68,19 +70,20 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Build image in Azure Container Registry
-        run: |
-          az acr build \
-            --registry "${{ vars.ACR_NAME }}" \
-            --image "${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}" \
-            --file Dockerfile .
-
-      - name: Deploy Bicep to Azure Container Apps
-        id: deploy
+      - name: Build and push image
+        id: build
         run: |
           set -euo pipefail
-          ACR_SERVER=$(az acr show -n "${{ vars.ACR_NAME }}" --query loginServer -o tsv)
+          ACR_SERVER="${{ vars.ACR_NAME }}.azurecr.io"
+          IMAGE="$ACR_SERVER/${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}"
+          az acr login -n "${{ vars.ACR_NAME }}"
+          docker build -t "$IMAGE" -f Dockerfile .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
+      - name: Deploy Bicep to Azure Container Apps
+        run: |
+          set -euo pipefail
           DEPLOYMENT_NAME="deploy-${{ steps.meta.outputs.tag }}"
           az deployment group create \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
@@ -90,7 +93,9 @@ jobs:
               appName="${{ vars.CONTAINER_APP_NAME }}" \
               adoOrg="${{ vars.ADO_ORG }}" \
               acrName="${{ vars.ACR_NAME }}" \
-              containerImage="$ACR_SERVER/${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}"
+              acrResourceGroup="${{ vars.ACR_RESOURCE_GROUP }}" \
+              assignAcrPullRole=false \
+              containerImage="${{ steps.build.outputs.image }}"
 
           MCP_URL=$(az deployment group show \
             -g "${{ vars.AZURE_RESOURCE_GROUP }}" \

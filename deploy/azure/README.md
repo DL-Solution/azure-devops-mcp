@@ -150,25 +150,26 @@ az account get-access-token \
 
 ## CI/CD (GitHub Actions)
 
-The workflow `.github/workflows/deploy-aca.yml` builds the image in ACR and
-deploys the Bicep template. It runs on pushes to `main` that touch the app or
-deployment files, and can also be triggered manually (`workflow_dispatch`). It
-authenticates to Azure with **OIDC federated credentials**, so no cloud
-passwords are stored in GitHub.
+The workflow `.github/workflows/deploy-aca.yml` builds the image on the runner,
+pushes it to the registry (`docker push`), and deploys the Bicep template. It
+runs on pushes to `main` that touch the app or deployment files, and can also be
+triggered manually (`workflow_dispatch`). It authenticates to Azure with **OIDC
+federated credentials**, so no cloud passwords are stored in GitHub.
 
 ### Required GitHub configuration
 
 Under **Settings → Secrets and variables → Actions**:
 
-| Kind     | Name                    | Example / meaning                     |
-| -------- | ----------------------- | ------------------------------------- |
-| Secret   | `AZURE_CLIENT_ID`       | App registration (client) ID for OIDC |
-| Secret   | `AZURE_TENANT_ID`       | Entra tenant ID                       |
-| Secret   | `AZURE_SUBSCRIPTION_ID` | Target subscription ID                |
-| Variable | `AZURE_RESOURCE_GROUP`  | `ado-mcp-rg`                          |
-| Variable | `ACR_NAME`              | Your Azure Container Registry name    |
-| Variable | `CONTAINER_APP_NAME`    | `ado-mcp`                             |
-| Variable | `ADO_ORG`               | Your Azure DevOps organization name   |
+| Kind     | Name                    | Example / meaning                             |
+| -------- | ----------------------- | --------------------------------------------- |
+| Secret   | `AZURE_CLIENT_ID`       | App registration (client) ID for OIDC         |
+| Secret   | `AZURE_TENANT_ID`       | Entra tenant ID                               |
+| Secret   | `AZURE_SUBSCRIPTION_ID` | Target subscription ID                        |
+| Variable | `AZURE_RESOURCE_GROUP`  | RG to deploy into, e.g. `dev_sanbox`          |
+| Variable | `ACR_NAME`              | Container Registry name, e.g. `tdsregistry`   |
+| Variable | `ACR_RESOURCE_GROUP`    | RG that holds the registry, e.g. `Kubernetes` |
+| Variable | `CONTAINER_APP_NAME`    | `ado-mcp`                                     |
+| Variable | `ADO_ORG`               | Your Azure DevOps organization name           |
 
 ### One-time OIDC setup
 
@@ -185,16 +186,22 @@ az ad app federated-credential create --id "$APP_ID" --parameters '{
   "audiences": ["api://AzureADTokenExchange"]
 }'
 
-# 3. Grant it rights on the resource group.
+# 3. Grant it rights.
 SUB=$(az account show --query id -o tsv)
-RG_SCOPE="/subscriptions/$SUB/resourceGroups/ado-mcp-rg"
-# Contributor: build the image and deploy the template.
-az role assignment create --assignee "$APP_ID" --role Contributor --scope "$RG_SCOPE"
-# Role Based Access Control Administrator: the template creates the app's
-# AcrPull role assignment. Omit this if you deploy with assignAcrPullRole=false
-# and assign AcrPull out-of-band instead.
-az role assignment create --assignee "$APP_ID" --role "Role Based Access Control Administrator" --scope "$RG_SCOPE"
+# Contributor on the deployment RG: create the env/app/identity and deploy.
+az role assignment create --assignee "$APP_ID" --role Contributor \
+  --scope "/subscriptions/$SUB/resourceGroups/<deploy-rg>"
+# AcrPush on the registry: push the built image (data-plane push/pull only).
+az role assignment create --assignee "$APP_ID" --role AcrPush \
+  --scope $(az acr show -n <registry> -g <registry-rg> --query id -o tsv)
 ```
+
+> The workflow deploys with `assignAcrPullRole=false`, so the CI identity does
+> **not** need rights to manage role assignments. Grant the app identity
+> (`ado-mcp-id`) `AcrPull` on the registry separately (see "Reusing a registry
+> in another resource group" above). If instead you want the template to assign
+> `AcrPull` itself, also give the CI identity **Role Based Access Control
+> Administrator** on the registry and deploy with `assignAcrPullRole=true`.
 
 Then set `AZURE_CLIENT_ID=$APP_ID`, `AZURE_TENANT_ID`, and
 `AZURE_SUBSCRIPTION_ID` as repository secrets.
