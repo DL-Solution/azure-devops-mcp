@@ -6,6 +6,10 @@
 // is derived from the managed environment's default domain. No Azure DevOps
 // credentials are stored here: the server uses token pass-through, so each
 // request must carry the caller's bearer token.
+//
+// The image is pulled from Azure Container Registry using a user-assigned
+// managed identity granted the AcrPull role — no registry username/password is
+// stored anywhere.
 
 @description('Base name for the Container App and supporting resources.')
 param appName string = 'ado-mcp'
@@ -18,6 +22,12 @@ param containerImage string
 
 @description('Azure DevOps organization name the server is scoped to.')
 param adoOrg string
+
+@description('Name of the existing Azure Container Registry (in this resource group) to pull the image from.')
+param acrName string
+
+@description('Whether to create the AcrPull role assignment for the app identity. Requires the deployer to have permission to manage role assignments (e.g. Owner or User Access Administrator). Set to false to assign the role out-of-band.')
+param assignAcrPullRole bool = true
 
 @description('Tool domains to enable (space-separated), or "all".')
 param enabledDomains string = 'all'
@@ -40,17 +50,12 @@ param cpu string = '0.5'
 @description('Memory per replica.')
 param memory string = '1Gi'
 
-@description('Container registry login server (e.g. myregistry.azurecr.io). Leave empty for a public image.')
-param registryServer string = ''
+// Built-in AcrPull role definition ID.
+var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 
-@description('Container registry username. Leave empty when using a public image.')
-param registryUsername string = ''
-
-@description('Container registry password.')
-@secure()
-param registryPassword string = ''
-
-var useRegistry = !empty(registryServer)
+resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' existing = {
+  name: acrName
+}
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${appName}-logs'
@@ -77,6 +82,23 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   }
 }
 
+// User-assigned identity the Container App uses to pull from ACR. Created (and
+// granted AcrPull) before the app so the first revision can pull successfully.
+resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${appName}-id'
+  location: location
+}
+
+resource acrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (assignAcrPullRole) {
+  name: guid(acr.id, identity.id, acrPullRoleId)
+  scope: acr
+  properties: {
+    principalId: identity.properties.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Public FQDN of the app: "<appName>.<environment default domain>". This is the
 // Host header callers send, so it is exactly what DNS rebinding protection must
 // allow.
@@ -85,6 +107,16 @@ var appFqdn = '${appName}.${environment.properties.defaultDomain}'
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
   location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${identity.id}': {}
+    }
+  }
+  // Ensure the AcrPull role exists before the app attempts its first image pull.
+  dependsOn: [
+    acrPull
+  ]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
@@ -95,19 +127,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'auto'
         allowInsecure: false
       }
-      registries: useRegistry ? [
+      registries: [
         {
-          server: registryServer
-          username: registryUsername
-          passwordSecretRef: 'registry-password'
+          server: acr.properties.loginServer
+          identity: identity.id
         }
-      ] : []
-      secrets: useRegistry ? [
-        {
-          name: 'registry-password'
-          value: registryPassword
-        }
-      ] : []
+      ]
     }
     template: {
       containers: [

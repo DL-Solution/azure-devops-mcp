@@ -52,6 +52,9 @@ docker push <myregistry>.azurecr.io/ado-mcp:1.0.0
 
 ## 2. Deploy
 
+The image is pulled with a **user-assigned managed identity** that the template
+grants the `AcrPull` role — no registry username/password is stored anywhere.
+
 ```bash
 az deployment group create \
   --resource-group <my-rg> \
@@ -59,13 +62,23 @@ az deployment group create \
   --parameters \
       appName=ado-mcp \
       adoOrg=<your-ado-org> \
-      containerImage=<myregistry>.azurecr.io/ado-mcp:1.0.0 \
-      registryServer=<myregistry>.azurecr.io \
-      registryUsername=<acr-username> \
-      registryPassword=<acr-password>
+      acrName=<myregistry> \
+      containerImage=<myregistry>.azurecr.io/ado-mcp:1.0.0
 ```
 
-For a public image, omit the three `registry*` parameters.
+> Creating the `AcrPull` role assignment requires the deployer to have
+> permission to manage role assignments (e.g. **Owner** or **User Access
+> Administrator** on the resource group). If you only have **Contributor**,
+> pass `assignAcrPullRole=false` and create the assignment separately:
+>
+> ```bash
+> APP_PID=$(az identity show -g <my-rg> -n ado-mcp-id --query principalId -o tsv)
+> az role assignment create --assignee "$APP_PID" --role AcrPull \
+>   --scope $(az acr show -n <myregistry> -g <my-rg> --query id -o tsv)
+> ```
+>
+> (Run the deployment once with `assignAcrPullRole=false` to create the identity
+> first, assign the role, then deploy again.)
 
 The deployment outputs the public endpoint:
 
@@ -144,12 +157,15 @@ az ad app federated-credential create --id "$APP_ID" --parameters '{
   "audiences": ["api://AzureADTokenExchange"]
 }'
 
-# 3. Grant it rights on the resource group (covers ACR build + ACA deploy).
+# 3. Grant it rights on the resource group.
 SUB=$(az account show --query id -o tsv)
-az role assignment create \
-  --assignee "$APP_ID" \
-  --role Contributor \
-  --scope "/subscriptions/$SUB/resourceGroups/ado-mcp-rg"
+RG_SCOPE="/subscriptions/$SUB/resourceGroups/ado-mcp-rg"
+# Contributor: build the image and deploy the template.
+az role assignment create --assignee "$APP_ID" --role Contributor --scope "$RG_SCOPE"
+# Role Based Access Control Administrator: the template creates the app's
+# AcrPull role assignment. Omit this if you deploy with assignAcrPullRole=false
+# and assign AcrPull out-of-band instead.
+az role assignment create --assignee "$APP_ID" --role "Role Based Access Control Administrator" --scope "$RG_SCOPE"
 ```
 
 Then set `AZURE_CLIENT_ID=$APP_ID`, `AZURE_TENANT_ID`, and
@@ -177,6 +193,9 @@ The image is configured entirely through environment variables (see
 
 ## Security notes
 
+- The image is pulled via a **user-assigned managed identity** with the
+  `AcrPull` role — no registry password is stored. You can keep the ACR admin
+  user **disabled** (`az acr update -n <myregistry> --admin-enabled false`).
 - Keep ingress `allowInsecure: false` (HTTP is redirected to HTTPS).
 - The server never logs tokens or request bodies.
 - Scale-to-zero (`minReplicas: 0`) is possible but adds cold-start latency to
