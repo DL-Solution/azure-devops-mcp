@@ -18,6 +18,11 @@ interface WorkApiMock {
   getTotalIterationCapacities: jest.Mock;
   getTeamSettings: jest.Mock;
   getTeamFieldValues: jest.Mock;
+  getPlans: jest.Mock;
+  getPlan: jest.Mock;
+  createPlan: jest.Mock;
+  updatePlan: jest.Mock;
+  deletePlan: jest.Mock;
 }
 
 interface WorkItemTrackingApiMock {
@@ -51,6 +56,11 @@ describe("configureWorkTools", () => {
       getTotalIterationCapacities: jest.fn(),
       getTeamSettings: jest.fn(),
       getTeamFieldValues: jest.fn(),
+      getPlans: jest.fn(),
+      getPlan: jest.fn(),
+      createPlan: jest.fn(),
+      updatePlan: jest.fn(),
+      deletePlan: jest.fn(),
     };
 
     mockWorkItemTrackingApi = {
@@ -3073,6 +3083,111 @@ describe("configureWorkTools", () => {
 
       expect(result.content[0].text).toBe("Team selection cancelled.");
       expect(mockWorkApi.getTeamSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  const getPlanHandler = (toolName: string) => {
+    configureWorkTools(server, tokenProvider, connectionProvider);
+    const call = (server.tool as jest.Mock).mock.calls.find(([name]) => name === toolName);
+    if (!call) throw new Error(`${toolName} tool not registered`);
+    return call[3];
+  };
+
+  describe("list_plans tool", () => {
+    it("returns delivery plans for a project", async () => {
+      const handler = getPlanHandler("work_list_plans");
+
+      mockWorkApi.getPlans.mockResolvedValue([{ id: "plan-1", name: "Plan One" }]);
+
+      const result = await handler({ project: "Proj" });
+
+      expect(mockWorkApi.getPlans).toHaveBeenCalledWith("Proj");
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: "plan-1", name: "Plan One" }], null, 2));
+    });
+
+    it("returns an error when no plans are found", async () => {
+      const handler = getPlanHandler("work_list_plans");
+
+      mockWorkApi.getPlans.mockResolvedValue([]);
+
+      const result = await handler({ project: "Proj" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("No delivery plans found");
+    });
+  });
+
+  describe("get_plan tool", () => {
+    it("returns a single delivery plan", async () => {
+      const handler = getPlanHandler("work_get_plan");
+
+      mockWorkApi.getPlan.mockResolvedValue({ id: "plan-1", name: "Plan One" });
+
+      const result = await handler({ project: "Proj", id: "plan-1" });
+
+      expect(mockWorkApi.getPlan).toHaveBeenCalledWith("Proj", "plan-1");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-1", name: "Plan One" }, null, 2));
+    });
+  });
+
+  describe("create_plan tool", () => {
+    it("creates a delivery plan", async () => {
+      const handler = getPlanHandler("work_create_plan");
+
+      mockWorkApi.createPlan.mockResolvedValue({ id: "plan-2", name: "New Plan" });
+
+      const result = await handler({ project: "Proj", name: "New Plan", description: "desc" });
+
+      expect(mockWorkApi.createPlan).toHaveBeenCalledWith({ name: "New Plan", description: "desc", type: 0, properties: undefined }, "Proj");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-2", name: "New Plan" }, null, 2));
+    });
+
+    it("handles API errors", async () => {
+      const handler = getPlanHandler("work_create_plan");
+
+      mockWorkApi.createPlan.mockRejectedValue(new Error("boom"));
+
+      const result = await handler({ project: "Proj", name: "New Plan" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error creating delivery plan: boom");
+    });
+  });
+
+  describe("update_plan tool", () => {
+    it("updates a delivery plan with the provided revision", async () => {
+      const handler = getPlanHandler("work_update_plan");
+
+      mockWorkApi.updatePlan.mockResolvedValue({ id: "plan-1", name: "Updated" });
+
+      const result = await handler({ project: "Proj", id: "plan-1", revision: 3, name: "Updated" });
+
+      expect(mockWorkApi.updatePlan).toHaveBeenCalledWith({ name: "Updated", description: undefined, revision: 3, type: 0, properties: undefined }, "Proj", "plan-1");
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-1", name: "Updated" }, null, 2));
+    });
+  });
+
+  describe("delete_plan tool", () => {
+    it("deletes a delivery plan", async () => {
+      const handler = getPlanHandler("work_delete_plan");
+
+      mockWorkApi.deletePlan.mockResolvedValue(undefined);
+
+      const result = await handler({ project: "Proj", id: "plan-1" });
+
+      expect(mockWorkApi.deletePlan).toHaveBeenCalledWith("Proj", "plan-1");
+      expect(result.content[0].text).toContain("deleted");
+    });
+
+    it("handles API errors", async () => {
+      const handler = getPlanHandler("work_delete_plan");
+
+      mockWorkApi.deletePlan.mockRejectedValue(new Error("denied"));
+
+      const result = await handler({ project: "Proj", id: "plan-1" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error deleting delivery plan: denied");
     });
   });
 });
