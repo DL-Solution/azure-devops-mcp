@@ -15,6 +15,10 @@
 | Core              | [mcp_ado_core_create_team](#mcp_ado_core_create_team)                                                     | Create a new team in a project                                    |
 | Core              | [mcp_ado_core_update_team](#mcp_ado_core_update_team)                                                     | Update an existing team in a project                              |
 | Core              | [mcp_ado_core_delete_team](#mcp_ado_core_delete_team)                                                     | Delete a team from a project                                      |
+| Core              | [mcp_ado_core_list_processes](#mcp_ado_core_list_processes)                                               | List organization process templates                               |
+| Core              | [mcp_ado_core_list_team_members](#mcp_ado_core_list_team_members)                                         | List members of a team                                            |
+| Core              | [mcp_ado_core_get_project_properties](#mcp_ado_core_get_project_properties)                               | Get project properties                                            |
+| Core              | [mcp_ado_core_set_project_properties](#mcp_ado_core_set_project_properties)                               | Set project properties                                            |
 | Pipelines         | [mcp_ado_pipelines_create_pipeline](#mcp_ado_pipelines_create_pipeline)                                   | Create a new pipeline with YAML configuration                     |
 | Pipelines         | [mcp_ado_pipelines_get_builds](#mcp_ado_pipelines_get_builds)                                             | Retrieve a list of builds with optional filters                   |
 | Pipelines         | [mcp_ado_pipelines_get_build_status](#mcp_ado_pipelines_get_build_status)                                 | Get the status of a specific build                                |
@@ -110,6 +114,12 @@
 | Work              | [mcp_ado_work_update_iteration](#mcp_ado_work_update_iteration)                                           | Update an iteration's name or dates                               |
 | Work              | [mcp_ado_work_delete_iteration](#mcp_ado_work_delete_iteration)                                           | Delete an iteration (reclassify work items)                       |
 | Work              | [mcp_ado_work_set_team_area_paths](#mcp_ado_work_set_team_area_paths)                                     | Set a team's default and owned area paths                         |
+| Work              | [mcp_ado_work_list_boards](#mcp_ado_work_list_boards)                                                     | List a team's boards                                              |
+| Work              | [mcp_ado_work_get_board_columns](#mcp_ado_work_get_board_columns)                                         | Get a board's columns                                             |
+| Work              | [mcp_ado_work_get_board_rows](#mcp_ado_work_get_board_rows)                                               | Get a board's rows (swimlanes)                                    |
+| Work              | [mcp_ado_work_get_backlog_configuration](#mcp_ado_work_get_backlog_configuration)                         | Get a team's backlog configuration                                |
+| Work              | [mcp_ado_work_get_team_days_off](#mcp_ado_work_get_team_days_off)                                         | Get a team's days off for an iteration                            |
+| Work              | [mcp_ado_work_set_team_days_off](#mcp_ado_work_set_team_days_off)                                         | Set a team's days off for an iteration                            |
 
 ## Advanced Security
 
@@ -190,6 +200,34 @@ Update an existing team in an Azure DevOps project.
 Permanently delete a team from an Azure DevOps project. This is a destructive operation.
 
 - **Required**: `team`
+- **Optional**: `project`
+
+### mcp_ado_core_list_processes
+
+List the process templates available in the organization (Agile, Scrum, Basic, CMMI, custom).
+
+- **Required**: None
+- **Optional**: None
+
+### mcp_ado_core_list_team_members
+
+List the members of a team.
+
+- **Required**: None
+- **Optional**: `project`, `team`, `top`, `skip`
+
+### mcp_ado_core_get_project_properties
+
+Get the properties of a project (optionally filtered by key, wildcards supported).
+
+- **Required**: None
+- **Optional**: `project`, `keys`
+
+### mcp_ado_core_set_project_properties
+
+Create or update properties on a project.
+
+- **Required**: `properties`
 - **Optional**: `project`
 
 ## Pipelines
@@ -894,3 +932,45 @@ Set the area paths owned by a team (the default area path and/or the full set of
 
 - **Required**: None
 - **Optional**: `project`, `team`, `defaultAreaPath`, `areaPaths`
+
+### mcp_ado_work_list_boards
+
+List the boards for a team.
+
+- **Required**: None
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_board_columns
+
+Get the columns of a board.
+
+- **Required**: `board`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_board_rows
+
+Get the rows (swimlanes) of a board.
+
+- **Required**: `board`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_backlog_configuration
+
+Get a team's backlog configuration (portfolio/requirement/task backlogs and their work item types).
+
+- **Required**: None
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_get_team_days_off
+
+Get a team's days off for a specific iteration.
+
+- **Required**: `iterationId`
+- **Optional**: `project`, `team`
+
+### mcp_ado_work_set_team_days_off
+
+Set a team's days off for a specific iteration (replaces the existing set).
+
+- **Required**: `iterationId`, `daysOff`
+- **Optional**: `project`, `team`

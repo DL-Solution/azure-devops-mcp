@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { searchIdentities } from "./auth.js";
-import { elicitProject } from "../shared/elicitations.js";
+import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
 import type { ProjectInfo, TeamProject, WebApiTeam } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
 import { ProjectVisibility } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
@@ -21,6 +21,10 @@ const CORE_TOOLS = {
   create_team: "core_create_team",
   update_team: "core_update_team",
   delete_team: "core_delete_team",
+  list_processes: "core_list_processes",
+  list_team_members: "core_list_team_members",
+  get_project_properties: "core_get_project_properties",
+  set_project_properties: "core_set_project_properties",
 };
 
 const projectVisibilityMap: Record<string, ProjectVisibility> = {
@@ -404,6 +408,163 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         return {
           content: [{ type: "text", text: `Error deleting team: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(CORE_TOOLS.list_processes, "List the process templates available in the Azure DevOps organization (e.g. Agile, Scrum, Basic, CMMI).", {}, async () => {
+    try {
+      const connection = await connectionProvider();
+      const coreApi = await connection.getCoreApi();
+      const processes = await coreApi.getProcesses();
+
+      if (!processes || processes.length === 0) {
+        return { content: [{ type: "text", text: "No processes found" }], isError: true };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(processes, null, 2) }],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+      return {
+        content: [{ type: "text", text: `Error fetching processes: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  });
+
+  server.tool(
+    CORE_TOOLS.list_team_members,
+    "List the members of a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, a team selection prompt will be shown."),
+      top: z.coerce.number().optional().describe("The maximum number of members to return."),
+      skip: z.coerce.number().optional().describe("The number of members to skip for pagination."),
+    },
+    async ({ project, team, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team to list members for.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const members = await coreApi.getTeamMembersWithExtendedProperties(resolvedProject, resolvedTeam, top, skip);
+
+        if (!members || members.length === 0) {
+          return { content: [{ type: "text", text: "No team members found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(members, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching team members: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.get_project_properties,
+    "Get the properties of an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      keys: z.array(z.string()).optional().describe("Optional list of property keys to retrieve. If omitted, all properties are returned. Supports wildcards (e.g. 'System.*')."),
+    },
+    async ({ project, keys }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to read properties from.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const existing = await coreApi.getProject(resolvedProject);
+        if (!existing?.id) {
+          return { content: [{ type: "text", text: `Project '${resolvedProject}' not found.` }], isError: true };
+        }
+
+        const properties = await coreApi.getProjectProperties(existing.id, keys);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(properties ?? [], null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching project properties: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    CORE_TOOLS.set_project_properties,
+    "Set (create or update) properties on an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown."),
+      properties: z.record(z.string()).describe("Map of property name to value to set on the project."),
+    },
+    async ({ project, properties }) => {
+      try {
+        const entries = Object.entries(properties);
+        if (entries.length === 0) {
+          return { content: [{ type: "text", text: "No properties provided." }], isError: true };
+        }
+
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to set properties on.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        const existing = await coreApi.getProject(resolvedProject);
+        if (!existing?.id) {
+          return { content: [{ type: "text", text: `Project '${resolvedProject}' not found.` }], isError: true };
+        }
+
+        const patchDocument = entries.map(([key, value]) => ({ op: "add", path: `/${key}`, value }));
+        await coreApi.setProjectProperties(undefined, existing.id, patchDocument);
+
+        return {
+          content: [{ type: "text", text: `Set ${entries.length} propert${entries.length === 1 ? "y" : "ies"} on project '${resolvedProject}'.` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error setting project properties: ${errorMessage}` }],
           isError: true,
         };
       }

@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { TreeStructureGroup, TreeNodeStructureType, WorkItemClassificationNode } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
-import { CreatePlan, UpdatePlan, PlanType, TeamFieldValuesPatch } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
+import { CreatePlan, UpdatePlan, PlanType, TeamFieldValuesPatch, TeamSettingsDaysOffPatch } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
 const WORK_TOOLS = {
@@ -29,6 +29,12 @@ const WORK_TOOLS = {
   update_iteration: "work_update_iteration",
   delete_iteration: "work_delete_iteration",
   set_team_area_paths: "work_set_team_area_paths",
+  list_boards: "work_list_boards",
+  get_board_columns: "work_get_board_columns",
+  get_board_rows: "work_get_board_rows",
+  get_backlog_configuration: "work_get_backlog_configuration",
+  get_team_days_off: "work_get_team_days_off",
+  set_team_days_off: "work_set_team_days_off",
 };
 
 function configureWorkTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
@@ -1014,6 +1020,286 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return {
           content: [{ type: "text", text: `Error setting team area paths: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.list_boards,
+    "List the boards for a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. Reuse from prior context if already known. If not provided, a team selection prompt will be shown."),
+    },
+    async ({ project, team }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project to list boards for.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team to list boards for.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const boards = await workApi.getBoards({ project: resolvedProject, team: resolvedTeam });
+
+        if (!boards || boards.length === 0) {
+          return { content: [{ type: "text", text: "No boards found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(boards, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching boards: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_board_columns,
+    "Get the columns of a board for a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. Reuse from prior context if already known. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board (e.g. 'Stories', 'Features')."),
+    },
+    async ({ project, team, board }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const columns = await workApi.getBoardColumns({ project: resolvedProject, team: resolvedTeam }, board);
+
+        if (!columns || columns.length === 0) {
+          return { content: [{ type: "text", text: "No board columns found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(columns, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching board columns: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_board_rows,
+    "Get the rows (swimlanes) of a board for a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. Reuse from prior context if already known. If not provided, a team selection prompt will be shown."),
+      board: z.string().describe("The name or ID of the board (e.g. 'Stories', 'Features')."),
+    },
+    async ({ project, team, board }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const rows = await workApi.getBoardRows({ project: resolvedProject, team: resolvedTeam }, board);
+
+        if (!rows || rows.length === 0) {
+          return { content: [{ type: "text", text: "No board rows found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching board rows: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_backlog_configuration,
+    "Get the backlog configuration (portfolio/requirement/task backlogs and their work item types) for a team. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. Reuse from prior context if already known. If not provided, a team selection prompt will be shown."),
+    },
+    async ({ project, team }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const config = await workApi.getBacklogConfigurations({ project: resolvedProject, team: resolvedTeam });
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(config, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching backlog configuration: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.get_team_days_off,
+    "Get a team's days off for a specific iteration. If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. Reuse from prior context if already known. If not provided, a team selection prompt will be shown."),
+      iterationId: z.string().describe("The ID of the iteration to get days off for."),
+    },
+    async ({ project, team, iterationId }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const workApi = await connection.getWorkApi();
+        const daysOff = await workApi.getTeamDaysOff({ project: resolvedProject, team: resolvedTeam }, iterationId);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(daysOff, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching team days off: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORK_TOOLS.set_team_days_off,
+    "Set a team's days off for a specific iteration (replaces the existing set). If a project or team is not specified, you will be prompted to select one.",
+    {
+      project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
+      team: z.string().optional().describe("The name or ID of the Azure DevOps team. Reuse from prior context if already known. If not provided, a team selection prompt will be shown."),
+      iterationId: z.string().describe("The ID of the iteration to set days off for."),
+      daysOff: z
+        .array(
+          z.object({
+            start: z.string().describe("Start date in ISO format (e.g. '2023-01-02T00:00:00Z')."),
+            end: z.string().describe("End date in ISO format (e.g. '2023-01-03T00:00:00Z')."),
+          })
+        )
+        .describe("The full set of day-off ranges for the team in this iteration. Replaces the existing set; pass an empty array to clear."),
+    },
+    async ({ project, team, iterationId, daysOff }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+
+        let resolvedTeam = team;
+        if (!resolvedTeam) {
+          const result = await elicitTeam(server, connection, resolvedProject, "Select the Azure DevOps team.");
+          if ("response" in result) return result.response;
+          resolvedTeam = result.resolved;
+        }
+
+        const patch: TeamSettingsDaysOffPatch = {
+          daysOff: daysOff.map((d) => ({ start: new Date(d.start), end: new Date(d.end) })),
+        };
+
+        const workApi = await connection.getWorkApi();
+        const result = await workApi.updateTeamDaysOff(patch, { project: resolvedProject, team: resolvedTeam }, iterationId);
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error setting team days off: ${errorMessage}` }],
           isError: true,
         };
       }
