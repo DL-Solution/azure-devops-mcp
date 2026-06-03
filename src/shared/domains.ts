@@ -24,6 +24,7 @@ export enum Domain {
   WIT_PROCESS = "wit-process",
   NOTIFICATION = "notification",
   SECURITY_ROLES = "security-roles",
+  PROJECT_ANALYSIS = "project-analysis",
 }
 
 export const ALL_DOMAINS = "all";
