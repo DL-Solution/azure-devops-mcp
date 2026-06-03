@@ -36,6 +36,9 @@ export interface OAuthHttpTransportOptions {
 export async function startOAuthHttpServer(opts: OAuthHttpTransportOptions): Promise<Server> {
   const app = express();
   app.disable("x-powered-by");
+  // ACA ingress sets X-Forwarded-For; without this express-rate-limit (used by
+  // the MCP SDK auth router) throws a ValidationError and breaks every request.
+  app.set("trust proxy", 1);
 
   const issuerUrl = new URL(opts.publicBaseUrl);
   const resourceMetadataUrl = new URL("/.well-known/oauth-protected-resource", opts.publicBaseUrl).toString();
