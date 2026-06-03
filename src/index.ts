@@ -137,12 +137,56 @@ function createConfiguredServer(authenticator: () => Promise<string>, connection
     userAgentComposer.appendMcpClientInfo(server.server.getClientVersion());
   };
 
+  instrumentToolErrors(server);
+
   // removing prompts untill further notice
   // configurePrompts(server);
 
   configureAllTools(server, authenticator, connectionProvider, () => userAgentComposer.userAgent, enabledDomains);
 
   return server;
+}
+
+// Wrap tool registration so every handler logs its failures server-side. MCP
+// clients may render a returned `isError` result as a generic message (hiding
+// the text we put in it), and our per-tool catch blocks only return the error,
+// never log it — so without this the real Azure DevOps exception never reaches
+// the container logs. Here we record both thrown exceptions and isError results
+// (with the tool name) to stderr -> Log Analytics for tracing. No tokens or
+// request bodies are touched.
+function instrumentToolErrors(server: McpServer): void {
+  const originalTool = server.tool.bind(server) as (...args: unknown[]) => unknown;
+
+  const wrapped = (...args: unknown[]): unknown => {
+    const toolName = typeof args[0] === "string" ? (args[0] as string) : "unknown";
+    const cbIndex = args.length - 1;
+    const callback = args[cbIndex];
+
+    if (typeof callback === "function") {
+      const original = callback as (...cbArgs: unknown[]) => unknown;
+      args[cbIndex] = async (...cbArgs: unknown[]): Promise<unknown> => {
+        try {
+          const result = await original(...cbArgs);
+          const r = result as { isError?: boolean; content?: { text?: string }[] } | undefined;
+          if (r?.isError) {
+            const detail = (r.content ?? [])
+              .map((c) => c?.text)
+              .filter(Boolean)
+              .join(" ");
+            logger.error("Tool returned error result", { tool: toolName, detail });
+          }
+          return result;
+        } catch (error) {
+          logger.error("Tool threw", { tool: toolName, error: error instanceof Error ? (error.stack ?? error.message) : String(error) });
+          throw error;
+        }
+      };
+    }
+
+    return originalTool(...args);
+  };
+
+  (server as unknown as { tool: (...args: unknown[]) => unknown }).tool = wrapped;
 }
 
 async function runHttpTransport(userAgentComposer: UserAgentComposer) {
