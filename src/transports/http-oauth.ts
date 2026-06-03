@@ -58,6 +58,14 @@ export async function startOAuthHttpServer(opts: OAuthHttpTransportOptions): Pro
 
   // The MCP endpoint, gated by a valid bearer token (validated by the provider).
   app.post(opts.mcpPath, requireBearerAuth({ verifier: opts.provider, resourceMetadataUrl }), async (req, res) => {
+    // Access log: record the caller's source IP. Behind the ACA ingress the real
+    // client address is the first hop in X-Forwarded-For. Lets you verify the
+    // connector's egress IPs (e.g. against Anthropic's published ranges) and
+    // correlate with the 401/403 alert. No token or request body is logged.
+    const forwardedFor = Array.isArray(req.headers["x-forwarded-for"]) ? req.headers["x-forwarded-for"][0] : req.headers["x-forwarded-for"];
+    const clientIp = (forwardedFor?.split(",")[0] ?? req.socket.remoteAddress ?? "unknown").trim();
+    logger.info("MCP request", { clientIp });
+
     // Match the passthrough transport's Origin policy: reject any browser Origin
     // not on the allow-list (the SDK only checks Origin when one is configured).
     const origin = Array.isArray(req.headers.origin) ? req.headers.origin[0] : req.headers.origin;
