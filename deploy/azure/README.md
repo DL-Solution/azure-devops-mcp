@@ -221,6 +221,21 @@ Under **Settings → Secrets and variables → Actions**:
 | Variable | `ACR_RESOURCE_GROUP`    | RG that holds the registry, e.g. `Kubernetes` |
 | Variable | `CONTAINER_APP_NAME`    | `ado-mcp`                                     |
 | Variable | `ADO_ORG`               | Your Azure DevOps organization name           |
+| Variable | `ENTRA_TENANT_ID`       | Tenant of the OAuth app registration          |
+| Variable | `ENTRA_CLIENT_ID`       | OAuth confidential app (client) ID            |
+| Secret   | `ENTRA_CLIENT_SECRET`   | OAuth confidential app client secret          |
+
+> The workflow deploys with `authMode=oauth`, so the server runs a full OAuth
+> authorization server bridging sign-in to Entra ID. Before the first deploy,
+> register a confidential Entra app whose **Web** redirect URI is
+> `https://<app-fqdn>/auth/callback` (the FQDN is printed in the deploy run
+> summary, e.g. `https://ado-mcp.<hash>.<region>.azurecontainerapps.io`), add a
+> client secret, and **grant admin consent** for Azure DevOps
+> (`499b84ac-1321-427f-aa17-267ca6975798`). Then set `ENTRA_TENANT_ID` /
+> `ENTRA_CLIENT_ID` (variables) and `ENTRA_CLIENT_SECRET` (secret) above. MCP
+> clients (e.g. Claude) connect with just the `…/mcp` URL — they self-register
+> via Dynamic Client Registration, so no client ID/secret is entered in the
+> client.
 
 ### One-time OIDC setup
 
