@@ -216,6 +216,12 @@
 | Notification      | [mcp_ado_notification_list_event_types](#mcp_ado_notification_list_event_types)                           | List notification event types                                     |
 | Notification      | [mcp_ado_notification_get_event_type](#mcp_ado_notification_get_event_type)                               | Get a notification event type                                     |
 | Notification      | [mcp_ado_notification_list_subscription_templates](#mcp_ado_notification_list_subscription_templates)     | List notification subscription templates                          |
+| Security Roles    | [mcp_ado_securityrole_list_definitions](#mcp_ado_securityrole_list_definitions)                           | List security role definitions                                    |
+| Security Roles    | [mcp_ado_securityrole_list_assignments](#mcp_ado_securityrole_list_assignments)                           | List role assignments for a resource                              |
+| Security Roles    | [mcp_ado_securityrole_set_assignment](#mcp_ado_securityrole_set_assignment)                               | Assign a role to an identity                                      |
+| Security Roles    | [mcp_ado_securityrole_set_assignments](#mcp_ado_securityrole_set_assignments)                             | Assign roles to multiple identities                               |
+| Security Roles    | [mcp_ado_securityrole_remove_assignment](#mcp_ado_securityrole_remove_assignment)                         | Remove a role assignment                                          |
+| Security Roles    | [mcp_ado_securityrole_remove_assignments](#mcp_ado_securityrole_remove_assignments)                       | Remove role assignments from identities                           |
 
 ## Advanced Security
 
@@ -1753,4 +1759,48 @@ Get a specific notification event type by ID.
 List the available notification subscription templates.
 
 - **Required**: none
+- **Optional**: none
+
+## 🔑 Security Roles
+
+### mcp_ado_securityrole_list_definitions
+
+List the security role definitions available for a scope.
+
+- **Required**: `scopeId`
+- **Optional**: none
+
+### mcp_ado_securityrole_list_assignments
+
+List the role assignments for a resource within a scope.
+
+- **Required**: `scopeId`, `resourceId`
+- **Optional**: none
+
+### mcp_ado_securityrole_set_assignment
+
+Assign a security role to a single identity for a resource.
+
+- **Required**: `scopeId`, `resourceId`, `identityId`, `roleName`
+- **Optional**: none
+
+### mcp_ado_securityrole_set_assignments
+
+Assign security roles to multiple identities for a resource.
+
+- **Required**: `scopeId`, `resourceId`, `assignments`
+- **Optional**: none
+
+### mcp_ado_securityrole_remove_assignment
+
+Remove a security role assignment from a single identity for a resource.
+
+- **Required**: `scopeId`, `resourceId`, `identityId`
+- **Optional**: none
+
+### mcp_ado_securityrole_remove_assignments
+
+Remove security role assignments from multiple identities for a resource.
+
+- **Required**: `scopeId`, `resourceId`, `identityIds`
 - **Optional**: none
