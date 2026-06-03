@@ -828,7 +828,7 @@ describe("configureWorkItemTools", () => {
           method: "POST",
           headers: expect.objectContaining({
             "Authorization": "Bearer fake-token",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
           }),
         })
       );
@@ -869,7 +869,7 @@ describe("configureWorkItemTools", () => {
           method: "POST",
           headers: expect.objectContaining({
             "Authorization": "Bearer fake-token",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
           }),
         })
       );
@@ -892,6 +892,29 @@ describe("configureWorkItemTools", () => {
       await handler({ comment: "hello world!", project: "Contoso", workItemId: 299, format: "Html" });
 
       expect(mockFetch).toHaveBeenCalledWith("https://dev.azure.com/contoso/Contoso/_apis/wit/workItems/299/comments?format=1&api-version=7.2-preview.4", expect.objectContaining({ method: "POST" }));
+    });
+
+    it("should send non-ASCII comment text as literal UTF-8 without unicode escaping", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_add_work_item_comment");
+      if (!call) throw new Error("wit_add_work_item_comment tool not registered");
+      const [, , , handler] = call;
+
+      mockConnection.serverUrl = "https://dev.azure.com/contoso";
+      (tokenProvider as jest.Mock).mockResolvedValue("fake-token");
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve(JSON.stringify(_mockWorkItemComment)) });
+      global.fetch = mockFetch;
+
+      const cyrillic = "тестовий коментар";
+      await handler({ comment: cyrillic, project: "Contoso", workItemId: 299 });
+
+      const [, requestInit] = mockFetch.mock.calls[0];
+      // The request must declare UTF-8 so the API does not transcode the body.
+      expect(requestInit.headers["Content-Type"]).toBe("application/json; charset=utf-8");
+      // The serialized body must contain the literal Cyrillic text, never \uXXXX escape sequences.
+      expect(requestInit.body).not.toMatch(/\\u04/);
+      expect(JSON.parse(requestInit.body).text).toBe(cyrillic);
     });
 
     it("should handle fetch failure response", async () => {
@@ -997,7 +1020,7 @@ describe("configureWorkItemTools", () => {
           method: "PATCH",
           headers: expect.objectContaining({
             "Authorization": "Bearer fake-token",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
           }),
         })
       );
@@ -4186,8 +4209,74 @@ describe("configureWorkItemTools", () => {
 
       expect((server as unknown as { server: { elicitInput: jest.Mock } }).server.elicitInput).toHaveBeenCalled();
       expect(mockWorkItemTrackingApi.queryByWiql).toHaveBeenCalledWith({ query: params.wiql }, { project: "Contoso", team: undefined }, undefined, 50);
+      const elicitText = result.content.map((c: { text: string }) => c.text).join("\n");
+      expect(elicitText).toContain("UNTRUSTED");
+      expect(elicitText).toContain(JSON.stringify(_mockWiqlQueryResults, null, 2));
+    });
+
+    it("should prepend a scoping warning when the query omits a [System.TeamProject] filter", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_query_by_wiql");
+      if (!call) throw new Error("wit_query_by_wiql tool not registered");
+      const [, , , handler] = call;
+
+      (mockWorkItemTrackingApi.queryByWiql as jest.Mock).mockResolvedValue(_mockWiqlQueryResults);
+
+      const result = await handler({
+        wiql: "SELECT [System.Id] FROM WorkItems",
+        project: "Contoso",
+        team: undefined,
+        timePrecision: undefined,
+        top: 50,
+      });
+
+      expect(result.content[0].text).toContain("Warning");
+      expect(result.content[0].text).toContain("[System.TeamProject]");
+      expect(result.content[0].text).toContain("Contoso");
+      // The actual results still follow the warning.
+      expect(result.content[1].text).toContain(JSON.stringify(_mockWiqlQueryResults, null, 2));
+    });
+
+    it("should warn that recursive queries span the whole organization when unscoped", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_query_by_wiql");
+      if (!call) throw new Error("wit_query_by_wiql tool not registered");
+      const [, , , handler] = call;
+
+      (mockWorkItemTrackingApi.queryByWiql as jest.Mock).mockResolvedValue(_mockWiqlQueryResults);
+
+      const result = await handler({
+        wiql: "SELECT [System.Id] FROM WorkItemLinks WHERE [Source].[System.WorkItemType] = 'Epic' MODE (Recursive)",
+        project: "Contoso",
+        team: undefined,
+        timePrecision: undefined,
+        top: 50,
+      });
+
+      expect(result.content[0].text).toContain("entire organization");
+    });
+
+    it("should not add a scoping warning when the query already filters by [System.TeamProject]", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_query_by_wiql");
+      if (!call) throw new Error("wit_query_by_wiql tool not registered");
+      const [, , , handler] = call;
+
+      (mockWorkItemTrackingApi.queryByWiql as jest.Mock).mockResolvedValue(_mockWiqlQueryResults);
+
+      const result = await handler({
+        wiql: "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project",
+        project: "Contoso",
+        team: undefined,
+        timePrecision: undefined,
+        top: 50,
+      });
+
+      expect(result.content).toHaveLength(1);
       expect(result.content[0].text).toContain("UNTRUSTED");
-      expect(result.content[0].text).toContain(JSON.stringify(_mockWiqlQueryResults, null, 2));
     });
 
     it("should return cancellation message when user declines project elicitation", async () => {

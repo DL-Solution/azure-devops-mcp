@@ -385,7 +385,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
             method: "POST",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
+              "Content-Type": "application/json; charset=utf-8",
               "User-Agent": userAgentProvider(),
             },
             body: JSON.stringify(body),
@@ -443,7 +443,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
             method: "PATCH",
             headers: {
               "Authorization": `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
+              "Content-Type": "application/json; charset=utf-8",
               "User-Agent": userAgentProvider(),
             },
             body: JSON.stringify(body),
@@ -1446,7 +1446,14 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     WORKITEM_TOOLS.query_by_wiql,
     "Execute a WIQL (Work Item Query Language) query and return the matching work items. If a project is not specified, you will be prompted to select one.",
     {
-      wiql: z.string().max(32768).describe('The WIQL query string to execute, e.g., "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.TeamProject] = @project"'),
+      wiql: z
+        .string()
+        .max(32768)
+        .describe(
+          'The WIQL query string to execute, e.g., "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.TeamProject] = @project". ' +
+            "IMPORTANT: always constrain the query to the intended project with an explicit [System.TeamProject] = @project clause in the WHERE block. " +
+            "The team context passed alongside the query does NOT reliably scope results: flat (FROM WorkItems) queries can be silently filtered, and recursive (FROM WorkItemLinks ... MODE (Recursive)) queries ignore it entirely and return work items from the whole organization."
+        ),
       project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
       team: z.string().optional().describe("The name or ID of the Azure DevOps team. If not provided, the default team context will be used."),
       timePrecision: z.boolean().optional().describe("Whether to include time precision in date fields. Defaults to false."),
@@ -1467,7 +1474,21 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const teamContext = { project: resolvedProject, team };
         const queryResult = await workItemApi.queryByWiql({ query: wiql }, teamContext, timePrecision, top);
 
-        return createExternalContentResponse(queryResult, "wiql query results");
+        const response = createExternalContentResponse(queryResult, "wiql query results");
+
+        // The team context alone does not reliably scope results: flat queries can be silently
+        // filtered and recursive (WorkItemLinks) queries return work items from the entire
+        // organization. When the query omits an explicit [System.TeamProject] filter, surface a
+        // warning so the scoping behavior is not silent.
+        if (!/\[?\s*system\.teamproject\s*\]?/i.test(wiql)) {
+          const isRecursive = /mode\s*\(\s*recursive/i.test(wiql);
+          const warning = isRecursive
+            ? `Warning: this recursive WIQL query has no [System.TeamProject] filter. Recursive (WorkItemLinks) queries ignore the project/team context and return work items from the entire organization. Add "[System.TeamProject] = @project" to the WHERE clause to scope results to "${resolvedProject}".`
+            : `Warning: this WIQL query has no [System.TeamProject] filter, so results may be silently filtered or span multiple projects. Add "[System.TeamProject] = @project" to the WHERE clause to scope results to "${resolvedProject}".`;
+          response.content.unshift({ type: "text", text: warning });
+        }
+
+        return response;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 
