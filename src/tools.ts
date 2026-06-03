@@ -20,6 +20,7 @@ import { configurePolicyTools } from "./tools/policy.js";
 import { configureTaskAgentTools } from "./tools/task-agent.js";
 import { configureReleaseTools } from "./tools/release.js";
 import { configureWitProcessTools } from "./tools/wit-process.js";
+import { configureNotificationTools } from "./tools/notification.js";
 
 function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
@@ -43,6 +44,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.TASK_AGENT, () => configureTaskAgentTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.RELEASE, () => configureReleaseTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.WIT_PROCESS, () => configureWitProcessTools(server, tokenProvider, connectionProvider));
+  configureIfDomainEnabled(Domain.NOTIFICATION, () => configureNotificationTools(server, tokenProvider, connectionProvider));
 }
 
 export { configureAllTools };

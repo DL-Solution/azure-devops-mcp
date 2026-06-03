@@ -193,7 +193,7 @@ For example, use `"-d", "core", "work", "work-items"` to load only Work Item rel
 }
 ```
 
-Domains that are available are: `core`, `work`, `work-items`, `search`, `test-plans`, `repositories`, `wiki`, `pipelines`, `advanced-security`, `dashboards`, `policy`, `task-agent`, `release`, `wit-process`
+Domains that are available are: `core`, `work`, `work-items`, `search`, `test-plans`, `repositories`, `wiki`, `pipelines`, `advanced-security`, `dashboards`, `policy`, `task-agent`, `release`, `wit-process`, `notification`
 
 We recommend that you always enable `core` tools so that you can fetch project level information.
 
