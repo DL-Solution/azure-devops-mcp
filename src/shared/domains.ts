@@ -21,6 +21,7 @@ export enum Domain {
   POLICY = "policy",
   TASK_AGENT = "task-agent",
   RELEASE = "release",
+  WIT_PROCESS = "wit-process",
 }
 
 export const ALL_DOMAINS = "all";

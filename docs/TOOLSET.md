@@ -199,6 +199,15 @@
 | Release           | [mcp_ado_release_update_environment](#mcp_ado_release_update_environment)                                 | Update a release environment (deploy)                             |
 | Release           | [mcp_ado_release_list_approvals](#mcp_ado_release_list_approvals)                                         | List release approvals                                            |
 | Release           | [mcp_ado_release_update_approval](#mcp_ado_release_update_approval)                                       | Approve or reject a release                                       |
+| Process           | [mcp_ado_witprocess_list_processes](#mcp_ado_witprocess_list_processes)                                   | List processes                                                    |
+| Process           | [mcp_ado_witprocess_get_process](#mcp_ado_witprocess_get_process)                                         | Get a process                                                     |
+| Process           | [mcp_ado_witprocess_list_work_item_types](#mcp_ado_witprocess_list_work_item_types)                       | List process work item types                                      |
+| Process           | [mcp_ado_witprocess_get_work_item_type](#mcp_ado_witprocess_get_work_item_type)                           | Get a process work item type                                      |
+| Process           | [mcp_ado_witprocess_list_work_item_type_fields](#mcp_ado_witprocess_list_work_item_type_fields)           | List work item type fields                                        |
+| Process           | [mcp_ado_witprocess_list_states](#mcp_ado_witprocess_list_states)                                         | List work item type states                                        |
+| Process           | [mcp_ado_witprocess_get_state](#mcp_ado_witprocess_get_state)                                             | Get a work item type state                                        |
+| Process           | [mcp_ado_witprocess_list_behaviors](#mcp_ado_witprocess_list_behaviors)                                   | List process behaviors                                            |
+| Process           | [mcp_ado_witprocess_get_behavior](#mcp_ado_witprocess_get_behavior)                                       | Get a process behavior                                            |
 
 ## Advanced Security
 
@@ -1614,3 +1623,68 @@ Approve or reject a release approval.
 
 - **Required**: `approvalId`, `status` (`approved` | `rejected` | `pending`)
 - **Optional**: `project`, `comments`
+
+## ⚙️ Process
+
+### mcp_ado_witprocess_list_processes
+
+List the processes (Agile, Scrum, Basic and inherited) in the organization.
+
+- **Required**: none
+- **Optional**: `includeProjects`
+
+### mcp_ado_witprocess_get_process
+
+Get a specific process by its type ID.
+
+- **Required**: `processTypeId`
+- **Optional**: `includeProjects`
+
+### mcp_ado_witprocess_list_work_item_types
+
+List the work item types defined in a process.
+
+- **Required**: `processId`
+- **Optional**: `expand` (`none` | `states` | `behaviors` | `layout`)
+
+### mcp_ado_witprocess_get_work_item_type
+
+Get a specific work item type in a process by its reference name.
+
+- **Required**: `processId`, `witRefName`
+- **Optional**: `expand` (`none` | `states` | `behaviors` | `layout`)
+
+### mcp_ado_witprocess_list_work_item_type_fields
+
+List the fields of a work item type in a process.
+
+- **Required**: `processId`, `witRefName`
+- **Optional**: none
+
+### mcp_ado_witprocess_list_states
+
+List the state definitions of a work item type in a process.
+
+- **Required**: `processId`, `witRefName`
+- **Optional**: none
+
+### mcp_ado_witprocess_get_state
+
+Get a specific state definition of a work item type in a process.
+
+- **Required**: `processId`, `witRefName`, `stateId`
+- **Optional**: none
+
+### mcp_ado_witprocess_list_behaviors
+
+List the behaviors defined in a process.
+
+- **Required**: `processId`
+- **Optional**: none
+
+### mcp_ado_witprocess_get_behavior
+
+Get a specific behavior in a process by its reference name.
+
+- **Required**: `processId`, `behaviorRefName`
+- **Optional**: none
