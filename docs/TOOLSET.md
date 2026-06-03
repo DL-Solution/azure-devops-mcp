@@ -208,6 +208,14 @@
 | Process           | [mcp_ado_witprocess_get_state](#mcp_ado_witprocess_get_state)                                             | Get a work item type state                                        |
 | Process           | [mcp_ado_witprocess_list_behaviors](#mcp_ado_witprocess_list_behaviors)                                   | List process behaviors                                            |
 | Process           | [mcp_ado_witprocess_get_behavior](#mcp_ado_witprocess_get_behavior)                                       | Get a process behavior                                            |
+| Notification      | [mcp_ado_notification_list_subscriptions](#mcp_ado_notification_list_subscriptions)                       | List notification subscriptions                                   |
+| Notification      | [mcp_ado_notification_get_subscription](#mcp_ado_notification_get_subscription)                           | Get a notification subscription                                   |
+| Notification      | [mcp_ado_notification_create_subscription](#mcp_ado_notification_create_subscription)                     | Create a notification subscription                                |
+| Notification      | [mcp_ado_notification_update_subscription](#mcp_ado_notification_update_subscription)                     | Update a notification subscription                                |
+| Notification      | [mcp_ado_notification_delete_subscription](#mcp_ado_notification_delete_subscription)                     | Delete a notification subscription                                |
+| Notification      | [mcp_ado_notification_list_event_types](#mcp_ado_notification_list_event_types)                           | List notification event types                                     |
+| Notification      | [mcp_ado_notification_get_event_type](#mcp_ado_notification_get_event_type)                               | Get a notification event type                                     |
+| Notification      | [mcp_ado_notification_list_subscription_templates](#mcp_ado_notification_list_subscription_templates)     | List notification subscription templates                          |
 
 ## Advanced Security
 
@@ -1687,4 +1695,62 @@ List the behaviors defined in a process.
 Get a specific behavior in a process by its reference name.
 
 - **Required**: `processId`, `behaviorRefName`
+- **Optional**: none
+
+## 🔔 Notification
+
+### mcp_ado_notification_list_subscriptions
+
+List notification subscriptions, optionally filtered by target or subscription IDs.
+
+- **Required**: none
+- **Optional**: `targetId`, `ids`
+
+### mcp_ado_notification_get_subscription
+
+Get a specific notification subscription by ID.
+
+- **Required**: `subscriptionId`
+- **Optional**: none
+
+### mcp_ado_notification_create_subscription
+
+Create a new notification subscription.
+
+- **Required**: `subscription`
+- **Optional**: none
+
+### mcp_ado_notification_update_subscription
+
+Update an existing notification subscription.
+
+- **Required**: `subscriptionId`, `subscription`
+- **Optional**: none
+
+### mcp_ado_notification_delete_subscription
+
+Delete a notification subscription by ID.
+
+- **Required**: `subscriptionId`
+- **Optional**: none
+
+### mcp_ado_notification_list_event_types
+
+List the notification event types, optionally filtered by publisher.
+
+- **Required**: none
+- **Optional**: `publisherId`
+
+### mcp_ado_notification_get_event_type
+
+Get a specific notification event type by ID.
+
+- **Required**: `eventType`
+- **Optional**: none
+
+### mcp_ado_notification_list_subscription_templates
+
+List the available notification subscription templates.
+
+- **Required**: none
 - **Optional**: none
