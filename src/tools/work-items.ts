@@ -357,7 +357,11 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     {
       project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
       workItemId: z.coerce.number().min(1).describe("The ID of the work item to add a comment to."),
-      comment: z.string().describe("The text of the comment to add to the work item."),
+      comment: z
+        .string()
+        .describe(
+          "The text of the comment to add to the work item. Pass non-ASCII text (e.g. Cyrillic) as raw UTF-8 characters, not as literal \\uXXXX escape sequences — escape sequences are stored verbatim and not decoded."
+        ),
       format: z.enum(["Markdown", "Html"]).optional().default("Markdown").describe("The format of the comment text, e.g., 'Markdown', 'Html'. Optional, defaults to 'Markdown'."),
     },
     async ({ project, workItemId, comment, format }) => {
@@ -418,7 +422,11 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       project: z.string().optional().describe("The name or ID of the Azure DevOps project. Reuse from prior context if already known. If not provided, a project selection prompt will be shown."),
       workItemId: z.coerce.number().min(1).describe("The ID of the work item."),
       commentId: z.coerce.number().min(1).describe("The ID of the comment to update."),
-      text: z.string().describe("The updated comment text."),
+      text: z
+        .string()
+        .describe(
+          "The updated comment text. Pass non-ASCII text (e.g. Cyrillic) as raw UTF-8 characters, not as literal \\uXXXX escape sequences — escape sequences are stored verbatim and not decoded."
+        ),
       format: z.enum(["Markdown", "Html"]).optional().default("Markdown").describe("The format of the comment text, e.g., 'Markdown', 'Html'. Optional, defaults to 'Markdown'."),
     },
     async ({ project, workItemId, commentId, text, format }) => {
