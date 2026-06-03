@@ -5,10 +5,16 @@ name: Deploy to Azure Container Apps
 # cloud secrets are stored in GitHub. The image is built on the runner and
 # pushed to the registry with `docker push` (the deploy identity needs AcrPush).
 #
+# The deployment runs the server in OAuth (Entra ID) mode, so MCP clients sign
+# in via the browser (no pre-supplied token). This requires an Entra app
+# registration whose redirect URI is "https://<app-fqdn>/auth/callback" with
+# admin consent for Azure DevOps. See deploy/azure/README.md.
+#
 # Required configuration (Settings -> Secrets and variables -> Actions):
-#   Secrets:   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   Secrets:   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
+#              ENTRA_CLIENT_SECRET
 #   Variables: AZURE_RESOURCE_GROUP, ACR_NAME, ACR_RESOURCE_GROUP,
-#              CONTAINER_APP_NAME, ADO_ORG
+#              CONTAINER_APP_NAME, ADO_ORG, ENTRA_TENANT_ID, ENTRA_CLIENT_ID
 # See deploy/azure/README.md ("CI/CD") for one-time setup.
 
 on:
@@ -101,7 +107,11 @@ jobs:
               acrName="${{ vars.ACR_NAME }}" \
               acrResourceGroup="${{ vars.ACR_RESOURCE_GROUP }}" \
               assignAcrPullRole=false \
-              containerImage="${{ steps.build.outputs.image }}"
+              containerImage="${{ steps.build.outputs.image }}" \
+              authMode=oauth \
+              entraTenantId="${{ vars.ENTRA_TENANT_ID }}" \
+              entraClientId="${{ vars.ENTRA_CLIENT_ID }}" \
+              entraClientSecret="${{ secrets.ENTRA_CLIENT_SECRET }}"
 
           MCP_URL=$(az deployment group show \
             -g "${{ vars.AZURE_RESOURCE_GROUP }}" \
