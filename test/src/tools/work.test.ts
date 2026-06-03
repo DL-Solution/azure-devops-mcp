@@ -82,7 +82,13 @@ describe("configureWorkTools", () => {
   let server: McpServer;
   let tokenProvider: TokenProviderMock;
   let connectionProvider: ConnectionProviderMock;
-  let mockConnection: { getWorkApi: jest.Mock; getWorkItemTrackingApi: jest.Mock; getCoreApi: jest.Mock };
+  let mockConnection: {
+    getWorkApi: jest.Mock;
+    getWorkItemTrackingApi: jest.Mock;
+    getCoreApi: jest.Mock;
+    rest: { create: jest.Mock; update: jest.Mock; del: jest.Mock };
+    vsoClient: { resolveUrl: jest.Mock };
+  };
   let mockWorkApi: WorkApiMock;
   let mockWorkItemTrackingApi: WorkItemTrackingApiMock;
   let mockCoreApi: CoreApiMock;
@@ -163,6 +169,8 @@ describe("configureWorkTools", () => {
       getWorkApi: jest.fn().mockResolvedValue(mockWorkApi),
       getWorkItemTrackingApi: jest.fn().mockResolvedValue(mockWorkItemTrackingApi),
       getCoreApi: jest.fn().mockResolvedValue(mockCoreApi),
+      rest: { create: jest.fn(), update: jest.fn(), del: jest.fn() },
+      vsoClient: { resolveUrl: jest.fn((relativeUrl: string) => `https://dev.azure.com/org${relativeUrl}`) },
     };
 
     connectionProvider = jest.fn().mockResolvedValue(mockConnection);
@@ -3319,21 +3327,35 @@ describe("configureWorkTools", () => {
   });
 
   describe("create_area tool", () => {
-    it("creates an area under the given parent path", async () => {
+    it("creates an area under the given parent path via a correctly-scoped REST POST", async () => {
       const handler = getPlanHandler("work_create_area");
 
-      mockWorkItemTrackingApi.createOrUpdateClassificationNode.mockResolvedValue({ id: 5, name: "NewArea" });
+      mockConnection.rest.create.mockResolvedValue({ result: { id: 5, name: "NewArea" } });
 
       const result = await handler({ project: "Proj", name: "NewArea", parentPath: "Parent" });
 
-      expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).toHaveBeenCalledWith({ name: "NewArea" }, "Proj", TreeStructureGroup.Areas, "Parent");
+      // The URL must contain the "areas" structure-group segment — the bug being fixed
+      // was that TreeStructureGroup.Areas (0) was dropped from the SDK-built URL.
+      expect(mockConnection.vsoClient.resolveUrl).toHaveBeenCalledWith("/Proj/_apis/wit/classificationNodes/areas/Parent?api-version=7.1");
+      expect(mockConnection.rest.create).toHaveBeenCalledWith("https://dev.azure.com/org/Proj/_apis/wit/classificationNodes/areas/Parent?api-version=7.1", { name: "NewArea" });
+      expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).not.toHaveBeenCalled();
       expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "NewArea" }, null, 2));
+    });
+
+    it("creates an area at the project root when no parent path is given", async () => {
+      const handler = getPlanHandler("work_create_area");
+
+      mockConnection.rest.create.mockResolvedValue({ result: { id: 6, name: "RootArea" } });
+
+      await handler({ project: "Proj", name: "RootArea" });
+
+      expect(mockConnection.vsoClient.resolveUrl).toHaveBeenCalledWith("/Proj/_apis/wit/classificationNodes/areas?api-version=7.1");
     });
 
     it("handles API errors", async () => {
       const handler = getPlanHandler("work_create_area");
 
-      mockWorkItemTrackingApi.createOrUpdateClassificationNode.mockRejectedValue(new Error("boom"));
+      mockConnection.rest.create.mockRejectedValue(new Error("boom"));
 
       const result = await handler({ project: "Proj", name: "NewArea" });
 
@@ -3343,34 +3365,36 @@ describe("configureWorkTools", () => {
   });
 
   describe("update_area tool", () => {
-    it("renames an area at the given path", async () => {
+    it("renames an area at the given path via a correctly-scoped REST PATCH", async () => {
       const handler = getPlanHandler("work_update_area");
 
-      mockWorkItemTrackingApi.updateClassificationNode.mockResolvedValue({ id: 5, name: "Renamed" });
+      mockConnection.rest.update.mockResolvedValue({ result: { id: 5, name: "Renamed" } });
 
       const result = await handler({ project: "Proj", path: "Parent/Child", name: "Renamed" });
 
-      expect(mockWorkItemTrackingApi.updateClassificationNode).toHaveBeenCalledWith({ name: "Renamed" }, "Proj", TreeStructureGroup.Areas, "Parent/Child");
+      expect(mockConnection.rest.update).toHaveBeenCalledWith("https://dev.azure.com/org/Proj/_apis/wit/classificationNodes/areas/Parent/Child?api-version=7.1", { name: "Renamed" });
+      expect(mockWorkItemTrackingApi.updateClassificationNode).not.toHaveBeenCalled();
       expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "Renamed" }, null, 2));
     });
   });
 
   describe("delete_area tool", () => {
-    it("deletes an area and reclassifies to the given id", async () => {
+    it("deletes an area and reclassifies to the given id via a correctly-scoped REST DELETE", async () => {
       const handler = getPlanHandler("work_delete_area");
 
-      mockWorkItemTrackingApi.deleteClassificationNode.mockResolvedValue(undefined);
+      mockConnection.rest.del.mockResolvedValue({ result: null });
 
       const result = await handler({ project: "Proj", path: "Parent/Child", reclassifyId: 7 });
 
-      expect(mockWorkItemTrackingApi.deleteClassificationNode).toHaveBeenCalledWith("Proj", TreeStructureGroup.Areas, "Parent/Child", 7);
+      expect(mockConnection.rest.del).toHaveBeenCalledWith("https://dev.azure.com/org/Proj/_apis/wit/classificationNodes/areas/Parent/Child?api-version=7.1&%24reclassifyId=7");
+      expect(mockWorkItemTrackingApi.deleteClassificationNode).not.toHaveBeenCalled();
       expect(result.content[0].text).toContain("reclassified to area ID 7");
     });
 
     it("handles API errors", async () => {
       const handler = getPlanHandler("work_delete_area");
 
-      mockWorkItemTrackingApi.deleteClassificationNode.mockRejectedValue(new Error("denied"));
+      mockConnection.rest.del.mockRejectedValue(new Error("denied"));
 
       const result = await handler({ project: "Proj", path: "Parent/Child", reclassifyId: 7 });
 

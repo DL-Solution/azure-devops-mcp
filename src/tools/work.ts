@@ -24,6 +24,36 @@ import {
 } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 
+// Maps the TreeStructureGroup enum to the string segment used in the
+// classification-nodes REST route (.../wit/classificationNodes/{areas|iterations}/...).
+const STRUCTURE_GROUP_SEGMENT: Record<TreeStructureGroup, string> = {
+  [TreeStructureGroup.Areas]: "areas",
+  [TreeStructureGroup.Iterations]: "iterations",
+};
+
+// Builds a classification-node REST URL using the connection's resolver.
+//
+// We deliberately bypass workItemTrackingApi.{createOrUpdate,update,delete}ClassificationNode
+// for AREA paths. The SDK's VsoClient.replaceRouteValues treats a route value of 0 as missing
+// (`if (routeValues[paramName])`), and TreeStructureGroup.Areas === 0, so the `{structureGroup}`
+// URL segment is silently dropped and the request lands on an endpoint that rejects the verb
+// ("The requested resource does not support http method 'POST'"). Constructing the URL ourselves
+// with the documented string structure group avoids the bug. TreeStructureGroup.Iterations === 1
+// is truthy and unaffected, so the iteration tools keep using the SDK directly.
+function classificationNodeUrl(connection: WebApi, project: string, structureGroup: TreeStructureGroup, path?: string, query?: Record<string, string | number>): string {
+  const segments = [encodeURIComponent(project), "_apis", "wit", "classificationNodes", STRUCTURE_GROUP_SEGMENT[structureGroup]];
+  for (const part of (path ?? "").split("/")) {
+    if (part) {
+      segments.push(encodeURIComponent(part));
+    }
+  }
+  let relativeUrl = `/${segments.join("/")}?api-version=7.1`;
+  for (const [key, value] of Object.entries(query ?? {})) {
+    relativeUrl += `&${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`;
+  }
+  return connection.vsoClient.resolveUrl(relativeUrl);
+}
+
 const WORK_TOOLS = {
   list_team_iterations: "work_list_team_iterations",
   list_iterations: "work_list_iterations",
@@ -837,11 +867,11 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           resolvedProject = result.resolved;
         }
 
-        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
-        const area = await workItemTrackingApi.createOrUpdateClassificationNode({ name }, resolvedProject, TreeStructureGroup.Areas, parentPath);
+        const url = classificationNodeUrl(connection, resolvedProject, TreeStructureGroup.Areas, parentPath);
+        const created = await connection.rest.create<WorkItemClassificationNode>(url, { name });
 
         return {
-          content: [{ type: "text", text: JSON.stringify(area, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(created.result, null, 2) }],
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
@@ -873,11 +903,11 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           resolvedProject = result.resolved;
         }
 
-        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
-        const area = await workItemTrackingApi.updateClassificationNode({ name }, resolvedProject, TreeStructureGroup.Areas, path);
+        const url = classificationNodeUrl(connection, resolvedProject, TreeStructureGroup.Areas, path);
+        const updated = await connection.rest.update<WorkItemClassificationNode>(url, { name });
 
         return {
-          content: [{ type: "text", text: JSON.stringify(area, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify(updated.result, null, 2) }],
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
@@ -909,8 +939,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           resolvedProject = result.resolved;
         }
 
-        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
-        await workItemTrackingApi.deleteClassificationNode(resolvedProject, TreeStructureGroup.Areas, path, reclassifyId);
+        const url = classificationNodeUrl(connection, resolvedProject, TreeStructureGroup.Areas, path, { $reclassifyId: reclassifyId });
+        await connection.rest.del(url);
 
         return {
           content: [{ type: "text", text: `Area path '${path}' deleted from project '${resolvedProject}'. Work items reclassified to area ID ${reclassifyId}.` }],
