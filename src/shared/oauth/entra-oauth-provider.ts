@@ -230,11 +230,20 @@ export class EntraOAuthProvider implements OAuthServerProvider {
   }
 
   async exchangeRefreshToken(_client: OAuthClientInformationFull, refreshToken: string, scopes?: string[]): Promise<OAuthTokens> {
-    return this.entraTokenRequest({
+    const tokens = await this.entraTokenRequest({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
       scope: (scopes && scopes.length > 0 ? scopes : this.scopes).join(" "),
     });
+    // Entra normally rotates the refresh token, but per RFC 6749 §6 returning a
+    // new one is optional. If the response omits it, keep handing back the
+    // caller's existing refresh token — otherwise the client loses its ability
+    // to refresh and gets forced into an interactive re-login the next time the
+    // access token expires (the "token going stale" symptom).
+    if (!tokens.refresh_token) {
+      tokens.refresh_token = refreshToken;
+    }
+    return tokens;
   }
 
   async verifyAccessToken(token: string): Promise<AuthInfo> {

@@ -137,6 +137,20 @@ describe("EntraOAuthProvider", () => {
       expect(init.body).toContain("grant_type=refresh_token");
       expect(init.body).toContain("old-refresh");
     });
+
+    it("keeps the caller's refresh token when Entra does not return a new one", async () => {
+      const fetchMock = jest.fn(async () => ({
+        ok: true,
+        json: async () => ({ access_token: "new-access", expires_in: 3600 }),
+      }));
+      (globalThis as { fetch: unknown }).fetch = fetchMock;
+
+      const tokens = await provider.exchangeRefreshToken(client, "old-refresh");
+      expect(tokens.access_token).toBe("new-access");
+      // Without this fallback the client would lose its refresh token and be
+      // forced into an interactive re-login at the next access-token expiry.
+      expect(tokens.refresh_token).toBe("old-refresh");
+    });
   });
 
   describe("verifyAccessToken", () => {
