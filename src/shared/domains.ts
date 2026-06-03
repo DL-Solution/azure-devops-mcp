@@ -20,6 +20,7 @@ export enum Domain {
   DASHBOARDS = "dashboards",
   POLICY = "policy",
   TASK_AGENT = "task-agent",
+  RELEASE = "release",
 }
 
 export const ALL_DOMAINS = "all";

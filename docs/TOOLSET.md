@@ -190,6 +190,15 @@
 | Task Agent        | [mcp_ado_taskagent_add_environment](#mcp_ado_taskagent_add_environment)                                   | Create an environment                                             |
 | Task Agent        | [mcp_ado_taskagent_update_environment](#mcp_ado_taskagent_update_environment)                             | Update an environment                                             |
 | Task Agent        | [mcp_ado_taskagent_delete_environment](#mcp_ado_taskagent_delete_environment)                             | Delete an environment                                             |
+| Release           | [mcp_ado_release_list_definitions](#mcp_ado_release_list_definitions)                                     | List release definitions                                          |
+| Release           | [mcp_ado_release_get_definition](#mcp_ado_release_get_definition)                                         | Get a release definition                                          |
+| Release           | [mcp_ado_release_list_releases](#mcp_ado_release_list_releases)                                           | List releases                                                     |
+| Release           | [mcp_ado_release_get_release](#mcp_ado_release_get_release)                                               | Get a release                                                     |
+| Release           | [mcp_ado_release_create_release](#mcp_ado_release_create_release)                                         | Create (start) a release                                          |
+| Release           | [mcp_ado_release_get_environment](#mcp_ado_release_get_environment)                                       | Get a release environment (stage)                                 |
+| Release           | [mcp_ado_release_update_environment](#mcp_ado_release_update_environment)                                 | Update a release environment (deploy)                             |
+| Release           | [mcp_ado_release_list_approvals](#mcp_ado_release_list_approvals)                                         | List release approvals                                            |
+| Release           | [mcp_ado_release_update_approval](#mcp_ado_release_update_approval)                                       | Approve or reject a release                                       |
 
 ## Advanced Security
 
@@ -1540,3 +1549,68 @@ Delete an environment by ID.
 
 - **Required**: `environmentId`
 - **Optional**: `project`
+
+## 🚀 Release
+
+### mcp_ado_release_list_definitions
+
+List the release definitions in a project.
+
+- **Required**: none
+- **Optional**: `project`, `searchText`, `top`
+
+### mcp_ado_release_get_definition
+
+Get a specific release definition by ID.
+
+- **Required**: `definitionId`
+- **Optional**: `project`
+
+### mcp_ado_release_list_releases
+
+List the releases in a project, optionally filtered by definition or status.
+
+- **Required**: none
+- **Optional**: `project`, `definitionId`, `status` (`active` | `draft` | `abandoned`), `top`
+
+### mcp_ado_release_get_release
+
+Get a specific release by ID.
+
+- **Required**: `releaseId`
+- **Optional**: `project`
+
+### mcp_ado_release_create_release
+
+Create (start) a new release from a release definition.
+
+- **Required**: `definitionId`
+- **Optional**: `project`, `description`, `isDraft`, `artifacts`
+
+### mcp_ado_release_get_environment
+
+Get a specific environment (stage) of a release.
+
+- **Required**: `releaseId`, `environmentId`
+- **Optional**: `project`
+
+### mcp_ado_release_update_environment
+
+Update a release environment (stage), e.g. to start a deployment by setting its status to `inProgress`.
+
+- **Required**: `releaseId`, `environmentId`, `updateData`
+- **Optional**: `project`
+
+### mcp_ado_release_list_approvals
+
+List the release approvals in a project, optionally filtered by status or assignee.
+
+- **Required**: none
+- **Optional**: `project`, `status` (`pending` | `approved` | `rejected`), `assignedToFilter`, `top`
+
+### mcp_ado_release_update_approval
+
+Approve or reject a release approval.
+
+- **Required**: `approvalId`, `status` (`approved` | `rejected` | `pending`)
+- **Optional**: `project`, `comments`

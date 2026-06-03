@@ -18,6 +18,7 @@ import { configureWorkItemTools } from "./tools/work-items.js";
 import { configureDashboardTools } from "./tools/dashboards.js";
 import { configurePolicyTools } from "./tools/policy.js";
 import { configureTaskAgentTools } from "./tools/task-agent.js";
+import { configureReleaseTools } from "./tools/release.js";
 
 function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
@@ -39,6 +40,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.DASHBOARDS, () => configureDashboardTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.POLICY, () => configurePolicyTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.TASK_AGENT, () => configureTaskAgentTools(server, tokenProvider, connectionProvider));
+  configureIfDomainEnabled(Domain.RELEASE, () => configureReleaseTools(server, tokenProvider, connectionProvider));
 }
 
 export { configureAllTools };
