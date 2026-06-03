@@ -222,6 +222,10 @@
 | Security Roles    | [mcp_ado_securityrole_set_assignments](#mcp_ado_securityrole_set_assignments)                             | Assign roles to multiple identities                               |
 | Security Roles    | [mcp_ado_securityrole_remove_assignment](#mcp_ado_securityrole_remove_assignment)                         | Remove a role assignment                                          |
 | Security Roles    | [mcp_ado_securityrole_remove_assignments](#mcp_ado_securityrole_remove_assignments)                       | Remove role assignments from identities                           |
+| Project Analysis  | [mcp_ado_projectanalysis_get_language_analytics](#mcp_ado_projectanalysis_get_language_analytics)         | Get project language analytics                                    |
+| Project Analysis  | [mcp_ado_projectanalysis_get_project_activity](#mcp_ado_projectanalysis_get_project_activity)             | Get project activity metrics                                      |
+| Project Analysis  | [mcp_ado_projectanalysis_list_repository_activity](#mcp_ado_projectanalysis_list_repository_activity)     | List repository activity metrics                                  |
+| Project Analysis  | [mcp_ado_projectanalysis_get_repository_activity](#mcp_ado_projectanalysis_get_repository_activity)       | Get a repository's activity metrics                               |
 
 ## Advanced Security
 
@@ -1804,3 +1808,33 @@ Remove security role assignments from multiple identities for a resource.
 
 - **Required**: `scopeId`, `resourceId`, `identityIds`
 - **Optional**: none
+
+## 📈 Project Analysis
+
+### mcp_ado_projectanalysis_get_language_analytics
+
+Get the language analytics (language breakdown) for a project.
+
+- **Required**: none
+- **Optional**: `project`
+
+### mcp_ado_projectanalysis_get_project_activity
+
+Get the activity metrics (commits, pushes, pull requests) for a project since a given date.
+
+- **Required**: `fromDate`
+- **Optional**: `project`, `aggregation` (`daily` | `hourly`)
+
+### mcp_ado_projectanalysis_list_repository_activity
+
+List the activity metrics for the Git repositories in a project since a given date.
+
+- **Required**: `fromDate`
+- **Optional**: `project`, `aggregation` (`daily` | `hourly`), `skip`, `top`
+
+### mcp_ado_projectanalysis_get_repository_activity
+
+Get the activity metrics for a specific Git repository since a given date.
+
+- **Required**: `repositoryId`, `fromDate`
+- **Optional**: `project`, `aggregation` (`daily` | `hourly`)
