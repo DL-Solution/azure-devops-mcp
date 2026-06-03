@@ -211,19 +211,20 @@ federated credentials**, so no cloud passwords are stored in GitHub.
 
 Under **Settings → Secrets and variables → Actions**:
 
-| Kind     | Name                    | Example / meaning                             |
-| -------- | ----------------------- | --------------------------------------------- |
-| Secret   | `AZURE_CLIENT_ID`       | App registration (client) ID for OIDC         |
-| Secret   | `AZURE_TENANT_ID`       | Entra tenant ID                               |
-| Secret   | `AZURE_SUBSCRIPTION_ID` | Target subscription ID                        |
-| Variable | `AZURE_RESOURCE_GROUP`  | RG to deploy into, e.g. `dev_sanbox`          |
-| Variable | `ACR_NAME`              | Container Registry name, e.g. `tdsregistry`   |
-| Variable | `ACR_RESOURCE_GROUP`    | RG that holds the registry, e.g. `Kubernetes` |
-| Variable | `CONTAINER_APP_NAME`    | `ado-mcp`                                     |
-| Variable | `ADO_ORG`               | Your Azure DevOps organization name           |
-| Variable | `ENTRA_TENANT_ID`       | Tenant of the OAuth app registration          |
-| Variable | `ENTRA_CLIENT_ID`       | OAuth confidential app (client) ID            |
-| Secret   | `ENTRA_CLIENT_SECRET`   | OAuth confidential app client secret          |
+| Kind     | Name                    | Example / meaning                                                          |
+| -------- | ----------------------- | -------------------------------------------------------------------------- |
+| Secret   | `AZURE_CLIENT_ID`       | App registration (client) ID for OIDC                                      |
+| Secret   | `AZURE_TENANT_ID`       | Entra tenant ID                                                            |
+| Secret   | `AZURE_SUBSCRIPTION_ID` | Target subscription ID                                                     |
+| Variable | `AZURE_RESOURCE_GROUP`  | RG to deploy into, e.g. `dev_sanbox`                                       |
+| Variable | `ACR_NAME`              | Container Registry name, e.g. `tdsregistry`                                |
+| Variable | `ACR_RESOURCE_GROUP`    | RG that holds the registry, e.g. `Kubernetes`                              |
+| Variable | `CONTAINER_APP_NAME`    | `ado-mcp`                                                                  |
+| Variable | `ADO_ORG`               | Your Azure DevOps organization name                                        |
+| Variable | `ENTRA_TENANT_ID`       | Tenant of the OAuth app registration                                       |
+| Variable | `ENTRA_CLIENT_ID`       | OAuth confidential app (client) ID                                         |
+| Secret   | `ENTRA_CLIENT_SECRET`   | OAuth confidential app client secret                                       |
+| Variable | `ALERT_EMAIL`           | _(optional)_ Email for the 401/403 spike alert; unset = no alert resources |
 
 > The workflow deploys with `authMode=oauth`, so the server runs a full OAuth
 > authorization server bridging sign-in to Entra ID. Before the first deploy,
@@ -305,3 +306,26 @@ The image is configured entirely through environment variables (see
   always-warm instance (instant response, higher cost).
 - Restrict who can reach the ingress with ACA IP restrictions or a private
   environment if you do not need public access.
+- **Alert on failed-auth spikes.** Pass `alertEmail` to create an Azure Monitor
+  action group + metric alert that emails you when 401/403 responses spike
+  (credential brute force, probing, or a broken client). It uses the ingress
+  `Requests` metric split by the `statusCode` dimension, so no application change
+  is needed; tune `authFailureAlertThreshold` (default 25 in a 5-minute window)
+  to your normal traffic. Both resources are created **only** when `alertEmail`
+  is set, so the default deployment adds no monitoring cost. In CI this is the
+  optional `ALERT_EMAIL` variable.
+
+  ```bash
+  az deployment group create -g <my-rg> \
+    --template-file deploy/azure/main.bicep \
+    --parameters \
+        appName=ado-mcp adoOrg=<your-ado-org> \
+        acrName=<registry> containerImage=<registry>.azurecr.io/ado-mcp:1.0.0 \
+        alertEmail="secops@example.com" authFailureAlertThreshold=25
+  ```
+
+  > Console and system logs already flow to the Log Analytics workspace created
+  > by this template (via the managed environment), so you can also write your
+  > own KQL queries/alerts over `ContainerAppConsoleLogs_CL` and
+  > `ContainerAppSystemLogs_CL` if you want log-based rules in addition to the
+  > metric alert.

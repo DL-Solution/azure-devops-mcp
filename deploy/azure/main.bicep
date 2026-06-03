@@ -55,6 +55,12 @@ param enabledDomains string = 'all'
 @description('Optional space-separated browser Origin allow-list. Leave empty for non-browser clients only.')
 param allowedOrigins string = ''
 
+@description('Optional email address to receive health/security alerts (e.g. a spike in 401/403 responses). Leave empty to skip the alert resources entirely.')
+param alertEmail string = ''
+
+@description('Number of 401/403 ingress responses within a 5-minute window that triggers the auth-failure alert. Tune to your normal traffic to avoid noise.')
+param authFailureAlertThreshold int = 25
+
 @description('Container port the server listens on.')
 param targetPort int = 3000
 
@@ -209,6 +215,74 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         maxReplicas: isOAuth ? 1 : maxReplicas
       }
     }
+  }
+}
+
+// Optional alerting. Both resources are created only when alertEmail is set, so
+// the default deployment adds no monitoring cost. The Requests metric exposes a
+// statusCode dimension, so we can alert specifically on 401/403 spikes (failed
+// auth / probing) rather than all 4xx. Console and system logs already flow to
+// Log Analytics via the managed environment's appLogsConfiguration.
+var alertsEnabled = !empty(alertEmail)
+
+resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = if (alertsEnabled) {
+  name: '${appName}-alerts'
+  location: 'global'
+  properties: {
+    groupShortName: take(appName, 12)
+    enabled: true
+    emailReceivers: [
+      {
+        name: 'primary'
+        emailAddress: alertEmail
+        useCommonAlertSchema: true
+      }
+    ]
+  }
+}
+
+resource authFailureAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (alertsEnabled) {
+  name: '${appName}-auth-failures'
+  location: 'global'
+  properties: {
+    description: 'Spike in 401/403 responses from the MCP ingress (possible credential brute force, probing, or a misconfigured client).'
+    severity: 2
+    enabled: true
+    scopes: [
+      containerApp.id
+    ]
+    evaluationFrequency: 'PT1M'
+    windowSize: 'PT5M'
+    autoMitigate: true
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'AuthFailures'
+          metricNamespace: 'Microsoft.App/containerapps'
+          metricName: 'Requests'
+          operator: 'GreaterThan'
+          threshold: authFailureAlertThreshold
+          timeAggregation: 'Total'
+          criterionType: 'StaticThresholdCriterion'
+          dimensions: [
+            {
+              name: 'statusCode'
+              operator: 'Include'
+              values: [
+                '401'
+                '403'
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    actions: [
+      {
+        actionGroupId: actionGroup.id
+      }
+    ]
   }
 }
 
