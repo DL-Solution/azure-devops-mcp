@@ -23,6 +23,7 @@ export enum Domain {
   RELEASE = "release",
   WIT_PROCESS = "wit-process",
   NOTIFICATION = "notification",
+  SECURITY_ROLES = "security-roles",
 }
 
 export const ALL_DOMAINS = "all";
