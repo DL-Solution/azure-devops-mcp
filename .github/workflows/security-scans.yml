@@ -3,6 +3,10 @@ name: Security scans
 # Supply-chain and configuration scanning for the repo, image, IaC, and
 # workflows. Tools run from their official container images / az CLI so the
 # workflow doesn't depend on pinning third-party marketplace action versions.
+#
+# The tool images are pulled with a short retry loop: pulling ":latest" from
+# Docker Hub on hosted runners occasionally times out, which would otherwise
+# fail the scan with a transient network error rather than a real finding.
 
 on:
   pull_request:
@@ -29,7 +33,13 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Trivy filesystem scan (vulnerabilities)
         run: |
-          docker run --rm -v "$PWD:/src" aquasec/trivy:latest fs \
+          set -euo pipefail
+          image="aquasec/trivy:latest"
+          for attempt in 1 2 3; do
+            docker pull "$image" && break
+            echo "::warning::docker pull $image failed (attempt $attempt); retrying" && sleep $((attempt * 10))
+          done
+          docker run --rm -v "$PWD:/src" "$image" fs \
             --scanners vuln \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
@@ -45,7 +55,14 @@ jobs:
           egress-policy: audit
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: hadolint
-        run: docker run --rm -i hadolint/hadolint:latest hadolint --failure-threshold error - < Dockerfile
+        run: |
+          set -euo pipefail
+          image="hadolint/hadolint:latest"
+          for attempt in 1 2 3; do
+            docker pull "$image" && break
+            echo "::warning::docker pull $image failed (attempt $attempt); retrying" && sleep $((attempt * 10))
+          done
+          docker run --rm -i "$image" hadolint --failure-threshold error - < Dockerfile
 
   workflows:
     name: Workflow lint (actionlint)
@@ -56,7 +73,14 @@ jobs:
           egress-policy: audit
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: actionlint
-        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color
+        run: |
+          set -euo pipefail
+          image="rhysd/actionlint:latest"
+          for attempt in 1 2 3; do
+            docker pull "$image" && break
+            echo "::warning::docker pull $image failed (attempt $attempt); retrying" && sleep $((attempt * 10))
+          done
+          docker run --rm -v "$PWD:/repo" -w /repo "$image" -color
 
   bicep:
     name: Bicep validate
