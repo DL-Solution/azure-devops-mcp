@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { IGitApi } from "azure-devops-node-api/GitApi.js";
 import { z } from "zod";
@@ -17,7 +18,8 @@ const SEARCH_TOOLS = {
 };
 
 function configureSearchTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
-  server.tool(
+  registerTool(
+    server,
     SEARCH_TOOLS.search_code,
     "Search Azure DevOps Repositories for a given search text",
     {
@@ -81,7 +83,8 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     SEARCH_TOOLS.search_wiki,
     "Search Azure DevOps Wiki for a given search text",
     {
@@ -132,7 +135,8 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     SEARCH_TOOLS.search_workitem,
     "Get Azure DevOps Work Item search results for a given search text",
     {

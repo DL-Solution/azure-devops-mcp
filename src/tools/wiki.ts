@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { WikiPagesBatchRequest } from "azure-devops-node-api/interfaces/WikiInterfaces.js";
@@ -18,7 +19,8 @@ const WIKI_TOOLS = {
 };
 
 function configureWikiTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
-  server.tool(
+  registerTool(
+    server,
     WIKI_TOOLS.get_wiki,
     "Get the wiki by wikiIdentifier",
     {
@@ -49,7 +51,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIKI_TOOLS.list_wikis,
     "Retrieve a list of wikis for an organization or project.",
     {
@@ -79,7 +82,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIKI_TOOLS.list_wiki_pages,
     "Retrieve a list of wiki pages for a specific wiki and project.",
     {
@@ -120,7 +124,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIKI_TOOLS.get_wiki_page,
     "Retrieve wiki page metadata by path. This tool does not return page content. Returns isError: true if the page is not found.",
     {
@@ -182,7 +187,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIKI_TOOLS.get_wiki_page_content,
     "Retrieve wiki page content. Provide either a 'url' parameter OR the combination of 'wikiIdentifier' and 'project' parameters. " + "Returns isError: true if the wiki page is not found.",
     {
@@ -289,7 +295,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIKI_TOOLS.create_or_update_page,
     "Create or update a wiki page with content.",
     {

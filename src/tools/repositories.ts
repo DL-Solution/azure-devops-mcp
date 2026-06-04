@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import {
   GitRef,
@@ -166,7 +167,8 @@ function buildVersionDescriptor(version?: string, versionType?: string): GitVers
 }
 
 function configureRepoTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.create_pull_request,
     "Create a new pull request.",
     {
@@ -253,7 +255,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.create_branch,
     "Create a new branch in the repository.",
     {
@@ -358,7 +361,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.update_pull_request,
     "Update a Pull Request by ID with specified fields, including setting autocomplete with various completion options.",
     {
@@ -495,7 +499,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.update_pull_request_reviewers,
     "Add or remove reviewers for an existing pull request.",
     {
@@ -551,7 +556,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_repos_by_project,
     "Retrieve a list of repositories for a given project",
     {
@@ -595,7 +601,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_pull_requests_by_repo_or_project,
     "Retrieve a list of pull requests for a given repository. Either repositoryId or project must be provided.",
     {
@@ -751,7 +758,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_pull_request_threads,
     "Retrieve a list of comment threads for a pull request.",
     {
@@ -826,7 +834,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_pull_request_thread_comments,
     "Retrieve a list of comments in a pull request thread.",
     {
@@ -873,7 +882,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_branches_by_repo,
     "Retrieve a list of branch names for a given repository. Returns an array of branch name strings, not full branch objects. Use repo_get_branch_by_name to get full details for a specific branch.",
     {
@@ -906,7 +916,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_my_branches_by_repo,
     "Retrieve a list of my branch names for a given repository Id. Returns an array of branch name strings, not full branch objects. Use repo_get_branch_by_name to get full details for a specific branch.",
     {
@@ -939,7 +950,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.get_repo_by_name_or_id,
     "Get the repository by project and repository name or ID.",
     {
@@ -975,7 +987,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.get_branch_by_name,
     "Get a branch by its name. Returns isError: true if the branch is not found.",
     {
@@ -1014,7 +1027,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.get_pull_request_by_id,
     "Get a pull request by its ID.",
     {
@@ -1113,7 +1127,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.get_pull_request_changes,
     "Get the file changes (diff) for a pull request iteration with actual code diff content. Returns the code changes including line-by-line diffs made in the pull request.",
     {
@@ -1478,7 +1493,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.reply_to_comment,
     "Replies to a specific comment on a pull request.",
     {
@@ -1525,7 +1541,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.create_pull_request_thread,
     "Creates a new comment thread on a pull request.",
     {
@@ -1679,7 +1696,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.update_pull_request_thread,
     "Updates an existing comment thread on a pull request.",
     {
@@ -1738,7 +1756,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
   const gitVersionTypeStrings = Object.values(GitVersionType).filter((value): value is string => typeof value === "string");
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.search_commits,
     "Search for commits in a repository with comprehensive filtering capabilities. Supports searching by description/comment text, time range, author, committer, specific commit IDs, and more. This is the unified tool for all commit search operations.",
     {
@@ -1916,7 +1935,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
   const pullRequestQueryTypesStrings = Object.values(GitPullRequestQueryType).filter((value): value is string => typeof value === "string");
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_pull_requests_by_commits,
     "Lists pull requests by commit IDs to find which pull requests contain specific commits",
     {
@@ -1959,7 +1979,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.vote_pull_request,
     "Cast a vote on a pull request. Automatically adds the current user as a reviewer if they are not already one.",
     {
@@ -2014,7 +2035,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.list_directory,
     "List files and folders in a directory within a repository. Useful for exploring the structure of a codebase or finding related files. Returns isError: true if the path is not found.",
     {
@@ -2100,7 +2122,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
   // ── Get file content at a specific version (branch, tag, or commit) ──
   const fileVersionTypeStrings = getEnumKeys(GitVersionType);
 
-  server.tool(
+  registerTool(
+    server,
     REPO_TOOLS.get_file_content,
     "Get the content of a file from a Git repository at a specific version (branch, tag, or commit SHA). " +
       "Useful for reading source files from PR branches, specific commits, or tags without having them checked out locally. " +

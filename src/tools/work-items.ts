@@ -4,6 +4,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { QueryExpand } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
@@ -70,7 +71,8 @@ function getLinkTypeFromName(name: string) {
 }
 
 function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.list_backlogs,
     "Receive a list of backlogs for a given project and team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -112,7 +114,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.list_backlog_work_items,
     "Retrieve a list of backlogs of for a given project, team, and backlog category. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -156,7 +159,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.my_work_items,
     "Retrieve a list of work items relevent to the authenticated user. If a project is not specified, you will be prompted to select one.",
     {
@@ -193,7 +197,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.get_work_items_batch_by_ids,
     "Retrieve list of work items by IDs in batch. If a project is not specified, you will be prompted to select one.",
     {
@@ -261,7 +266,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.get_work_item,
     "Get a single work item by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -316,7 +322,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.list_work_item_comments,
     "Retrieve list of comments for a work item by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -351,7 +358,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.add_work_item_comment,
     "Add comment to a work item by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -415,7 +423,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.update_work_item_comment,
     "Update an existing comment on a work item by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -477,7 +486,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.list_work_item_revisions,
     "Retrieve list of revisions for a work item by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -547,7 +557,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.add_child_work_items,
     "Create one or many child work items from a parent by work item type and parent id. If a project is not specified, you will be prompted to select one.",
     {
@@ -689,7 +700,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.link_work_item_to_pull_request,
     "Link a single work item to an existing pull request.",
     {
@@ -759,7 +771,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.get_work_items_for_iteration,
     "Retrieve a list of work items for a specified iteration. If a project is not specified, you will be prompted to select one.",
     {
@@ -796,7 +809,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.update_work_item,
     "Update a work item by ID with specified fields.",
     {
@@ -842,7 +856,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.get_work_item_type,
     "Get a specific work item type. If a project is not specified, you will be prompted to select one.",
     {
@@ -877,7 +892,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.create_work_item,
     "Create a new work item in a specified project and work item type. If a project is not specified, you will be prompted to select one.",
     {
@@ -945,7 +961,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.get_query,
     "Get a query by its ID or path. If a project is not specified, you will be prompted to select one.",
     {
@@ -987,7 +1004,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.get_query_results_by_id,
     "Retrieve the results of a work item query given the query ID. Supports full or IDs-only response types.",
     {
@@ -1027,7 +1045,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.update_work_items_batch,
     "Update work items in batch",
     {
@@ -1113,7 +1132,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.work_items_link,
     "Link work items together in batch. If a project is not specified, you will be prompted to select one.",
     {
@@ -1201,7 +1221,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.work_item_unlink,
     "Remove one or many links from a single work item. If a project is not specified, you will be prompted to select one.",
     {
@@ -1288,7 +1309,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.add_artifact_link,
     "Add artifact links (repository, branch, commit, builds) to work items. You can either provide the full vstfs URI or the individual components to build it automatically. If a project is not specified, you will be prompted to select one.",
     {
@@ -1450,7 +1472,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.query_by_wiql,
     "Execute a WIQL (Work Item Query Language) query and return the matching work items. If a project is not specified, you will be prompted to select one.",
     {
@@ -1508,7 +1531,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORKITEM_TOOLS.get_work_item_attachment,
     "Download a work item attachment by its ID. By default returns the content as a base64-encoded resource. If savePath is provided, saves the file locally to that directory and returns the file path instead. Useful for viewing images (e.g. screenshots) or other files attached to work items such as bugs. If a project is not specified, you will be prompted to select one.",
     {

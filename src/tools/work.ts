@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { TreeStructureGroup, TreeNodeStructureType, WorkItemClassificationNode } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
@@ -118,7 +119,8 @@ const WORK_TOOLS = {
 };
 
 function configureWorkTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_team_iterations,
     "Retrieve a list of iterations for a specific team in a project. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -168,7 +170,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.create_iterations,
     "Create new iterations in a specified Azure DevOps project.",
     {
@@ -226,7 +229,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_iterations,
     "List all iterations in a specified Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -299,7 +303,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.assign_iterations,
     "Assign existing iterations to a specific team in a project.",
     {
@@ -347,7 +352,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_team_capacity,
     "Get the team capacity of a specific team and iteration in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -408,7 +414,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_team_capacity,
     "Update the team capacity of a team member for a specific iteration in a project.",
     {
@@ -491,7 +498,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_iteration_capacities,
     "Get an iteration's capacity for all teams in iteration and project. If a project is not specified, you will be prompted to select one.",
     {
@@ -531,7 +539,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_team_settings,
     "Get team settings including default iteration, backlog iteration, and default area path for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -596,7 +605,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_plans,
     "Retrieve a list of delivery plans for an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -634,7 +644,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_plan,
     "Retrieve a single delivery plan by ID for an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -673,7 +684,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.create_plan,
     "Create a new delivery plan in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -717,7 +729,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_plan,
     "Update an existing delivery plan in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -772,7 +785,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.delete_plan,
     "Permanently delete a delivery plan from an Azure DevOps project. This is a destructive operation. If a project is not specified, you will be prompted to select one.",
     {
@@ -807,7 +821,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_areas,
     "List the area paths for an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -848,7 +863,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.create_area,
     "Create a new area path in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -884,7 +900,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_area,
     "Rename an existing area path in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -920,7 +937,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.delete_area,
     "Permanently delete an area path from an Azure DevOps project. This is a destructive operation: work items assigned to the deleted area are reclassified to the area identified by reclassifyId. If a project is not specified, you will be prompted to select one.",
     {
@@ -956,7 +974,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_iteration,
     "Update an existing iteration (rename and/or change its start/finish dates) in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -1006,7 +1025,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.delete_iteration,
     "Permanently delete an iteration from an Azure DevOps project. This is a destructive operation: work items assigned to the deleted iteration are reclassified to the iteration identified by reclassifyId. If a project is not specified, you will be prompted to select one.",
     {
@@ -1042,7 +1062,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.set_team_area_paths,
     "Set the area paths owned by a team in an Azure DevOps project (the default area path and/or the full list of area paths). If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1106,7 +1127,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_boards,
     "List the boards for a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1152,7 +1174,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board_columns,
     "Get the columns of a board for a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1199,7 +1222,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board_rows,
     "Get the rows (swimlanes) of a board for a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1246,7 +1270,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_backlog_configuration,
     "Get the backlog configuration (portfolio/requirement/task backlogs and their work item types) for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1288,7 +1313,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_team_days_off,
     "Get a team's days off for a specific iteration. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1331,7 +1357,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.set_team_days_off,
     "Set a team's days off for a specific iteration (replaces the existing set). If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1403,7 +1430,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     return { teamContext: { project: resolvedProject, team: resolvedTeam } };
   };
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_board_columns,
     "Replace the columns of a board. Obtain the current columns via work_get_board_columns, modify them, and pass back the full set.",
     {
@@ -1429,7 +1457,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_board_rows,
     "Replace the rows (swimlanes) of a board. Obtain the current rows via work_get_board_rows, modify them, and pass back the full set.",
     {
@@ -1455,7 +1484,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board_card_settings,
     "Get the card field settings of a board. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1480,7 +1510,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_board_card_settings,
     "Update the card field settings of a board. Obtain the current settings via work_get_board_card_settings, modify them, and pass back the full object.",
     {
@@ -1506,7 +1537,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board_card_rule_settings,
     "Get the card style/rule settings of a board. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1531,7 +1563,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_board_card_rule_settings,
     "Update the card style/rule settings of a board. Obtain the current settings via work_get_board_card_rule_settings, modify them, and pass back the full object.",
     {
@@ -1557,7 +1590,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_board_charts,
     "List the charts available on a board. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1585,7 +1619,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board_chart,
     "Get a specific chart of a board by name. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1611,7 +1646,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_board_chart,
     "Update a board chart by name. Obtain the current chart via work_get_board_chart, modify it, and pass back the full object.",
     {
@@ -1638,7 +1674,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_backlogs,
     "List the backlog levels (e.g. Epics, Features, Stories) configured for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1665,7 +1702,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_backlog,
     "Get the configuration of a specific backlog level for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1690,7 +1728,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_backlog_work_items,
     "Get the work items belonging to a specific backlog level for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1715,7 +1754,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_iteration_work_items,
     "Get the work items assigned to a specific iteration for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1740,7 +1780,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.remove_team_iteration,
     "Remove (unassign) an iteration from a team. This does not delete the iteration from the project. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1773,7 +1814,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     iterationPath: z.string().optional().describe("Iteration path for the reorder operation (only used when reordering from the iteration backlog)."),
   };
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.reorder_backlog_work_items,
     "Reorder work items on a team's backlog. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1799,7 +1841,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.reorder_iteration_work_items,
     "Reorder work items within a team's iteration. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1826,7 +1869,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board,
     "Get a board (including its columns, rows and allowed mappings) for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1851,7 +1895,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board_user_settings,
     "Get the current user's settings for a board (e.g. which swimlanes are collapsed). If a project or team is not specified, you will be prompted to select one.",
     {
@@ -1876,7 +1921,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_delivery_timeline,
     "Get the delivery timeline (delivery plan) data for a plan. If a project is not specified, you will be prompted to select one.",
     {
@@ -1908,7 +1954,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_process_configuration,
     "Get the process configuration (backlog levels, fields and work item types) for a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -1936,7 +1983,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.list_predefined_queries,
     "List the predefined queries (e.g. unparented work, work without target date) available for a project's portfolio backlogs. If a project is not specified, you will be prompted to select one.",
     {
@@ -1967,7 +2015,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_predefined_query_results,
     "Get the results of a predefined query for a project's portfolio backlogs. If a project is not specified, you will be prompted to select one.",
     {
@@ -1998,7 +2047,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_taskboard_columns,
     "Get the taskboard (sprint board) columns for a team. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -2022,7 +2072,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_taskboard_columns,
     "Replace the taskboard (sprint board) columns for a team. Obtain the current columns via work_get_taskboard_columns, modify them, and pass back the full set.",
     {
@@ -2064,7 +2115,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_taskboard_work_item_columns,
     "Get the taskboard column assignment for each work item in an iteration. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -2089,7 +2141,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_taskboard_work_item_column,
     "Move a work item to a different taskboard column within an iteration. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -2117,7 +2170,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_taskboard_card_settings,
     "Update the taskboard card field settings for a team. Obtain a card settings shape via work_get_board_card_settings, modify it, and pass back the full object.",
     {
@@ -2142,7 +2196,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_taskboard_card_rule_settings,
     "Update the taskboard card style/rule settings for a team. Obtain a rule settings shape via work_get_board_card_rule_settings, modify it, and pass back the full object.",
     {
@@ -2167,7 +2222,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_column_suggested_values,
     "Get the suggested values that can be used for board columns in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -2195,7 +2251,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_row_suggested_values,
     "Get the suggested values that can be used for board rows (swimlanes) in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -2223,7 +2280,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_board_mapping_parent_items,
     "Get the parent work items mapped to a set of child work items for a board. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -2249,7 +2307,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.get_team_member_capacity,
     "Get the capacity of a specific team member for an iteration. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -2275,7 +2334,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.replace_team_capacities,
     "Replace the capacities of all team members for an iteration. This overwrites the entire capacity set for the iteration. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -2330,7 +2390,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WORK_TOOLS.update_automation_rule,
     "Enable or disable a team's backlog automation rules (e.g. auto state updates) for a backlog level. If a project or team is not specified, you will be prompted to select one.",
     {

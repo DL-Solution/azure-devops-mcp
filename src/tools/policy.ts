@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { PolicyConfiguration } from "azure-devops-node-api/interfaces/PolicyInterfaces.js";
@@ -33,7 +34,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
 
   const projectField = z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown.");
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.list_configurations,
     "List the policy configurations in a project, optionally filtered by scope (repository/branch) or policy type. If a project is not specified, you will be prompted to select one.",
     {
@@ -61,7 +63,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.get_configuration,
     "Get a specific policy configuration by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -85,7 +88,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.create_configuration,
     "Create a new policy configuration (e.g. a branch policy) in a project. Use policy_list_types to discover the type ID and required settings.",
     {
@@ -111,7 +115,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.update_configuration,
     "Update an existing policy configuration. Obtain the current configuration via policy_get_configuration, modify it, and pass back the full object.",
     {
@@ -136,7 +141,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.delete_configuration,
     "Delete a policy configuration by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -160,7 +166,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.list_types,
     "List the policy types available in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -186,7 +193,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.get_type,
     "Get a specific policy type by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -210,7 +218,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.list_configuration_revisions,
     "List the revisions of a policy configuration. If a project is not specified, you will be prompted to select one.",
     {
@@ -236,7 +245,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.get_configuration_revision,
     "Get a specific revision of a policy configuration. If a project is not specified, you will be prompted to select one.",
     {
@@ -261,7 +271,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.list_evaluations,
     "List the policy evaluations for an artifact (e.g. a pull request), showing which policies pass, fail or are queued. If a project is not specified, you will be prompted to select one.",
     {
@@ -288,7 +299,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.get_evaluation,
     "Get a specific policy evaluation record by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -312,7 +324,8 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     POLICY_TOOLS.requeue_evaluation,
     "Requeue (re-run) a policy evaluation by ID. If a project is not specified, you will be prompted to select one.",
     {

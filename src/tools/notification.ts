@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { NotificationSubscriptionCreateParameters, NotificationSubscriptionUpdateParameters } from "azure-devops-node-api/interfaces/NotificationInterfaces.js";
@@ -18,7 +19,8 @@ const NOTIFICATION_TOOLS = {
 };
 
 function configureNotificationTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
-  server.tool(
+  registerTool(
+    server,
     NOTIFICATION_TOOLS.list_subscriptions,
     "List notification subscriptions, optionally filtered by target (a user or group ID) or by subscription IDs.",
     {
@@ -42,7 +44,8 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     NOTIFICATION_TOOLS.get_subscription,
     "Get a specific notification subscription by ID.",
     {
@@ -62,7 +65,8 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     NOTIFICATION_TOOLS.create_subscription,
     "Create a new notification subscription. Use notification_list_subscription_templates to discover available event filters.",
     {
@@ -82,7 +86,8 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     NOTIFICATION_TOOLS.update_subscription,
     "Update an existing notification subscription. Obtain the current subscription via notification_get_subscription, modify it, and pass back the update parameters.",
     {
@@ -103,7 +108,8 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     NOTIFICATION_TOOLS.delete_subscription,
     "Delete a notification subscription by ID.",
     {
@@ -123,7 +129,8 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     NOTIFICATION_TOOLS.list_event_types,
     "List the notification event types, optionally filtered by publisher.",
     {
@@ -146,7 +153,8 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     NOTIFICATION_TOOLS.get_event_type,
     "Get a specific notification event type by ID.",
     {
@@ -166,7 +174,7 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     }
   );
 
-  server.tool(NOTIFICATION_TOOLS.list_subscription_templates, "List the available notification subscription templates (default subscriptions that can be created).", {}, async () => {
+  registerTool(server, NOTIFICATION_TOOLS.list_subscription_templates, "List the available notification subscription templates (default subscriptions that can be created).", {}, async () => {
     try {
       const connection = await connectionProvider();
       const notificationApi = await connection.getNotificationApi();

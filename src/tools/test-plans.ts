@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { TestPlanCreateParams } from "azure-devops-node-api/interfaces/TestPlanInterfaces.js";
 import { z } from "zod";
@@ -20,7 +21,8 @@ const Test_Plan_Tools = {
 };
 
 function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider?: () => string) {
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.list_test_plans,
     "Retrieve a paginated list of test plans from an Azure DevOps project. Allows filtering for active plans and toggling detailed information.",
     {
@@ -81,7 +83,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.create_test_plan,
     "Creates a new test plan in the project.",
     {
@@ -122,7 +125,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.create_test_suite,
     "Creates a new test suite in a test plan.",
     {
@@ -183,7 +187,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.add_test_cases_to_suite,
     "Adds existing test cases to a test suite.",
     {
@@ -215,7 +220,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.create_test_case,
     "Creates a new test case work item.",
     {
@@ -309,7 +315,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.update_test_case_steps,
     "Update an existing test case work item.",
     {
@@ -356,7 +363,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.list_test_cases,
     "Gets a list of test cases in the test plan.",
     {
@@ -415,7 +423,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.test_results_from_build_id,
     "Gets a list of test results for a given project and build ID. Can filter by test outcome (e.g. Failed, Passed, Aborted). Returns test case titles, error messages, stack traces, and outcomes. Efficiently handles builds with large numbers of test runs.",
     {
@@ -483,7 +492,8 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     Test_Plan_Tools.list_test_suites,
     "Retrieve a paginated list of test suites from an Azure DevOps project and Test Plan Id.",
     {

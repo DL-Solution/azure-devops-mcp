@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { Dashboard, Widget, WidgetScope } from "azure-devops-node-api/interfaces/DashboardInterfaces.js";
@@ -36,7 +37,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
   const projectField = z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown.");
   const teamField = z.string().optional().describe("The name or ID of the Azure DevOps team. Optional; omit for project-scoped dashboards.");
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.list_dashboards,
     "List the dashboards in a project (or team). If a project is not specified, you will be prompted to select one.",
     {
@@ -63,7 +65,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.get_dashboard,
     "Get a specific dashboard (including its widgets) by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -88,7 +91,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.create_dashboard,
     "Create a new dashboard in a project (or team). If a project is not specified, you will be prompted to select one.",
     {
@@ -113,7 +117,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.replace_dashboard,
     "Replace (fully update) an existing dashboard. Obtain the current dashboard via dashboard_get_dashboard, modify it, and pass back the full object.",
     {
@@ -139,7 +144,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.delete_dashboard,
     "Delete a dashboard by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -164,7 +170,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.get_widget,
     "Get a specific widget on a dashboard. If a project is not specified, you will be prompted to select one.",
     {
@@ -190,7 +197,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.create_widget,
     "Add a widget to a dashboard. Use dashboard_list_widget_types to discover the contributionId and default sizing for available widgets.",
     {
@@ -216,7 +224,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.update_widget,
     "Update a widget on a dashboard. Obtain the current widget via dashboard_get_widget, modify it, and pass back the full object.",
     {
@@ -243,7 +252,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.delete_widget,
     "Remove a widget from a dashboard. Returns the updated dashboard. If a project is not specified, you will be prompted to select one.",
     {
@@ -269,7 +279,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.list_widget_types,
     "List the widget types available to add to dashboards, including their contributionId and default sizing.",
     {
@@ -302,7 +313,8 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     DASHBOARD_TOOLS.get_widget_metadata,
     "Get the metadata for a widget type by its contribution ID. Use dashboard_list_widget_types to discover contribution IDs.",
     {

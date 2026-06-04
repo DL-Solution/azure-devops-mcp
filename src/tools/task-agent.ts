@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { VariableGroupParameters, VariableGroupProjectReference, EnvironmentCreateParameter, EnvironmentUpdateParameter } from "azure-devops-node-api/interfaces/TaskAgentInterfaces.js";
@@ -34,7 +35,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
 
   const projectField = z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown.");
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.list_variable_groups,
     "List the variable groups in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -62,7 +64,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.get_variable_group,
     "Get a specific variable group by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -86,7 +89,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.add_variable_group,
     "Create a new variable group. The parameters must include 'variableGroupProjectReferences' specifying the target project(s).",
     {
@@ -110,7 +114,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.update_variable_group,
     "Update an existing variable group. Obtain the current group via taskagent_get_variable_group, build the parameters, and pass them back.",
     {
@@ -131,7 +136,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.delete_variable_group,
     "Delete a variable group from the specified project(s).",
     {
@@ -152,7 +158,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.share_variable_group,
     "Share a variable group with additional projects.",
     {
@@ -173,7 +180,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.list_agent_pools,
     "List the agent pools in the organization, optionally filtered by name.",
     {
@@ -196,7 +204,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.list_agent_queues,
     "List the agent queues in a project, optionally filtered by name. If a project is not specified, you will be prompted to select one.",
     {
@@ -223,7 +232,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.list_environments,
     "List the environments (deployment targets) in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -251,7 +261,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.get_environment,
     "Get a specific environment by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -275,7 +286,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.add_environment,
     "Create a new environment (deployment target) in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -301,7 +313,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.update_environment,
     "Update an existing environment's name or description. If a project is not specified, you will be prompted to select one.",
     {
@@ -328,7 +341,8 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     TASKAGENT_TOOLS.delete_environment,
     "Delete an environment by ID. If a project is not specified, you will be prompted to select one.",
     {

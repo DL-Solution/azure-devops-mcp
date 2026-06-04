@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { ReleaseStartMetadata, ReleaseApproval, ReleaseEnvironmentUpdateMetadata, ApprovalStatus, ReleaseStatus } from "azure-devops-node-api/interfaces/ReleaseInterfaces.js";
@@ -42,7 +43,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
 
   const projectField = z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown.");
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.list_definitions,
     "List the release definitions in a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -70,7 +72,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.get_definition,
     "Get a specific release definition by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -94,7 +97,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.list_releases,
     "List the releases in a project, optionally filtered by definition or status. If a project is not specified, you will be prompted to select one.",
     {
@@ -124,7 +128,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.get_release,
     "Get a specific release by ID. If a project is not specified, you will be prompted to select one.",
     {
@@ -148,7 +153,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.create_release,
     "Create (start) a new release from a release definition. If a project is not specified, you will be prompted to select one.",
     {
@@ -184,7 +190,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.get_environment,
     "Get a specific environment (stage) of a release. If a project is not specified, you will be prompted to select one.",
     {
@@ -209,7 +216,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.update_environment,
     "Update a release environment (stage), e.g. to start a deployment by setting its status to 'inProgress'. If a project is not specified, you will be prompted to select one.",
     {
@@ -235,7 +243,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.list_approvals,
     "List the release approvals in a project, optionally filtered by status or assignee. If a project is not specified, you will be prompted to select one.",
     {
@@ -265,7 +274,8 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     RELEASE_TOOLS.update_approval,
     "Approve or reject a release approval. If a project is not specified, you will be prompted to select one.",
     {
