@@ -29,6 +29,10 @@ import { configureServiceEndpointTools } from "./tools/service-endpoint.js";
 import { configureServiceHooksTools } from "./tools/service-hooks.js";
 import { configureGraphTools } from "./tools/graph.js";
 import { configureArtifactsTools } from "./tools/artifacts.js";
+import { configureAuditTools } from "./tools/audit.js";
+import { configurePermissionsTools } from "./tools/permissions.js";
+import { configureOperationsTools } from "./tools/operations.js";
+import { configureExtensionsTools } from "./tools/extensions.js";
 
 function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
@@ -61,6 +65,10 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.SERVICE_HOOKS, () => configureServiceHooksTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.GRAPH, () => configureGraphTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.ARTIFACTS, () => configureArtifactsTools(server, tokenProvider, connectionProvider, userAgentProvider));
+  configureIfDomainEnabled(Domain.AUDIT, () => configureAuditTools(server, tokenProvider, connectionProvider, userAgentProvider));
+  configureIfDomainEnabled(Domain.PERMISSIONS, () => configurePermissionsTools(server, tokenProvider, connectionProvider, userAgentProvider));
+  configureIfDomainEnabled(Domain.OPERATIONS, () => configureOperationsTools(server, tokenProvider, connectionProvider, userAgentProvider));
+  configureIfDomainEnabled(Domain.EXTENSIONS, () => configureExtensionsTools(server, tokenProvider, connectionProvider, userAgentProvider));
 }
 
 export { configureAllTools };

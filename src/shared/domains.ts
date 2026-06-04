@@ -31,6 +31,10 @@ export enum Domain {
   SERVICE_HOOKS = "service-hooks",
   GRAPH = "graph",
   ARTIFACTS = "artifacts",
+  AUDIT = "audit",
+  PERMISSIONS = "permissions",
+  OPERATIONS = "operations",
+  EXTENSIONS = "extensions",
 }
 
 export const ALL_DOMAINS = "all";
