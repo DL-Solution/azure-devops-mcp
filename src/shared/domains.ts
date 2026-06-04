@@ -36,6 +36,7 @@ export enum Domain {
   OPERATIONS = "operations",
   EXTENSIONS = "extensions",
   FEATURE_MANAGEMENT = "feature-management",
+  GALLERY = "gallery",
 }
 
 export const ALL_DOMAINS = "all";

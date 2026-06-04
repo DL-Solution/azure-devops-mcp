@@ -34,6 +34,7 @@ import { configurePermissionsTools } from "./tools/permissions.js";
 import { configureOperationsTools } from "./tools/operations.js";
 import { configureExtensionsTools } from "./tools/extensions.js";
 import { configureFeatureManagementTools } from "./tools/feature-management.js";
+import { configureGalleryTools } from "./tools/gallery.js";
 
 function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
@@ -71,6 +72,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.OPERATIONS, () => configureOperationsTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.EXTENSIONS, () => configureExtensionsTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.FEATURE_MANAGEMENT, () => configureFeatureManagementTools(server, tokenProvider, connectionProvider, userAgentProvider));
+  configureIfDomainEnabled(Domain.GALLERY, () => configureGalleryTools(server, tokenProvider, connectionProvider));
 }
 
 export { configureAllTools };

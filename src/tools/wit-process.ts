@@ -17,6 +17,10 @@ const WIT_PROCESS_TOOLS = {
   get_state: "witprocess_get_state",
   list_behaviors: "witprocess_list_behaviors",
   get_behavior: "witprocess_get_behavior",
+  create_process: "witprocess_create_process",
+  create_work_item_type: "witprocess_create_work_item_type",
+  add_field_to_work_item_type: "witprocess_add_field_to_work_item_type",
+  create_state: "witprocess_create_state",
 };
 
 const WORK_ITEM_TYPE_EXPAND_MAP: Record<string, GetWorkItemTypeExpand> = {
@@ -236,6 +240,111 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error fetching behavior: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.create_process,
+    "Create a new inherited process derived from a system process (Agile, Scrum, Basic, or CMMI).",
+    {
+      name: z.string().describe("The name of the new process."),
+      parentProcessTypeId: z.string().describe("The ID of the parent (system) process to inherit from. Use witprocess_list_processes to find it."),
+      description: z.string().optional().describe("An optional description for the process."),
+      referenceName: z.string().optional().describe("An optional reference name for the process."),
+    },
+    async ({ name, parentProcessTypeId, description, referenceName }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        const process = await processApi.createNewProcess({ name, parentProcessTypeId, description, referenceName });
+
+        return { content: [{ type: "text", text: JSON.stringify(process, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error creating process: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.create_work_item_type,
+    "Create a new work item type in an inherited process, optionally inheriting from an existing type.",
+    {
+      processId: z.string().describe("The ID of the (inherited) process."),
+      name: z.string().describe("The name of the work item type."),
+      description: z.string().optional().describe("An optional description."),
+      color: z.string().optional().describe("The color of the work item type as a hex string without '#', e.g. 'f6546a'."),
+      icon: z.string().optional().describe("The icon identifier, e.g. 'icon_book'."),
+      inheritsFrom: z.string().optional().describe("The reference name of an existing work item type to inherit from. Omit to create a new type."),
+      isDisabled: z.boolean().optional().describe("Whether the work item type is disabled."),
+    },
+    async ({ processId, name, description, color, icon, inheritsFrom, isDisabled }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        const workItemType = await processApi.createProcessWorkItemType({ name, description, color, icon, inheritsFrom, isDisabled }, processId);
+
+        return { content: [{ type: "text", text: JSON.stringify(workItemType, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error creating work item type: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.add_field_to_work_item_type,
+    "Add a field to a work item type in an inherited process.",
+    {
+      processId: z.string().describe("The ID of the (inherited) process."),
+      witRefName: z.string().describe("The reference name of the work item type, e.g. 'MyProcess.Bug'."),
+      referenceName: z.string().describe("The reference name of the field to add, e.g. 'Custom.MyField'."),
+      required: z.boolean().optional().describe("Whether the field is required."),
+      readOnly: z.boolean().optional().describe("Whether the field is read-only."),
+      allowGroups: z.boolean().optional().describe("Whether groups are allowed for an identity field."),
+      defaultValue: z.string().optional().describe("The default value for the field."),
+      allowedValues: z.array(z.string()).optional().describe("The list of allowed (picklist) values for the field."),
+    },
+    async ({ processId, witRefName, referenceName, required, readOnly, allowGroups, defaultValue, allowedValues }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        const field = await processApi.addFieldToWorkItemType({ referenceName, required, readOnly, allowGroups, defaultValue, allowedValues }, processId, witRefName);
+
+        return { content: [{ type: "text", text: JSON.stringify(field, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error adding field to work item type: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.create_state,
+    "Create a new workflow state for a work item type in an inherited process.",
+    {
+      processId: z.string().describe("The ID of the (inherited) process."),
+      witRefName: z.string().describe("The reference name of the work item type, e.g. 'MyProcess.Bug'."),
+      name: z.string().describe("The name of the state, e.g. 'Triaged'."),
+      stateCategory: z.enum(["Proposed", "InProgress", "Resolved", "Completed", "Removed"]).describe("The state category the state belongs to."),
+      color: z.string().optional().describe("The color of the state as a hex string without '#', e.g. 'b2b2b2'."),
+      order: z.coerce.number().optional().describe("The order of the state within its category."),
+    },
+    async ({ processId, witRefName, name, stateCategory, color, order }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        const state = await processApi.createStateDefinition({ name, stateCategory, color, order }, processId, witRefName);
+
+        return { content: [{ type: "text", text: JSON.stringify(state, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error creating state: ${errorMessage}` }], isError: true };
       }
     }
   );
