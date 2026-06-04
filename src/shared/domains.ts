@@ -26,6 +26,7 @@ export enum Domain {
   NOTIFICATION = "notification",
   SECURITY_ROLES = "security-roles",
   PROJECT_ANALYSIS = "project-analysis",
+  MEMBER_ENTITLEMENT = "member-entitlement",
 }
 
 export const ALL_DOMAINS = "all";
