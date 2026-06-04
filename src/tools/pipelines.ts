@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { apiVersion, getEnumKeys, safeEnumConvert } from "../utils.js";
 import { WebApi } from "azure-devops-node-api";
-import { BuildQueryOrder, DefinitionQueryOrder } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
+import { BuildQueryOrder, DefinitionQueryOrder, Build, BuildStatus } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
 import { z } from "zod";
 import { StageUpdateType } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
 import { ConfigurationType, RepositoryType } from "azure-devops-node-api/interfaces/PipelinesInterfaces.js";
@@ -28,6 +28,13 @@ const PIPELINE_TOOLS = {
   pipelines_run_pipeline: "pipelines_run_pipeline",
   pipelines_list_artifacts: "pipelines_list_artifacts",
   pipelines_download_artifact: "pipelines_download_artifact",
+  pipelines_get_build: "pipelines_get_build",
+  pipelines_get_build_definition: "pipelines_get_build_definition",
+  pipelines_queue_build: "pipelines_queue_build",
+  pipelines_cancel_build: "pipelines_cancel_build",
+  pipelines_get_build_tags: "pipelines_get_build_tags",
+  pipelines_add_build_tag: "pipelines_add_build_tag",
+  pipelines_delete_build_tag: "pipelines_delete_build_tag",
 };
 
 function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
@@ -646,6 +653,176 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
           },
         ],
       };
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_build,
+    "Get a single build by its ID, including status, result, and timing.",
+    {
+      project: z.string().describe("Project ID or name."),
+      buildId: z.coerce.number().describe("The ID of the build."),
+    },
+    async ({ project, buildId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const build = await buildApi.getBuild(project, buildId);
+
+        if (!build) {
+          return { content: [{ type: "text", text: `Build ${buildId} not found` }], isError: true };
+        }
+
+        return { content: [{ type: "text", text: JSON.stringify(build, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching build: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_build_definition,
+    "Get a single build/pipeline definition by its ID.",
+    {
+      project: z.string().describe("Project ID or name."),
+      definitionId: z.coerce.number().describe("The ID of the build definition."),
+      revision: z.coerce.number().optional().describe("A specific revision of the definition to retrieve. Optional."),
+      includeLatestBuilds: z.boolean().optional().describe("Include the latest and latest completed builds for the definition."),
+    },
+    async ({ project, definitionId, revision, includeLatestBuilds }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const definition = await buildApi.getDefinition(project, definitionId, revision, undefined, undefined, includeLatestBuilds);
+
+        if (!definition) {
+          return { content: [{ type: "text", text: `Build definition ${definitionId} not found` }], isError: true };
+        }
+
+        return { content: [{ type: "text", text: JSON.stringify(definition, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching build definition: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_queue_build,
+    "Queue (start) a new build for a build definition.",
+    {
+      project: z.string().describe("Project ID or name."),
+      definitionId: z.coerce.number().describe("The ID of the build definition to queue."),
+      sourceBranch: z.string().optional().describe("The branch to build, e.g. 'refs/heads/main'. Defaults to the definition's default branch."),
+      parameters: z.string().optional().describe('Build parameters as a JSON object string, e.g. \'{"myVar":"value"}\'.'),
+    },
+    async ({ project, definitionId, sourceBranch, parameters }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const build: Build = { definition: { id: definitionId }, sourceBranch, parameters };
+        const queued = await buildApi.queueBuild(build, project);
+
+        return { content: [{ type: "text", text: JSON.stringify(queued, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error queueing build: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_cancel_build,
+    "Cancel an in-progress build by setting its status to Cancelling.",
+    {
+      project: z.string().describe("Project ID or name."),
+      buildId: z.coerce.number().describe("The ID of the build to cancel."),
+    },
+    async ({ project, buildId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const build: Build = { status: BuildStatus.Cancelling };
+        const updated = await buildApi.updateBuild(build, project, buildId);
+
+        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error cancelling build: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_build_tags,
+    "Get the tags applied to a build.",
+    {
+      project: z.string().describe("Project ID or name."),
+      buildId: z.coerce.number().describe("The ID of the build."),
+    },
+    async ({ project, buildId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const tags = await buildApi.getBuildTags(project, buildId);
+
+        return { content: [{ type: "text", text: JSON.stringify(tags, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error fetching build tags: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_add_build_tag,
+    "Add a tag to a build. Returns the build's updated tag list.",
+    {
+      project: z.string().describe("Project ID or name."),
+      buildId: z.coerce.number().describe("The ID of the build."),
+      tag: z.string().describe("The tag to add."),
+    },
+    async ({ project, buildId, tag }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const tags = await buildApi.addBuildTag(project, buildId, tag);
+
+        return { content: [{ type: "text", text: JSON.stringify(tags, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error adding build tag: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_delete_build_tag,
+    "Delete a tag from a build. Returns the build's remaining tag list.",
+    {
+      project: z.string().describe("Project ID or name."),
+      buildId: z.coerce.number().describe("The ID of the build."),
+      tag: z.string().describe("The tag to remove."),
+    },
+    async ({ project, buildId, tag }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const tags = await buildApi.deleteBuildTag(project, buildId, tag);
+
+        return { content: [{ type: "text", text: JSON.stringify(tags, null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error deleting build tag: ${errorMessage}` }], isError: true };
+      }
     }
   );
 }

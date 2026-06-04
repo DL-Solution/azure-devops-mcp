@@ -33,6 +33,7 @@ import { configureAuditTools } from "./tools/audit.js";
 import { configurePermissionsTools } from "./tools/permissions.js";
 import { configureOperationsTools } from "./tools/operations.js";
 import { configureExtensionsTools } from "./tools/extensions.js";
+import { configureFeatureManagementTools } from "./tools/feature-management.js";
 
 function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
@@ -69,6 +70,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.PERMISSIONS, () => configurePermissionsTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.OPERATIONS, () => configureOperationsTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.EXTENSIONS, () => configureExtensionsTools(server, tokenProvider, connectionProvider, userAgentProvider));
+  configureIfDomainEnabled(Domain.FEATURE_MANAGEMENT, () => configureFeatureManagementTools(server, tokenProvider, connectionProvider, userAgentProvider));
 }
 
 export { configureAllTools };

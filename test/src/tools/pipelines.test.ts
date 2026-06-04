@@ -1821,4 +1821,96 @@ describe("configurePipelineTools", () => {
       expect(result.content[0].resource.uri).toContain(expectedBase64);
     });
   });
+
+  describe("build tools", () => {
+    function getHandler(toolName: string) {
+      configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([name]) => name === toolName);
+      if (!call) throw new Error(`${toolName} not registered`);
+      return call[3];
+    }
+
+    it("get_build returns a build by id", async () => {
+      const handler = getHandler("pipelines_get_build");
+      const getBuild = jest.fn().mockResolvedValue({ id: 42, status: 2 });
+      mockConnection.getBuildApi.mockResolvedValue({ getBuild });
+
+      const result = await handler({ project: "proj", buildId: 42 });
+
+      expect(getBuild).toHaveBeenCalledWith("proj", 42);
+      expect(result.content[0].text).toContain('"id": 42');
+    });
+
+    it("get_build_definition returns a definition by id", async () => {
+      const handler = getHandler("pipelines_get_build_definition");
+      const getDefinition = jest.fn().mockResolvedValue({ id: 7 });
+      mockConnection.getBuildApi.mockResolvedValue({ getDefinition });
+
+      await handler({ project: "proj", definitionId: 7, includeLatestBuilds: true });
+
+      expect(getDefinition).toHaveBeenCalledWith("proj", 7, undefined, undefined, undefined, true);
+    });
+
+    it("queue_build queues a build for a definition", async () => {
+      const handler = getHandler("pipelines_queue_build");
+      const queueBuild = jest.fn().mockResolvedValue({ id: 100 });
+      mockConnection.getBuildApi.mockResolvedValue({ queueBuild });
+
+      await handler({ project: "proj", definitionId: 7, sourceBranch: "refs/heads/main", parameters: '{"x":"1"}' });
+
+      expect(queueBuild).toHaveBeenCalledWith({ definition: { id: 7 }, sourceBranch: "refs/heads/main", parameters: '{"x":"1"}' }, "proj");
+    });
+
+    it("cancel_build sets status to Cancelling (4)", async () => {
+      const handler = getHandler("pipelines_cancel_build");
+      const updateBuild = jest.fn().mockResolvedValue({ id: 100, status: 4 });
+      mockConnection.getBuildApi.mockResolvedValue({ updateBuild });
+
+      await handler({ project: "proj", buildId: 100 });
+
+      expect(updateBuild).toHaveBeenCalledWith({ status: 4 }, "proj", 100);
+    });
+
+    it("add_build_tag adds a tag", async () => {
+      const handler = getHandler("pipelines_add_build_tag");
+      const addBuildTag = jest.fn().mockResolvedValue(["t1"]);
+      mockConnection.getBuildApi.mockResolvedValue({ addBuildTag });
+
+      const result = await handler({ project: "proj", buildId: 100, tag: "t1" });
+
+      expect(addBuildTag).toHaveBeenCalledWith("proj", 100, "t1");
+      expect(result.content[0].text).toContain("t1");
+    });
+
+    it("delete_build_tag removes a tag", async () => {
+      const handler = getHandler("pipelines_delete_build_tag");
+      const deleteBuildTag = jest.fn().mockResolvedValue([]);
+      mockConnection.getBuildApi.mockResolvedValue({ deleteBuildTag });
+
+      await handler({ project: "proj", buildId: 100, tag: "t1" });
+
+      expect(deleteBuildTag).toHaveBeenCalledWith("proj", 100, "t1");
+    });
+
+    it("get_build_tags lists tags", async () => {
+      const handler = getHandler("pipelines_get_build_tags");
+      const getBuildTags = jest.fn().mockResolvedValue(["a", "b"]);
+      mockConnection.getBuildApi.mockResolvedValue({ getBuildTags });
+
+      const result = await handler({ project: "proj", buildId: 100 });
+
+      expect(getBuildTags).toHaveBeenCalledWith("proj", 100);
+      expect(result.content[0].text).toContain("a");
+    });
+
+    it("get_build surfaces errors", async () => {
+      const handler = getHandler("pipelines_get_build");
+      mockConnection.getBuildApi.mockResolvedValue({ getBuild: jest.fn().mockRejectedValue(new Error("boom")) });
+
+      const result = await handler({ project: "proj", buildId: 1 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error fetching build: boom");
+    });
+  });
 });
