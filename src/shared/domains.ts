@@ -13,6 +13,7 @@ export enum Domain {
   REPOSITORIES = "repositories",
   SEARCH = "search",
   TEST_PLANS = "test-plans",
+  TEST_RESULTS = "test-results",
   WIKI = "wiki",
   WORK = "work",
   WORK_ITEMS = "work-items",
