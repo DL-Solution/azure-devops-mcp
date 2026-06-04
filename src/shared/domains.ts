@@ -27,6 +27,10 @@ export enum Domain {
   SECURITY_ROLES = "security-roles",
   PROJECT_ANALYSIS = "project-analysis",
   MEMBER_ENTITLEMENT = "member-entitlement",
+  SERVICE_ENDPOINT = "service-endpoint",
+  SERVICE_HOOKS = "service-hooks",
+  GRAPH = "graph",
+  ARTIFACTS = "artifacts",
 }
 
 export const ALL_DOMAINS = "all";
