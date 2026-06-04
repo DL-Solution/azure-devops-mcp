@@ -19,6 +19,10 @@ interface ProcessApiMock {
   getStateDefinition: jest.Mock;
   getProcessBehaviors: jest.Mock;
   getProcessBehavior: jest.Mock;
+  createNewProcess: jest.Mock;
+  createProcessWorkItemType: jest.Mock;
+  addFieldToWorkItemType: jest.Mock;
+  createStateDefinition: jest.Mock;
 }
 
 describe("configureWitProcessTools", () => {
@@ -41,6 +45,10 @@ describe("configureWitProcessTools", () => {
       getStateDefinition: jest.fn(),
       getProcessBehaviors: jest.fn(),
       getProcessBehavior: jest.fn(),
+      createNewProcess: jest.fn(),
+      createProcessWorkItemType: jest.fn(),
+      addFieldToWorkItemType: jest.fn(),
+      createStateDefinition: jest.fn(),
     };
     mockConnection = {
       getWorkItemTrackingProcessApi: jest.fn().mockResolvedValue(mockProcessApi),
@@ -179,5 +187,60 @@ describe("configureWitProcessTools", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Error fetching process: boom");
+  });
+
+  describe("process write tools", () => {
+    it("create_process creates an inherited process", async () => {
+      const handler = getHandler("witprocess_create_process");
+      mockProcessApi.createNewProcess.mockResolvedValue({ typeId: "new" });
+
+      await handler({ name: "My Agile", parentProcessTypeId: "adcc42ab-9882-485e-a3ed-7678f01f66bc", description: "d" });
+
+      expect(mockProcessApi.createNewProcess).toHaveBeenCalledWith({ name: "My Agile", parentProcessTypeId: "adcc42ab-9882-485e-a3ed-7678f01f66bc", description: "d", referenceName: undefined });
+    });
+
+    it("create_work_item_type creates a WIT in a process", async () => {
+      const handler = getHandler("witprocess_create_work_item_type");
+      mockProcessApi.createProcessWorkItemType.mockResolvedValue({ referenceName: "My.Bug" });
+
+      await handler({ processId: "proc-1", name: "Bug", inheritsFrom: "Microsoft.VSTS.WorkItemTypes.Bug" });
+
+      expect(mockProcessApi.createProcessWorkItemType).toHaveBeenCalledWith(
+        { name: "Bug", description: undefined, color: undefined, icon: undefined, inheritsFrom: "Microsoft.VSTS.WorkItemTypes.Bug", isDisabled: undefined },
+        "proc-1"
+      );
+    });
+
+    it("add_field_to_work_item_type adds a field", async () => {
+      const handler = getHandler("witprocess_add_field_to_work_item_type");
+      mockProcessApi.addFieldToWorkItemType.mockResolvedValue({ referenceName: "Custom.X" });
+
+      await handler({ processId: "proc-1", witRefName: "My.Bug", referenceName: "Custom.X", required: true });
+
+      expect(mockProcessApi.addFieldToWorkItemType).toHaveBeenCalledWith(
+        { referenceName: "Custom.X", required: true, readOnly: undefined, allowGroups: undefined, defaultValue: undefined, allowedValues: undefined },
+        "proc-1",
+        "My.Bug"
+      );
+    });
+
+    it("create_state creates a workflow state", async () => {
+      const handler = getHandler("witprocess_create_state");
+      mockProcessApi.createStateDefinition.mockResolvedValue({ id: "s1" });
+
+      await handler({ processId: "proc-1", witRefName: "My.Bug", name: "Triaged", stateCategory: "InProgress", color: "b2b2b2" });
+
+      expect(mockProcessApi.createStateDefinition).toHaveBeenCalledWith({ name: "Triaged", stateCategory: "InProgress", color: "b2b2b2", order: undefined }, "proc-1", "My.Bug");
+    });
+
+    it("create_process surfaces errors", async () => {
+      const handler = getHandler("witprocess_create_process");
+      mockProcessApi.createNewProcess.mockRejectedValue(new Error("denied"));
+
+      const result = await handler({ name: "x", parentProcessTypeId: "p" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error creating process: denied");
+    });
   });
 });
