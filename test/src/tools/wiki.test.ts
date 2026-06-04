@@ -13,6 +13,7 @@ interface WikiApiMock {
   getAllWikis: jest.Mock;
   getPagesBatch: jest.Mock;
   getPageText: jest.Mock;
+  createWiki: jest.Mock;
 }
 
 describe("configureWikiTools", () => {
@@ -22,9 +23,11 @@ describe("configureWikiTools", () => {
   let userAgentProvider: () => string;
   let mockConnection: {
     getWikiApi: jest.Mock;
+    getCoreApi: jest.Mock;
     serverUrl: string;
   };
   let mockWikiApi: WikiApiMock;
+  let mockCoreApi: { getProject: jest.Mock };
 
   beforeEach(() => {
     server = { tool: jest.fn() } as unknown as McpServer;
@@ -35,9 +38,12 @@ describe("configureWikiTools", () => {
       getAllWikis: jest.fn(),
       getPagesBatch: jest.fn(),
       getPageText: jest.fn(),
+      createWiki: jest.fn(),
     };
+    mockCoreApi = { getProject: jest.fn() };
     mockConnection = {
       getWikiApi: jest.fn().mockResolvedValue(mockWikiApi),
+      getCoreApi: jest.fn().mockResolvedValue(mockCoreApi),
       serverUrl: "https://dev.azure.com/testorg",
     };
     connectionProvider = jest.fn().mockResolvedValue(mockConnection);
@@ -2052,6 +2058,72 @@ describe("configureWikiTools", () => {
       const nonce = text.match(/<<([0-9a-f]{32})>>/)?.[1];
       expect(nonce).toBeDefined();
       expect(text).toContain(`<</${nonce}>>`);
+    });
+  });
+
+  describe("create_wiki tool", () => {
+    function getHandler() {
+      configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_wiki");
+      if (!call) throw new Error("wiki_create_wiki tool not registered");
+      return call[3];
+    }
+
+    it("provisions a project wiki using the resolved project id", async () => {
+      const handler = getHandler();
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-guid", name: "proj1" });
+      mockWikiApi.createWiki.mockResolvedValue({ id: "wiki-1", name: "proj1.wiki" });
+
+      const result = await handler({ name: "proj1.wiki", project: "proj1" });
+
+      expect(mockCoreApi.getProject).toHaveBeenCalledWith("proj1");
+      expect(mockWikiApi.createWiki).toHaveBeenCalledWith({ name: "proj1.wiki", projectId: "proj-guid", type: 0 }, "proj-guid");
+      expect(result.content[0].text).toContain("wiki-1");
+    });
+
+    it("provisions a code wiki with repository and branch version", async () => {
+      const handler = getHandler();
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-guid", name: "proj1" });
+      mockWikiApi.createWiki.mockResolvedValue({ id: "wiki-2" });
+
+      await handler({ name: "docs", project: "proj1", type: "codeWiki", repositoryId: "repo-1", version: "main", mappedPath: "/docs" });
+
+      expect(mockWikiApi.createWiki).toHaveBeenCalledWith(
+        { name: "docs", projectId: "proj-guid", type: 1, repositoryId: "repo-1", mappedPath: "/docs", version: { version: "main", versionType: 0 } },
+        "proj-guid"
+      );
+    });
+
+    it("returns an error for a code wiki without repositoryId/version", async () => {
+      const handler = getHandler();
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-guid", name: "proj1" });
+
+      const result = await handler({ name: "docs", project: "proj1", type: "codeWiki" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("repositoryId and version");
+      expect(mockWikiApi.createWiki).not.toHaveBeenCalled();
+    });
+
+    it("returns an error when the project is not found", async () => {
+      const handler = getHandler();
+      mockCoreApi.getProject.mockResolvedValue(null);
+
+      const result = await handler({ name: "w", project: "missing" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("not found");
+    });
+
+    it("handles API errors", async () => {
+      const handler = getHandler();
+      mockCoreApi.getProject.mockResolvedValue({ id: "proj-guid" });
+      mockWikiApi.createWiki.mockRejectedValue(new Error("boom"));
+
+      const result = await handler({ name: "w", project: "proj1" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error creating wiki: boom");
     });
   });
 });

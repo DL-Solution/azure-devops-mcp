@@ -5,7 +5,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { WikiPagesBatchRequest } from "azure-devops-node-api/interfaces/WikiInterfaces.js";
+import { WikiPagesBatchRequest, WikiCreateParametersV2, WikiType } from "azure-devops-node-api/interfaces/WikiInterfaces.js";
+import { GitVersionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { apiVersion, extractAdoStreamError } from "../utils.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 
@@ -16,6 +17,7 @@ const WIKI_TOOLS = {
   get_wiki_page: "wiki_get_page",
   get_wiki_page_content: "wiki_get_page_content",
   create_or_update_page: "wiki_create_or_update_page",
+  create_wiki: "wiki_create_wiki",
 };
 
 function configureWikiTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
@@ -411,6 +413,71 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
 
         return {
           content: [{ type: "text", text: `Error creating/updating wiki page: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.create_wiki,
+    "Provision a new wiki in a project. Use type 'projectWiki' to create the project's default wiki (required once before wiki pages can be created), or 'codeWiki' to publish a wiki from an existing Git repository.",
+    {
+      name: z.string().describe("The name of the wiki to create."),
+      project: z.string().describe("The project name or ID in which to create the wiki."),
+      type: z
+        .enum(["projectWiki", "codeWiki"])
+        .optional()
+        .default("projectWiki")
+        .describe("The wiki type. 'projectWiki' provisions the project's default wiki; 'codeWiki' publishes a wiki backed by a Git repository. Defaults to 'projectWiki'."),
+      repositoryId: z.string().optional().describe("Required for 'codeWiki': the ID of the Git repository that backs the wiki."),
+      mappedPath: z.string().optional().describe("For 'codeWiki': the folder path inside the repository shown as the wiki. Defaults to '/'."),
+      version: z.string().optional().describe("Required for 'codeWiki': the repository branch name that backs the wiki (e.g. 'main')."),
+    },
+    async ({ name, project, type = "projectWiki", repositoryId, mappedPath, version }) => {
+      try {
+        const connection = await connectionProvider();
+        const coreApi = await connection.getCoreApi();
+        const projectInfo = await coreApi.getProject(project);
+
+        if (!projectInfo || !projectInfo.id) {
+          return { content: [{ type: "text", text: `Project '${project}' not found` }], isError: true };
+        }
+
+        const isCodeWiki = type === "codeWiki";
+        if (isCodeWiki && (!repositoryId || !version)) {
+          return { content: [{ type: "text", text: "For a 'codeWiki', both repositoryId and version (branch) are required." }], isError: true };
+        }
+
+        const wikiCreateParams: WikiCreateParametersV2 = {
+          name,
+          projectId: projectInfo.id,
+          type: isCodeWiki ? WikiType.CodeWiki : WikiType.ProjectWiki,
+          ...(isCodeWiki
+            ? {
+                repositoryId,
+                mappedPath: mappedPath ?? "/",
+                version: { version, versionType: GitVersionType.Branch },
+              }
+            : {}),
+        };
+
+        const wikiApi = await connection.getWikiApi();
+        const wiki = await wikiApi.createWiki(wikiCreateParams, projectInfo.id);
+
+        if (!wiki) {
+          return { content: [{ type: "text", text: "Wiki was not created" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(wiki, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating wiki: ${errorMessage}` }],
           isError: true,
         };
       }
