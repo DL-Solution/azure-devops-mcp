@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { searchIdentities } from "./auth.js";
@@ -39,7 +40,8 @@ function filterProjectsByName(projects: ProjectInfo[], projectNameFilter: string
 }
 
 function configureCoreTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.list_project_teams,
     "Retrieve a list of teams for an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -81,7 +83,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.list_projects,
     "Retrieve a list of projects in your Azure DevOps organization.",
     {
@@ -117,7 +120,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.get_identity_ids,
     "Retrieve Azure DevOps identity IDs for a provided search filter.",
     {
@@ -153,7 +157,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.create_project,
     "Create a new project in your Azure DevOps organization. This queues an asynchronous operation and returns an operation reference.",
     {
@@ -209,7 +214,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.update_project,
     "Update an existing project in your Azure DevOps organization. This queues an asynchronous operation and returns an operation reference. If a project is not specified, you will be prompted to select one.",
     {
@@ -261,7 +267,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.delete_project,
     "Permanently delete a project from your Azure DevOps organization. This is a destructive operation that queues an asynchronous delete and returns an operation reference. If a project is not specified, you will be prompted to select one.",
     {
@@ -300,7 +307,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.create_team,
     "Create a new team in an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -337,7 +345,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.update_team,
     "Update an existing team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -379,7 +388,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.delete_team,
     "Permanently delete a team from an Azure DevOps project. This is a destructive operation. If a project is not specified, you will be prompted to select one.",
     {
@@ -414,7 +424,7 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(CORE_TOOLS.list_processes, "List the process templates available in the Azure DevOps organization (e.g. Agile, Scrum, Basic, CMMI).", {}, async () => {
+  registerTool(server, CORE_TOOLS.list_processes, "List the process templates available in the Azure DevOps organization (e.g. Agile, Scrum, Basic, CMMI).", {}, async () => {
     try {
       const connection = await connectionProvider();
       const coreApi = await connection.getCoreApi();
@@ -437,7 +447,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   });
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.list_team_members,
     "List the members of a team in an Azure DevOps project. If a project or team is not specified, you will be prompted to select one.",
     {
@@ -485,7 +496,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.get_project_properties,
     "Get the properties of an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {
@@ -525,7 +537,8 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     CORE_TOOLS.set_project_properties,
     "Set (create or update) properties on an Azure DevOps project. If a project is not specified, you will be prompted to select one.",
     {

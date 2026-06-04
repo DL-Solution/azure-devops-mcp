@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { GetProcessExpandLevel, GetWorkItemTypeExpand } from "azure-devops-node-api/interfaces/WorkItemTrackingProcessInterfaces.js";
@@ -26,7 +27,8 @@ const WORK_ITEM_TYPE_EXPAND_MAP: Record<string, GetWorkItemTypeExpand> = {
 };
 
 function configureWitProcessTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.list_processes,
     "List the processes (e.g. Agile, Scrum, Basic and inherited processes) in the organization.",
     {
@@ -49,7 +51,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.get_process,
     "Get a specific process by its type ID.",
     {
@@ -70,7 +73,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.list_work_item_types,
     "List the work item types defined in a process.",
     {
@@ -94,7 +98,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.get_work_item_type,
     "Get a specific work item type in a process by its reference name.",
     {
@@ -116,7 +121,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.list_work_item_type_fields,
     "List the fields of a work item type in a process.",
     {
@@ -140,7 +146,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.list_states,
     "List the state definitions of a work item type in a process.",
     {
@@ -164,7 +171,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.get_state,
     "Get a specific state definition of a work item type in a process.",
     {
@@ -186,7 +194,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.list_behaviors,
     "List the behaviors defined in a process.",
     {
@@ -209,7 +218,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     WIT_PROCESS_TOOLS.get_behavior,
     "Get a specific behavior in a process by its reference name.",
     {

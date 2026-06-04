@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { UserRoleAssignmentRef } from "azure-devops-node-api/interfaces/SecurityRolesInterfaces.js";
@@ -20,7 +21,8 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
     .string()
     .describe("The security namespace scope ID (e.g. 'distributedtask.globalagentpoolrole' for agent pools, 'distributedtask.serviceendpointrole' for service connections).");
 
-  server.tool(
+  registerTool(
+    server,
     SECURITY_ROLES_TOOLS.list_definitions,
     "List the security role definitions available for a scope.",
     {
@@ -43,7 +45,8 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     SECURITY_ROLES_TOOLS.list_assignments,
     "List the role assignments for a resource within a scope.",
     {
@@ -67,7 +70,8 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     SECURITY_ROLES_TOOLS.set_assignment,
     "Assign a security role to a single identity for a resource. Use securityrole_list_definitions to discover valid role names.",
     {
@@ -91,7 +95,8 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     SECURITY_ROLES_TOOLS.set_assignments,
     "Assign security roles to multiple identities for a resource.",
     {
@@ -121,7 +126,8 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     SECURITY_ROLES_TOOLS.remove_assignment,
     "Remove a security role assignment from a single identity for a resource.",
     {
@@ -143,7 +149,8 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     SECURITY_ROLES_TOOLS.remove_assignments,
     "Remove security role assignments from multiple identities for a resource.",
     {

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { apiVersion, getEnumKeys, safeEnumConvert } from "../utils.js";
 import { WebApi } from "azure-devops-node-api";
 import { BuildQueryOrder, DefinitionQueryOrder } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
@@ -30,7 +31,8 @@ const PIPELINE_TOOLS = {
 };
 
 function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_build_definitions,
     "Retrieves a list of build definitions for a given project.",
     {
@@ -131,7 +133,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     isSecret: z.boolean().optional(),
   });
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_create_pipeline,
     "Creates a pipeline definition with YAML configuration for a given project.",
     {
@@ -185,7 +188,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_build_definition_revisions,
     "Retrieves a list of revisions for a specific build definition.",
     {
@@ -203,7 +207,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_builds,
     "Retrieves a list of builds for a given project.",
     {
@@ -288,7 +293,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_build_log,
     "Retrieves the logs for a specific build.",
     {
@@ -306,7 +312,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_build_log_by_id,
     "Get a specific build log by log ID.",
     {
@@ -325,7 +332,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_build_changes,
     "Get the changes associated with a specific build.",
     {
@@ -346,7 +354,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_run,
     "Gets a run for a particular pipeline.",
     {
@@ -365,7 +374,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_list_runs,
     "Gets top 10000 runs for a particular pipeline.",
     {
@@ -428,7 +438,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       .optional(),
   });
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_run_pipeline,
     "Starts a new run of a pipeline.",
     {
@@ -474,7 +485,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_get_build_status,
     "Fetches the status of a specific build.",
     {
@@ -492,7 +504,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_update_build_stage,
     "Updates the stage of a specific build.",
     {
@@ -536,7 +549,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_list_artifacts,
     "Lists artifacts for a given build.",
     {
@@ -554,7 +568,8 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PIPELINE_TOOLS.pipelines_download_artifact,
     "Downloads a pipeline artifact. When destinationPath is provided, it must be a relative local path; absolute paths and path traversal are not allowed.",
     {

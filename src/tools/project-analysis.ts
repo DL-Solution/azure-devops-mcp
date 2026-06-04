@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { AggregationType } from "azure-devops-node-api/interfaces/ProjectAnalysisInterfaces.js";
@@ -31,7 +32,8 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
   const projectField = z.string().optional().describe("The name or ID of the Azure DevOps project. If not provided, a project selection prompt will be shown.");
   const aggregationField = z.enum(["daily", "hourly"]).default("daily").describe("The aggregation granularity for the metrics.");
 
-  server.tool(
+  registerTool(
+    server,
     PROJECT_ANALYSIS_TOOLS.get_language_analytics,
     "Get the language analytics (language breakdown) for a project. If a project is not specified, you will be prompted to select one.",
     {
@@ -54,7 +56,8 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PROJECT_ANALYSIS_TOOLS.get_project_activity,
     "Get the activity metrics (commits, pushes, pull requests) for a project since a given date. If a project is not specified, you will be prompted to select one.",
     {
@@ -79,7 +82,8 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PROJECT_ANALYSIS_TOOLS.list_repository_activity,
     "List the activity metrics for the Git repositories in a project since a given date. If a project is not specified, you will be prompted to select one.",
     {
@@ -109,7 +113,8 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
     }
   );
 
-  server.tool(
+  registerTool(
+    server,
     PROJECT_ANALYSIS_TOOLS.get_repository_activity,
     "Get the activity metrics for a specific Git repository since a given date. If a project is not specified, you will be prompted to select one.",
     {
