@@ -23,6 +23,9 @@ import {
   Comment,
   VersionControlChangeType,
   VersionControlRecursionType,
+  GitPush,
+  GitChange,
+  ItemContentType,
 } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { z } from "zod";
 import { getCurrentUserDetails, getUserIdFromEmail } from "./auth.js";
@@ -53,6 +56,7 @@ const REPO_TOOLS = {
   vote_pull_request: "repo_vote_pull_request",
   list_directory: "repo_list_directory",
   get_file_content: "repo_get_file_content",
+  push_changes: "repo_push_changes",
 };
 
 function branchesFilterOutIrrelevantProperties(branches: GitRef[], top: number) {
@@ -2192,6 +2196,93 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
               text: `Error getting file content for '${path}': ${errorMessage}`,
             },
           ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.push_changes,
+    "Commit and push one or more file changes (add/edit/delete) to a branch in a single commit. Can initialize an empty repository by pushing the first commit to its default branch (e.g. 'main'). For a name (not GUID) repositoryId, the project parameter is required.",
+    {
+      repositoryId: z.string().describe("The ID or name of the repository. When using a repository name instead of a GUID, the project parameter must also be provided."),
+      branch: z
+        .string()
+        .default("main")
+        .describe("The branch to commit to (without the 'refs/heads/' prefix), e.g. 'main'. Created if it does not yet exist (e.g. the first commit in an empty repository)."),
+      commitMessage: z.string().describe("The commit message."),
+      changes: z
+        .array(
+          z.object({
+            changeType: z.enum(["add", "edit", "delete"]).describe("The type of change: 'add' a new file, 'edit' an existing file, or 'delete' a file."),
+            path: z.string().describe("The path of the file in the repository, e.g. '/README.md' or 'src/index.ts'."),
+            content: z.string().optional().describe("The file content. Required for 'add' and 'edit'; ignored for 'delete'."),
+            contentType: z.enum(["text", "base64"]).optional().default("text").describe("How 'content' is encoded: 'text' (raw UTF-8) or 'base64' (for binary files). Defaults to 'text'."),
+          })
+        )
+        .min(1)
+        .describe("The list of file changes to include in the commit."),
+      project: z.string().optional().describe("Project ID or project name. Required when repositoryId is a repository name instead of a GUID."),
+    },
+    async ({ repositoryId, branch, commitMessage, changes, project }) => {
+      try {
+        for (const change of changes) {
+          if (change.changeType !== "delete" && change.content === undefined) {
+            return {
+              content: [{ type: "text", text: `Error: change for '${change.path}' has changeType '${change.changeType}' but no content. Content is required for 'add' and 'edit'.` }],
+              isError: true,
+            };
+          }
+        }
+
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+
+        // Resolve the branch's current tip so the push is a fast-forward. When the
+        // branch does not exist (e.g. an empty repository), an all-zero oldObjectId
+        // tells the server to create it.
+        const refName = `refs/heads/${branch}`;
+        const refs = await gitApi.getRefs(repositoryId, project, "heads/", false, false, undefined, false, undefined, branch);
+        const existingRef = refs?.find((r) => r.name === refName);
+        const oldObjectId = existingRef?.objectId ?? "0000000000000000000000000000000000000000";
+
+        const changeTypeMap = { add: VersionControlChangeType.Add, edit: VersionControlChangeType.Edit, delete: VersionControlChangeType.Delete } as const;
+
+        const gitChanges: GitChange[] = changes.map((change) => {
+          const gitChange: GitChange = {
+            changeType: changeTypeMap[change.changeType],
+            item: { path: change.path },
+          };
+          if (change.changeType !== "delete") {
+            gitChange.newContent = {
+              content: change.content,
+              contentType: change.contentType === "base64" ? ItemContentType.Base64Encoded : ItemContentType.RawText,
+            };
+          }
+          return gitChange;
+        });
+
+        const push: GitPush = {
+          refUpdates: [{ name: refName, oldObjectId }],
+          commits: [{ comment: commitMessage, changes: gitChanges }],
+        };
+
+        const result = await gitApi.createPush(push, repositoryId, project);
+
+        if (!result) {
+          return { content: [{ type: "text", text: "Push did not return a result" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error pushing changes: ${errorMessage}` }],
           isError: true,
         };
       }

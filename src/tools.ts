@@ -12,6 +12,7 @@ import { configureCoreTools } from "./tools/core.js";
 import { configureRepoTools } from "./tools/repositories.js";
 import { configureSearchTools } from "./tools/search.js";
 import { configureTestPlanTools } from "./tools/test-plans.js";
+import { configureTestResultsTools } from "./tools/test-results.js";
 import { configureWikiTools } from "./tools/wiki.js";
 import { configureWorkTools } from "./tools/work.js";
 import { configureWorkItemTools } from "./tools/work-items.js";
@@ -23,6 +24,7 @@ import { configureWitProcessTools } from "./tools/wit-process.js";
 import { configureNotificationTools } from "./tools/notification.js";
 import { configureSecurityRolesTools } from "./tools/security-roles.js";
 import { configureProjectAnalysisTools } from "./tools/project-analysis.js";
+import { configureMemberEntitlementTools } from "./tools/member-entitlement.js";
 
 function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
@@ -39,6 +41,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.WORK_ITEMS, () => configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.WIKI, () => configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.TEST_PLANS, () => configureTestPlanTools(server, tokenProvider, connectionProvider, userAgentProvider));
+  configureIfDomainEnabled(Domain.TEST_RESULTS, () => configureTestResultsTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.SEARCH, () => configureSearchTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.ADVANCED_SECURITY, () => configureAdvSecTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.DASHBOARDS, () => configureDashboardTools(server, tokenProvider, connectionProvider));
@@ -49,6 +52,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.NOTIFICATION, () => configureNotificationTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.SECURITY_ROLES, () => configureSecurityRolesTools(server, tokenProvider, connectionProvider));
   configureIfDomainEnabled(Domain.PROJECT_ANALYSIS, () => configureProjectAnalysisTools(server, tokenProvider, connectionProvider));
+  configureIfDomainEnabled(Domain.MEMBER_ENTITLEMENT, () => configureMemberEntitlementTools(server, tokenProvider, connectionProvider, userAgentProvider));
 }
 
 export { configureAllTools };

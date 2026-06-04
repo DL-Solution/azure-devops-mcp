@@ -13,6 +13,7 @@ export enum Domain {
   REPOSITORIES = "repositories",
   SEARCH = "search",
   TEST_PLANS = "test-plans",
+  TEST_RESULTS = "test-results",
   WIKI = "wiki",
   WORK = "work",
   WORK_ITEMS = "work-items",
@@ -25,6 +26,7 @@ export enum Domain {
   NOTIFICATION = "notification",
   SECURITY_ROLES = "security-roles",
   PROJECT_ANALYSIS = "project-analysis",
+  MEMBER_ENTITLEMENT = "member-entitlement",
 }
 
 export const ALL_DOMAINS = "all";

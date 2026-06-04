@@ -4,8 +4,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { configureRepoTools, REPO_TOOLS } from "../../../src/tools/repositories";
-import { PullRequestStatus, GitVersionType, GitPullRequestQueryType, CommentThreadStatus, VersionControlRecursionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
+import {
+  PullRequestStatus,
+  GitVersionType,
+  GitPullRequestQueryType,
+  CommentThreadStatus,
+  VersionControlRecursionType,
+  VersionControlChangeType,
+  ItemContentType,
+} from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { getCurrentUserDetails, getUserIdFromEmail } from "../../../src/tools/auth";
+
+type GitChangeShape = { changeType?: VersionControlChangeType; item?: { path?: string }; newContent?: { content?: string; contentType?: ItemContentType } };
 
 // Mock the auth module
 jest.mock("../../../src/tools/auth", () => ({
@@ -47,6 +57,7 @@ describe("repos tools", () => {
     getPullRequestIterationChanges: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     getPullRequestIterations: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     getItems: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
+    createPush: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
   };
 
   beforeEach(() => {
@@ -84,6 +95,7 @@ describe("repos tools", () => {
       getFileDiffs: jest.fn(),
       getItemText: jest.fn(),
       getItems: jest.fn(),
+      createPush: jest.fn(),
     };
 
     connectionProvider = jest.fn().mockResolvedValue({
@@ -8706,6 +8718,96 @@ describe("repos tools", () => {
 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toContain("The file 'nonexistent.md' does not exist in the repository.");
+      });
+    });
+
+    describe("push_changes tool", () => {
+      function getHandler() {
+        configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
+        const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === REPO_TOOLS.push_changes);
+        if (!call) throw new Error("repo_push_changes tool not registered");
+        return call[3];
+      }
+
+      it("pushes an add change as a fast-forward on the existing branch tip", async () => {
+        const handler = getHandler();
+        mockGitApi.getRefs.mockResolvedValue([{ name: "refs/heads/main", objectId: "abc123" }]);
+        mockGitApi.createPush.mockResolvedValue({ commits: [{ commitId: "newsha" }] });
+
+        const result = await handler({
+          repositoryId: "repo123",
+          branch: "main",
+          commitMessage: "add readme",
+          changes: [{ changeType: "add", path: "/README.md", content: "# Hi", contentType: "text" }],
+          project: "test-project",
+        });
+
+        expect(mockGitApi.createPush).toHaveBeenCalledWith(
+          {
+            refUpdates: [{ name: "refs/heads/main", oldObjectId: "abc123" }],
+            commits: [
+              { comment: "add readme", changes: [{ changeType: VersionControlChangeType.Add, item: { path: "/README.md" }, newContent: { content: "# Hi", contentType: ItemContentType.RawText } }] },
+            ],
+          },
+          "repo123",
+          "test-project"
+        );
+        expect(result.content[0].text).toContain("newsha");
+      });
+
+      it("uses an all-zero oldObjectId when the branch does not exist (empty repo init)", async () => {
+        const handler = getHandler();
+        mockGitApi.getRefs.mockResolvedValue([]);
+        mockGitApi.createPush.mockResolvedValue({ commits: [{ commitId: "first" }] });
+
+        await handler({ repositoryId: "repo123", branch: "main", commitMessage: "init", changes: [{ changeType: "add", path: "/README.md", content: "hello" }], project: "p" });
+
+        const pushArg = mockGitApi.createPush.mock.calls[0][0] as { refUpdates: { oldObjectId: string }[] };
+        expect(pushArg.refUpdates[0].oldObjectId).toBe("0000000000000000000000000000000000000000");
+      });
+
+      it("encodes base64 content and omits newContent for deletes", async () => {
+        const handler = getHandler();
+        mockGitApi.getRefs.mockResolvedValue([{ name: "refs/heads/main", objectId: "abc" }]);
+        mockGitApi.createPush.mockResolvedValue({});
+
+        await handler({
+          repositoryId: "repo123",
+          branch: "main",
+          commitMessage: "binary + delete",
+          changes: [
+            { changeType: "edit", path: "/img.png", content: "AAAA", contentType: "base64" },
+            { changeType: "delete", path: "/old.txt" },
+          ],
+          project: "p",
+        });
+
+        const pushArg = mockGitApi.createPush.mock.calls[0][0] as { commits: { changes: GitChangeShape[] }[] };
+        const pushedChanges = pushArg.commits[0].changes;
+        expect(pushedChanges[0].newContent).toEqual({ content: "AAAA", contentType: ItemContentType.Base64Encoded });
+        expect(pushedChanges[1].changeType).toBe(VersionControlChangeType.Delete);
+        expect(pushedChanges[1].newContent).toBeUndefined();
+      });
+
+      it("returns an error when an add/edit change has no content", async () => {
+        const handler = getHandler();
+
+        const result = await handler({ repositoryId: "repo123", branch: "main", commitMessage: "x", changes: [{ changeType: "add", path: "/a.txt" }], project: "p" });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain("Content is required");
+        expect(mockGitApi.createPush).not.toHaveBeenCalled();
+      });
+
+      it("handles API errors", async () => {
+        const handler = getHandler();
+        mockGitApi.getRefs.mockResolvedValue([{ name: "refs/heads/main", objectId: "abc" }]);
+        mockGitApi.createPush.mockRejectedValue(new Error("denied"));
+
+        const result = await handler({ repositoryId: "repo123", branch: "main", commitMessage: "x", changes: [{ changeType: "add", path: "/a.txt", content: "y" }], project: "p" });
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toBe("Error pushing changes: denied");
       });
     });
   });
