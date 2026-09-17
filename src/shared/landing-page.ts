@@ -9,8 +9,11 @@
 // this deployment actually runs. It is written in Ukrainian for the team that
 // uses the fork's deployment; identifiers, commands and URLs stay as they are.
 //
-// Everything interpolated is escaped, and the page carries no script: the
-// response is sent with a CSP that forbids one (see LANDING_PAGE_HEADERS).
+// Everything interpolated is escaped. The only script is the static copy-button
+// handler below, and the CSP admits exactly that script by its hash, so nothing
+// injected into the page could run (see LANDING_PAGE_HEADERS).
+
+import { createHash } from "node:crypto";
 
 import { Domain } from "./domains.js";
 
@@ -33,9 +36,40 @@ export interface LandingPageOptions {
   endpoints: readonly LandingEndpoint[];
 }
 
+/**
+ * Wires up the copy buttons. They are rendered hidden and only shown where the
+ * Clipboard API is available (a secure context), so without the script, or on
+ * plain http, nothing dead is left on the page. Static on purpose: its hash is in the CSP.
+ */
+export const LANDING_PAGE_SCRIPT = `
+document.querySelectorAll("button[data-copy]").forEach(function (button) {
+  if (!navigator.clipboard || !window.isSecureContext) return;
+  var label = button.textContent;
+  var timer;
+  button.hidden = false;
+  button.addEventListener("click", function () {
+    var show = function (text, copied) {
+      button.textContent = text;
+      button.classList.toggle("copied", copied);
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        button.textContent = label;
+        button.classList.remove("copied");
+      }, 1500);
+    };
+    navigator.clipboard.writeText(button.getAttribute("data-copy")).then(
+      function () { show("Скопійовано", true); },
+      function () { show("Не вдалося", false); }
+    );
+  });
+});
+`;
+
+const SCRIPT_HASH = `sha256-${createHash("sha256").update(LANDING_PAGE_SCRIPT, "utf8").digest("base64")}`;
+
 export const LANDING_PAGE_HEADERS: Readonly<Record<string, string>> = {
   "Content-Type": "text/html; charset=utf-8",
-  "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+  "Content-Security-Policy": `default-src 'none'; script-src '${SCRIPT_HASH}'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`,
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
   "Cache-Control": "no-cache",
@@ -109,6 +143,11 @@ export function toolCountLabel(count: number): string {
   return `${count} інструментів`;
 }
 
+/** A button that copies `text`; hidden until the script confirms the clipboard is usable. */
+function copyButton(text: string): string {
+  return `<button type="button" class="copy" data-copy="${escapeHtml(text)}" aria-label="Копіювати ${escapeHtml(text)}" aria-live="polite" hidden>Копіювати</button>`;
+}
+
 function endpointCards(options: LandingPageOptions): string {
   return options.endpoints
     .map((endpoint) => {
@@ -120,7 +159,10 @@ function endpointCards(options: LandingPageOptions): string {
       return `<div class="endpoint">
           <div class="endpoint-head">
             <code class="url">${escapeHtml(url)}</code>
-            <span class="count">${escapeHtml(toolCountLabel(endpoint.toolCount))}</span>
+            <div class="endpoint-meta">
+              <span class="count">${escapeHtml(toolCountLabel(endpoint.toolCount))}</span>
+              ${copyButton(url)}
+            </div>
           </div>
           ${summary ? `<p class="summary">${escapeHtml(summary)}</p>` : ""}
           ${areas.length > 0 ? `<p class="muted">${escapeHtml(areas.map(domainLabel).join(" · "))}</p>` : ""}
@@ -233,9 +275,14 @@ export function renderLandingPage(options: LandingPageOptions): string {
   .muted { color: var(--muted); font-size: 14px; margin-top: 4px; }
   .endpoints { display: grid; gap: 12px; margin-bottom: 12px; }
   .endpoint { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
-  .endpoint-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+  .endpoint-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
   .endpoint .url { font-size: 15px; font-weight: 600; }
+  .endpoint-meta { display: flex; align-items: center; gap: 10px; margin-left: auto; }
   .count { color: var(--muted); font-size: 14px; white-space: nowrap; }
+  .copy { font: 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--accent); background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; white-space: nowrap; min-width: 96px; }
+  .copy:hover { border-color: var(--accent); }
+  .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .copy.copied { color: var(--text); border-color: var(--text); }
   .summary { margin: 6px 0 0; }
   .endpoint .muted { margin: 2px 0 0; }
   a { color: var(--accent); }
@@ -283,6 +330,7 @@ ${options.auth === "oauth" ? oauthSteps(exampleUrl, exampleName) : passthroughSt
     <a href="https://github.com/DL-Solution/azure-devops-mcp">вихідний код</a>
   </footer>
 </main>
+<script>${LANDING_PAGE_SCRIPT}</script>
 </body>
 </html>
 `;

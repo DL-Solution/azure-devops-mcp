@@ -10,7 +10,9 @@ jest.mock("../../src/logger", () => ({
 }));
 
 import { Domain } from "../../src/shared/domains";
-import { DOMAIN_LABELS, LandingEndpoint, LandingPageOptions, renderLandingPage, toolCountLabel } from "../../src/shared/landing-page";
+import { createHash } from "node:crypto";
+
+import { DOMAIN_LABELS, LANDING_PAGE_HEADERS, LANDING_PAGE_SCRIPT, LandingEndpoint, LandingPageOptions, renderLandingPage, toolCountLabel } from "../../src/shared/landing-page";
 import { PRESET_NAMES, TOOL_PRESETS } from "../../src/shared/presets";
 
 const endpoints: LandingEndpoint[] = [
@@ -100,11 +102,34 @@ describe("renderLandingPage", () => {
     const html = renderLandingPage(options({ organization: "<script>alert(1)</script>", baseUrl: 'https://x.example/"><img src=x>' }));
 
     expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).not.toMatch(/<script>[^<]*alert/);
     expect(html).not.toContain("<img src=x>");
     expect(html).toContain("&lt;script&gt;");
   });
 
-  it("carries no script of its own", () => {
-    expect(renderLandingPage(options())).not.toMatch(/<script/i);
+  it("puts a copy button next to every endpoint URL, hidden until the script enables it", () => {
+    const html = renderLandingPage(options());
+
+    for (const endpoint of endpoints) {
+      const url = `https://ado-mcp.example.com${endpoint.path}`;
+      expect(html).toContain(`<button type="button" class="copy" data-copy="${url}" aria-label="Копіювати ${url}" aria-live="polite" hidden>Копіювати</button>`);
+    }
+  });
+
+  it("escapes the text a copy button carries", () => {
+    const html = renderLandingPage(options({ baseUrl: 'https://x.example/" onclick="alert(1)' }));
+
+    expect(html).not.toContain('" onclick="alert(1)');
+    expect(html).toContain('data-copy="https://x.example/&quot; onclick=&quot;alert(1)');
+  });
+
+  it("carries only the static copy script, which the CSP admits by its hash", () => {
+    const html = renderLandingPage(options());
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+
+    expect(scripts).toEqual([LANDING_PAGE_SCRIPT]);
+    const hash = createHash("sha256").update(LANDING_PAGE_SCRIPT, "utf8").digest("base64");
+    expect(LANDING_PAGE_HEADERS["Content-Security-Policy"]).toContain(`script-src 'sha256-${hash}'`);
+    expect(LANDING_PAGE_HEADERS["Content-Security-Policy"]).not.toMatch(/script-src[^;]*unsafe/);
   });
 });
