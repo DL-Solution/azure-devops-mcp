@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     398 | 39% |
+| Потрібні області      |     1024 |     469 | 46% |
 | Свідомо не покриваємо |      167 |      23 |   — |
 
 ## Прогрес
@@ -20,6 +20,7 @@
 | Дата       | Інструментів | Покрито операцій |    З |   % | Примітка                       |
 | ---------- | -----------: | ---------------: | ---: | --: | ------------------------------ |
 | 2026-09-17 |          420 |              398 | 1024 | 39% | перший замір, після PR #71–#79 |
+| 2026-09-17 |          450 |              469 | 1024 | 46% | Artifacts, PR #81              |
 
 <!-- history:end -->
 
@@ -31,7 +32,7 @@
 
 Порядок — за домовленістю; «Операцій» — скільки непокритих операцій закриває пункт приблизно.
 
-- [ ] **Artifacts** (~40 з 110): фіди — зміна, видалення, кошик, права, views, retention; пакети й версії, provenance; просування версії у view, unlist, видалення й відновлення версій (один інструмент на всі протоколи)
+- [x] **Artifacts** (~40 з 110) — PR #81: +68 операцій; лишилися пакетні (batch) операції, завантаження вмісту, scoped npm у кошику й відстеження змін фідів: фіди — зміна, видалення, кошик, права, views, retention; пакети й версії, provenance; просування версії у view, unlist, видалення й відновлення версій (один інструмент на всі протоколи)
 - [ ] **Git** (~25 з 66): порівняння комітів, окремий коміт, пуші; конфлікти й коміти PR; зміна репозиторію, імпорт, форки
 - [ ] **Робочі елементи** (~10 з 39): видалення коментаря й версії коментарів, зміна й видалення поля, історія змін
 - [ ] **Збірки** (~15 з 65): видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
@@ -52,20 +53,20 @@
 | Область                                                    | Операцій | Покрито |    % | Непокрито | Примітка                                                     |
 | ---------------------------------------------------------- | -------: | ------: | ---: | --------: | ------------------------------------------------------------ |
 | Результати тестів (`testResults`)                          |       97 |      12 |  12% |        85 |                                                              |
-| Artifacts: пакети за протоколами (`artifactsPackageTypes`) |       73 |       0 |   0% |        73 |                                                              |
 | Git (`git`)                                                |      112 |      46 |  41% |        66 |                                                              |
 | Збірки (`build`)                                           |       93 |      28 |  30% |        65 |                                                              |
 | Агенти, змінні, task groups (`distributedTask`)            |       72 |      17 |  24% |        55 |                                                              |
 | Робочі елементи (`wit`)                                    |       89 |      49 |  55% |        40 |                                                              |
-| Artifacts: фіди (`artifacts`)                              |       37 |       4 |  11% |        33 |                                                              |
 | Тест-плани (`testPlan`)                                    |       44 |      12 |  27% |        32 |                                                              |
 | Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
+| Artifacts: пакети за протоколами (`artifactsPackageTypes`) |       73 |      46 |  63% |        27 |                                                              |
 | Користувачі й групи (`graph`)                              |       28 |       7 |  25% |        21 |                                                              |
 | Service hooks (`hooks`)                                    |       22 |       4 |  18% |        18 |                                                              |
 | Погодження й перевірки (`approvalsAndChecks`)              |       15 |       3 |  20% |        12 |                                                              |
 | Середовища (`environments`)                                |       17 |       5 |  29% |        12 |                                                              |
 | Обране (`favorite`)                                        |        9 |       0 |   0% |         9 |                                                              |
 | Сповіщення (`notification`)                                |       17 |       8 |  47% |         9 |                                                              |
+| Artifacts: фіди (`artifacts`)                              |       37 |      29 |  78% |         8 |                                                              |
 | Service connections (`serviceEndpoint`)                    |       14 |       6 |  43% |         8 |                                                              |
 | Аудит (`audit`)                                            |        9 |       2 |  22% |         7 |                                                              |
 | Ліцензії (`memberEntitlementManagement`)                   |       21 |      14 |  67% |         7 |                                                              |
@@ -192,87 +193,6 @@
 | Workitems                  | POST   | `testresults/testmethods/workitems`                                              |                                                                                                                |
 | Workitems                  | DELETE | `testresults/testmethods/workitems`                                              |                                                                                                                |
 | Workitems                  | POST   | `testresults/testmethods/workitems`                                              |                                                                                                                |
-
-</details>
-
-<details>
-<summary>Artifacts: пакети за протоколами — 73 з 73</summary>
-
-| Група     | Метод  | Шлях                                                                                                               | Що робить                                                                                                      |
-| --------- | ------ | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Cargo     | GET    | `packaging/feeds/{feed}/cargo/packages/{packageName}/upstreaming`                                                  | Get the upstreaming behavior of a package within the context of a feed                                         |
-| Cargo     | PATCH  | `packaging/feeds/{feed}/cargo/packages/{packageName}/upstreaming`                                                  | Set the upstreaming behavior of a package within the context of a feed                                         |
-| Cargo     | GET    | `packaging/feeds/{feedId}/cargo/packages/{packageName}/versions/{packageVersion}`                                  | Get information about a package version.                                                                       |
-| Cargo     | PATCH  | `packaging/feeds/{feedId}/cargo/packages/{packageName}/versions/{packageVersion}`                                  | Update state for a package version.                                                                            |
-| Cargo     | DELETE | `packaging/feeds/{feedId}/cargo/packages/{packageName}/versions/{packageVersion}`                                  | Send a package version from the feed to its paired recycle bin.                                                |
-| Cargo     | GET    | `packaging/feeds/{feedId}/cargo/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Get information about a package version in the recycle bin.                                                    |
-| Cargo     | PATCH  | `packaging/feeds/{feedId}/cargo/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Restore a package version from the recycle bin to its associated feed.                                         |
-| Cargo     | DELETE | `packaging/feeds/{feedId}/cargo/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Delete a package version from the feed, moving it to the recycle bin.                                          |
-| Cargo     | POST   | `packaging/feeds/{feedId}/cargo/RecycleBin/packagesBatch`                                                          | Delete or restore several package versions from the recycle bin.                                               |
-| Maven     | GET    | `packaging/feeds/{feed}/maven/groups/{groupId}/artifacts/{artifactId}/upstreaming`                                 | Get the upstreaming behavior of a package within the context of a feed                                         |
-| Maven     | PATCH  | `packaging/feeds/{feed}/maven/groups/{groupId}/artifacts/{artifactId}/upstreaming`                                 | Set the upstreaming behavior of a package within the context of a feed                                         |
-| Maven     | GET    | `packaging/feeds/{feed}/maven/groups/{groupId}/artifacts/{artifactId}/versions/{version}`                          | Get information about a package version.                                                                       |
-| Maven     | PATCH  | `packaging/feeds/{feed}/maven/groups/{groupId}/artifacts/{artifactId}/versions/{version}`                          | Update state for a package version.                                                                            |
-| Maven     | DELETE | `packaging/feeds/{feed}/maven/groups/{groupId}/artifacts/{artifactId}/versions/{version}`                          | Delete a package version from the feed and move it to the feed's recycle bin.                                  |
-| Maven     | GET    | `packaging/feeds/{feed}/maven/RecycleBin/groups/{groupId}/artifacts/{artifactId}/versions/{version}`               | Get information about a package version in the recycle bin.                                                    |
-| Maven     | PATCH  | `packaging/feeds/{feed}/maven/RecycleBin/groups/{groupId}/artifacts/{artifactId}/versions/{version}`               | Restore a package version from the recycle bin to its associated feed.                                         |
-| Maven     | DELETE | `packaging/feeds/{feed}/maven/RecycleBin/groups/{groupId}/artifacts/{artifactId}/versions/{version}`               | Permanently delete a package from a feed's recycle bin.                                                        |
-| Maven     | POST   | `packaging/feeds/{feed}/maven/RecycleBin/packagesBatch`                                                            | Delete or restore several package versions from the recycle bin.                                               |
-| Maven     | GET    | `packaging/feeds/{feedId}/maven/{groupId}/{artifactId}/{version}/{fileName}/content`                               | Fulfills Maven package file download requests by either returning the URL of the requested package file or, i… |
-| Maven     | POST   | `packaging/feeds/{feedId}/maven/packagesbatch`                                                                     | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/{packageName}/versions/{packageVersion}`                                             | Get information about an unscoped package version.                                                             |
-| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/{packageName}/versions/{packageVersion}`                                             | Update state for an unscoped package version.                                                                  |
-| Npm       | DELETE | `packaging/feeds/{feedId}/npm/{packageName}/versions/{packageVersion}`                                             | Unpublish an unscoped package version.                                                                         |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}`                     | Get information about a scoped package version (such as @scope/name).                                          |
-| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}`                     | Update state for an npm scoped package version.                                                                |
-| Npm       | DELETE | `packaging/feeds/{feedId}/npm/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}`                     | Unpublish a scoped package version (such as @scope/name).                                                      |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/{packageName}/upstreaming`                                                  | Get the upstreaming behavior of the (unscoped) package within the context of a feed                            |
-| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/packages/{packageName}/upstreaming`                                                  | Set the upstreaming behavior of a (scoped) package within the context of a feed                                |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/{packageName}/versions/{packageVersion}/content`                            | Get an unscoped npm package.                                                                                   |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/{packageName}/versions/{packageVersion}/readme`                             | Get the Readme for a package version that has no npm scope.                                                    |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/upstreaming`                          | Get the upstreaming behavior of the (scoped) package within the context of a feed                              |
-| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/upstreaming`                          | Set the upstreaming behavior of a (scoped) package within the context of a feed                                |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}/content`    | Get scoped npm package.                                                                                        |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}/readme`     | Get the Readme for a package version with an npm scope.                                                        |
-| Npm       | POST   | `packaging/feeds/{feedId}/npm/packagesbatch`                                                                       | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/RecycleBin/packages/{packageName}/versions/{packageVersion}`                         | Get information about an unscoped package version in the recycle bin.                                          |
-| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/RecycleBin/packages/{packageName}/versions/{packageVersion}`                         | Restore a package version without an npm scope from the recycle bin to its feed.                               |
-| Npm       | DELETE | `packaging/feeds/{feedId}/npm/RecycleBin/packages/{packageName}/versions/{packageVersion}`                         | Delete a package version without an npm scope from the recycle bin.                                            |
-| Npm       | GET    | `packaging/feeds/{feedId}/npm/RecycleBin/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}` | Get information about a scoped package version in the recycle bin.                                             |
-| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/RecycleBin/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}` | Restore a package version with an npm scope from the recycle bin to its feed.                                  |
-| Npm       | DELETE | `packaging/feeds/{feedId}/npm/RecycleBin/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}` | Delete a package version with an npm scope from the recycle bin.                                               |
-| Npm       | POST   | `packaging/feeds/{feedId}/npm/RecycleBin/PackagesBatch`                                                            | Delete or restore several package versions from the recycle bin.                                               |
-| Npm       | POST   | `packaging/npm/validateupstream`                                                                                   | Validates whether the given upstream is valid to add as a custom upstream using the given package name.        |
-| NuGet     | GET    | `packaging/feeds/{feedId}/nuget/packages/{packageName}/upstreaming`                                                | Get the upstreaming behavior of a package within the context of a feed                                         |
-| NuGet     | PATCH  | `packaging/feeds/{feedId}/nuget/packages/{packageName}/upstreaming`                                                | Set the upstreaming behavior of a package within the context of a feed                                         |
-| NuGet     | GET    | `packaging/feeds/{feedId}/nuget/packages/{packageName}/versions/{packageVersion}`                                  | Get information about a package version.                                                                       |
-| NuGet     | PATCH  | `packaging/feeds/{feedId}/nuget/packages/{packageName}/versions/{packageVersion}`                                  | Set mutable state on a package version.                                                                        |
-| NuGet     | DELETE | `packaging/feeds/{feedId}/nuget/packages/{packageName}/versions/{packageVersion}`                                  | Send a package version from the feed to its paired recycle bin.                                                |
-| NuGet     | GET    | `packaging/feeds/{feedId}/nuget/packages/{packageName}/versions/{packageVersion}/content`                          | Download a package version directly.                                                                           |
-| NuGet     | POST   | `packaging/feeds/{feedId}/nuget/packagesbatch`                                                                     | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
-| NuGet     | GET    | `packaging/feeds/{feedId}/nuget/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | View a package version's deletion/recycled status                                                              |
-| NuGet     | PATCH  | `packaging/feeds/{feedId}/nuget/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Restore a package version from a feed's recycle bin back into the active feed.                                 |
-| NuGet     | DELETE | `packaging/feeds/{feedId}/nuget/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Delete a package version from a feed's recycle bin.                                                            |
-| NuGet     | POST   | `packaging/feeds/{feedId}/nuget/RecycleBin/packagesBatch`                                                          | Delete or restore several package versions from the recycle bin.                                               |
-| Python    | GET    | `packaging/feeds/{feedId}/pypi/packages/{packageName}/upstreaming`                                                 | Get the upstreaming behavior of a package within the context of a feed                                         |
-| Python    | PATCH  | `packaging/feeds/{feedId}/pypi/packages/{packageName}/upstreaming`                                                 | Set the upstreaming behavior of a package within the context of a feed                                         |
-| Python    | GET    | `packaging/feeds/{feedId}/pypi/packages/{packageName}/versions/{packageVersion}`                                   | Get information about a package version.                                                                       |
-| Python    | PATCH  | `packaging/feeds/{feedId}/pypi/packages/{packageName}/versions/{packageVersion}`                                   | Update state for a package version.                                                                            |
-| Python    | DELETE | `packaging/feeds/{feedId}/pypi/packages/{packageName}/versions/{packageVersion}`                                   | Delete a package version, moving it to the recycle bin.                                                        |
-| Python    | GET    | `packaging/feeds/{feedId}/pypi/packages/{packageName}/versions/{packageVersion}/{fileName}/content`                | Download a python package file directly. This API is intended for manual UI download options, not for program… |
-| Python    | POST   | `packaging/feeds/{feedId}/pypi/packagesbatch`                                                                      | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
-| Python    | GET    | `packaging/feeds/{feedId}/pypi/RecycleBin/packages/{packageName}/versions/{packageVersion}`                        | Get information about a package version in the recycle bin.                                                    |
-| Python    | PATCH  | `packaging/feeds/{feedId}/pypi/RecycleBin/packages/{packageName}/versions/{packageVersion}`                        | Restore a package version from the recycle bin to its associated feed.                                         |
-| Python    | DELETE | `packaging/feeds/{feedId}/pypi/RecycleBin/packages/{packageName}/versions/{packageVersion}`                        | Delete a package version from the feed, moving it to the recycle bin.                                          |
-| Python    | POST   | `packaging/feeds/{feedId}/pypi/RecycleBin/packagesBatch`                                                           | Delete or restore several package versions from the recycle bin.                                               |
-| Universal | GET    | `packaging/feeds/{feedId}/upack/packages/{packageName}/versions/{packageVersion}`                                  | Show information about a package version.                                                                      |
-| Universal | PATCH  | `packaging/feeds/{feedId}/upack/packages/{packageName}/versions/{packageVersion}`                                  | Update information for a package version.                                                                      |
-| Universal | DELETE | `packaging/feeds/{feedId}/upack/packages/{packageName}/versions/{packageVersion}`                                  | Delete a package version from a feed's recycle bin.                                                            |
-| Universal | POST   | `packaging/feeds/{feedId}/upack/packagesbatch`                                                                     | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
-| Universal | GET    | `packaging/feeds/{feedId}/upack/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Get information about a package version in the recycle bin.                                                    |
-| Universal | PATCH  | `packaging/feeds/{feedId}/upack/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Restore a package version from the recycle bin to its associated feed.                                         |
-| Universal | DELETE | `packaging/feeds/{feedId}/upack/RecycleBin/packages/{packageName}/versions/{packageVersion}`                       | Delete a package version from the recycle bin.                                                                 |
-| Universal | POST   | `packaging/feeds/{feedId}/upack/RecycleBin/packagesBatch`                                                          | Delete or restore several package versions from the recycle bin.                                               |
 
 </details>
 
@@ -535,47 +455,6 @@
 </details>
 
 <details>
-<summary>Artifacts: фіди — 33 з 37</summary>
-
-| Група              | Метод  | Шлях                                                                                   | Що робить                                                                                                      |
-| ------------------ | ------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Artifact Details   | POST   | `packaging/Feeds/{feedId}/packagemetricsbatch`                                         |                                                                                                                |
-| Artifact Details   | GET    | `packaging/Feeds/{feedId}/packages/{packageId}`                                        | Get details about a specific package.                                                                          |
-| Artifact Details   | POST   | `packaging/Feeds/{feedId}/Packages/{packageId}/versionmetricsbatch`                    |                                                                                                                |
-| Artifact Details   | GET    | `packaging/Feeds/{feedId}/Packages/{packageId}/versions`                               | Get a list of package versions, optionally filtering by state.                                                 |
-| Artifact Details   | GET    | `packaging/Feeds/{feedId}/Packages/{packageId}/versions/{packageVersionId}`            | Get details about a specific package version.                                                                  |
-| Artifact Details   | GET    | `packaging/Feeds/{feedId}/Packages/{packageId}/Versions/{packageVersionId}/provenance` | Gets provenance for a package version.                                                                         |
-| Artifact Details   | GET    | `public/packaging/Feeds/{feedId}/Packages/{packageId}/badge`                           | Generate a SVG badge for the latest version of a package. The generated SVG is typically used as the image i…  |
-| Change Tracking    | GET    | `packaging/feedchanges`                                                                | Query to determine which feeds have changed since the last call, tracked through the provided continuationTok… |
-| Change Tracking    | GET    | `packaging/feedchanges/{feedId}`                                                       | Query a feed to determine its current state.                                                                   |
-| Change Tracking    | GET    | `packaging/Feeds/{feedId}/packagechanges`                                              | Get a batch of package changes made to a feed. The changes returned are 'most recent change' so if an Add is…  |
-| Feed Management    | PATCH  | `packaging/feeds/{feedId}`                                                             | Change the attributes of a feed.                                                                               |
-| Feed Management    | DELETE | `packaging/feeds/{feedId}`                                                             | Remove a feed and all its packages. The feed moves to the recycle bin and is reversible.                       |
-| Feed Management    | GET    | `packaging/Feeds/{feedId}/permissions`                                                 | Get the permissions for a feed.                                                                                |
-| Feed Management    | PATCH  | `packaging/Feeds/{feedId}/permissions`                                                 | Update the permissions on a feed.                                                                              |
-| Feed Management    | GET    | `packaging/Feeds/{feedId}/views`                                                       | Get all views for a feed.                                                                                      |
-| Feed Management    | POST   | `packaging/Feeds/{feedId}/views`                                                       | Create a new view on the referenced feed.                                                                      |
-| Feed Management    | GET    | `packaging/Feeds/{feedId}/views/{viewId}`                                              | Get a view by Id.                                                                                              |
-| Feed Management    | PATCH  | `packaging/Feeds/{feedId}/views/{viewId}`                                              | Update a view.                                                                                                 |
-| Feed Management    | DELETE | `packaging/Feeds/{feedId}/views/{viewId}`                                              | Delete a feed view.                                                                                            |
-| Feed Recycle Bin   | GET    | `packaging/feedrecyclebin`                                                             | Query for feeds within the recycle bin.                                                                        |
-| Feed Recycle Bin   | PATCH  | `packaging/feedrecyclebin/{feedId}`                                                    | Restores a deleted feed and all of its packages.                                                               |
-| Feed Recycle Bin   | DELETE | `packaging/feedrecyclebin/{feedId}`                                                    | Permanently delete a feed and all of its packages. The action is irreversible and the package content will be… |
-| Provenance         | POST   | `provenance/session/{protocol}`                                                        | Creates a session, a wrapper around a feed that can store additional metadata on the packages published to it. |
-| Recycle Bin        | GET    | `packaging/Feeds/{feedId}/RecycleBin/Packages`                                         | Query for packages within the recycle bin.                                                                     |
-| Recycle Bin        | DELETE | `packaging/Feeds/{feedId}/RecycleBin/Packages`                                         | Queues a job to remove all package versions from a feed's recycle bin                                          |
-| Recycle Bin        | GET    | `packaging/Feeds/{feedId}/RecycleBin/Packages/{packageId}`                             | Get information about a package and all its versions within the recycle bin.                                   |
-| Recycle Bin        | GET    | `packaging/Feeds/{feedId}/RecycleBin/Packages/{packageId}/Versions`                    | Get a list of package versions within the recycle bin.                                                         |
-| Recycle Bin        | GET    | `packaging/Feeds/{feedId}/RecycleBin/Packages/{packageId}/Versions/{packageVersionId}` | Get information about a package version within the recycle bin.                                                |
-| Retention Policies | GET    | `packaging/Feeds/{feedId}/retentionpolicies`                                           | Get the retention policy for a feed.                                                                           |
-| Retention Policies | PUT    | `packaging/Feeds/{feedId}/retentionpolicies`                                           | Set the retention policy for a feed.                                                                           |
-| Retention Policies | DELETE | `packaging/Feeds/{feedId}/retentionpolicies`                                           | Delete the retention policy for a feed.                                                                        |
-| Service Settings   | GET    | `packaging/globalpermissions`                                                          | Get all service-wide feed creation and administration permissions.                                             |
-| Service Settings   | PATCH  | `packaging/globalpermissions`                                                          | Set service-wide permissions that govern feed creation and administration.                                     |
-
-</details>
-
-<details>
 <summary>Тест-плани — 32 з 44</summary>
 
 | Група                             | Метод  | Шлях                                                             | Що робить                                                                                                      |
@@ -647,6 +526,41 @@
 | Summary Dashboard            | GET    | `reporting/summary/alerts`                                         | Get Alert summary by severity for the org                                                                      |
 | Summary Dashboard            | GET    | `reporting/summary/alertsbatch`                                    | Get Combined Alerts for the org                                                                                |
 | Summary Dashboard            | GET    | `reporting/summary/enablement`                                     | Get Enablement summary for the org                                                                             |
+
+</details>
+
+<details>
+<summary>Artifacts: пакети за протоколами — 27 з 73</summary>
+
+| Група     | Метод  | Шлях                                                                                                               | Що робить                                                                                                      |
+| --------- | ------ | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Cargo     | POST   | `packaging/feeds/{feedId}/cargo/RecycleBin/packagesBatch`                                                          | Delete or restore several package versions from the recycle bin.                                               |
+| Maven     | POST   | `packaging/feeds/{feed}/maven/RecycleBin/packagesBatch`                                                            | Delete or restore several package versions from the recycle bin.                                               |
+| Maven     | GET    | `packaging/feeds/{feedId}/maven/{groupId}/{artifactId}/{version}/{fileName}/content`                               | Fulfills Maven package file download requests by either returning the URL of the requested package file or, i… |
+| Maven     | POST   | `packaging/feeds/{feedId}/maven/packagesbatch`                                                                     | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
+| Npm       | GET    | `packaging/feeds/{feedId}/npm/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}`                     | Get information about a scoped package version (such as @scope/name).                                          |
+| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}`                     | Update state for an npm scoped package version.                                                                |
+| Npm       | DELETE | `packaging/feeds/{feedId}/npm/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}`                     | Unpublish a scoped package version (such as @scope/name).                                                      |
+| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/{packageName}/versions/{packageVersion}/content`                            | Get an unscoped npm package.                                                                                   |
+| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/{packageName}/versions/{packageVersion}/readme`                             | Get the Readme for a package version that has no npm scope.                                                    |
+| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/upstreaming`                          | Get the upstreaming behavior of the (scoped) package within the context of a feed                              |
+| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/upstreaming`                          | Set the upstreaming behavior of a (scoped) package within the context of a feed                                |
+| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}/content`    | Get scoped npm package.                                                                                        |
+| Npm       | GET    | `packaging/feeds/{feedId}/npm/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}/readme`     | Get the Readme for a package version with an npm scope.                                                        |
+| Npm       | POST   | `packaging/feeds/{feedId}/npm/packagesbatch`                                                                       | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
+| Npm       | GET    | `packaging/feeds/{feedId}/npm/RecycleBin/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}` | Get information about a scoped package version in the recycle bin.                                             |
+| Npm       | PATCH  | `packaging/feeds/{feedId}/npm/RecycleBin/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}` | Restore a package version with an npm scope from the recycle bin to its feed.                                  |
+| Npm       | DELETE | `packaging/feeds/{feedId}/npm/RecycleBin/packages/@{packageScope}/{unscopedPackageName}/versions/{packageVersion}` | Delete a package version with an npm scope from the recycle bin.                                               |
+| Npm       | POST   | `packaging/feeds/{feedId}/npm/RecycleBin/PackagesBatch`                                                            | Delete or restore several package versions from the recycle bin.                                               |
+| Npm       | POST   | `packaging/npm/validateupstream`                                                                                   | Validates whether the given upstream is valid to add as a custom upstream using the given package name.        |
+| NuGet     | GET    | `packaging/feeds/{feedId}/nuget/packages/{packageName}/versions/{packageVersion}/content`                          | Download a package version directly.                                                                           |
+| NuGet     | POST   | `packaging/feeds/{feedId}/nuget/packagesbatch`                                                                     | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
+| NuGet     | POST   | `packaging/feeds/{feedId}/nuget/RecycleBin/packagesBatch`                                                          | Delete or restore several package versions from the recycle bin.                                               |
+| Python    | GET    | `packaging/feeds/{feedId}/pypi/packages/{packageName}/versions/{packageVersion}/{fileName}/content`                | Download a python package file directly. This API is intended for manual UI download options, not for program… |
+| Python    | POST   | `packaging/feeds/{feedId}/pypi/packagesbatch`                                                                      | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
+| Python    | POST   | `packaging/feeds/{feedId}/pypi/RecycleBin/packagesBatch`                                                           | Delete or restore several package versions from the recycle bin.                                               |
+| Universal | POST   | `packaging/feeds/{feedId}/upack/packagesbatch`                                                                     | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
+| Universal | POST   | `packaging/feeds/{feedId}/upack/RecycleBin/packagesBatch`                                                          | Delete or restore several package versions from the recycle bin.                                               |
 
 </details>
 
@@ -776,6 +690,22 @@
 | Subscribers     | PATCH | `notification/subscribers/{subscriberId}`                           | Update delivery preferences of a notifications subscriber.                                                    |
 | Subscriptions   | POST  | `notification/subscriptionquery`                                    | Query for subscriptions. A subscription is returned if it matches one or more of the specified conditions.    |
 | Subscriptions   | PUT   | `notification/Subscriptions/{subscriptionId}/usersettings/{userId}` | Update the specified user's settings for the specified subscription. This API is typically used to opt in or… |
+
+</details>
+
+<details>
+<summary>Artifacts: фіди — 8 з 37</summary>
+
+| Група            | Метод  | Шлях                                                                                   | Що робить                                                                                                      |
+| ---------------- | ------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Artifact Details | GET    | `public/packaging/Feeds/{feedId}/Packages/{packageId}/badge`                           | Generate a SVG badge for the latest version of a package. The generated SVG is typically used as the image i…  |
+| Change Tracking  | GET    | `packaging/feedchanges`                                                                | Query to determine which feeds have changed since the last call, tracked through the provided continuationTok… |
+| Change Tracking  | GET    | `packaging/feedchanges/{feedId}`                                                       | Query a feed to determine its current state.                                                                   |
+| Feed Management  | GET    | `packaging/Feeds/{feedId}/views/{viewId}`                                              | Get a view by Id.                                                                                              |
+| Provenance       | POST   | `provenance/session/{protocol}`                                                        | Creates a session, a wrapper around a feed that can store additional metadata on the packages published to it. |
+| Recycle Bin      | DELETE | `packaging/Feeds/{feedId}/RecycleBin/Packages`                                         | Queues a job to remove all package versions from a feed's recycle bin                                          |
+| Recycle Bin      | GET    | `packaging/Feeds/{feedId}/RecycleBin/Packages/{packageId}`                             | Get information about a package and all its versions within the recycle bin.                                   |
+| Recycle Bin      | GET    | `packaging/Feeds/{feedId}/RecycleBin/Packages/{packageId}/Versions/{packageVersionId}` | Get information about a package version within the recycle bin.                                                |
 
 </details>
 

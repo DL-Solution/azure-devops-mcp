@@ -38,7 +38,10 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.TASK_AGENT, "taskagent_ — variable groups, agent pools, queues and agents, environments, task groups, secure file metadata."],
   [Domain.SERVICE_ENDPOINT, "serviceendpoint_ — service connections."],
   [Domain.SERVICE_HOOKS, "servicehook_ — service hook subscriptions (outgoing webhooks)."],
-  [Domain.ARTIFACTS, "artifacts_ — package feeds and their packages."],
+  [
+    Domain.ARTIFACTS,
+    "artifacts_ — package feeds: settings, permissions, views, retention, recycle bin; packages and versions, their provenance and downloads; promoting, unlisting, deleting and restoring versions (NuGet, npm, PyPI, Maven, Universal, Cargo).",
+  ],
   [Domain.ADVANCED_SECURITY, "advsec_ — Advanced Security alerts (secrets, dependencies, code scanning)."],
   [Domain.APPROVALS, "approvals_ — pipeline approval checks awaiting a decision."],
   [Domain.ANALYTICS, "analytics_ — OData reporting: counts, sums and groupings over work items, history snapshots and trends, pipeline and test pass rates."],
