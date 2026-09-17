@@ -72,13 +72,13 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
       }
 
       const resultText = await response.text();
-      const resultJson = JSON.parse(resultText) as { results?: SearchResult[] };
+      const resultJson = JSON.parse(resultText) as { results?: SearchResult[]; infoCode?: number };
 
       const gitApi = await connection.getGitApi();
       const combinedResults = await fetchCombinedResults(resultJson.results ?? [], gitApi);
 
       return {
-        content: [{ type: "text", text: resultText + JSON.stringify(combinedResults) }],
+        content: [{ type: "text", text: withInfoCodeNote(resultJson.infoCode, resultText + JSON.stringify(combinedResults)) }],
       };
     }
   );
@@ -131,7 +131,7 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
 
       const result = await response.text();
       return {
-        content: [{ type: "text", text: result }],
+        content: [{ type: "text", text: withInfoCodeNote(readInfoCode(result), result) }],
       };
     }
   );
@@ -190,10 +190,47 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
 
       const result = await response.text();
       return {
-        content: [{ type: "text", text: result }],
+        content: [{ type: "text", text: withInfoCodeNote(readInfoCode(result), result) }],
       };
     }
   );
+}
+
+// Meanings from the Search REST API reference (CodeSearchResponse.infoCode). A non-zero code
+// usually comes with count 0, which otherwise reads exactly like "nothing matched".
+const INFO_CODES: Record<number, string> = {
+  1: "the organization is being reindexed",
+  2: "indexing of the organization has not started (is the Code Search extension installed?)",
+  3: "the request is invalid",
+  4: "prefix wildcard queries are not supported",
+  5: "multi-word queries with a code type facet are not supported",
+  6: "the organization is being onboarded to search and its index is not ready yet",
+  7: "the organization is being onboarded or reindexed",
+  8: "top was trimmed to the maximum number of results allowed",
+  9: "branches are being indexed",
+  10: "faceting is not enabled",
+  11: "work items are not accessible",
+  19: "phrase queries with code type filters are not supported",
+  20: "wildcard queries with code type filters are not supported",
+};
+
+// Codes after which an empty or short result says nothing about whether the text exists.
+const INDEX_NOT_READY = new Set([1, 2, 6, 7, 9]);
+
+function readInfoCode(body: string): number | undefined {
+  try {
+    const parsed = JSON.parse(body) as { infoCode?: unknown };
+    return typeof parsed.infoCode === "number" ? parsed.infoCode : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function withInfoCodeNote(infoCode: number | undefined, text: string): string {
+  if (!infoCode) return text;
+  const meaning = INFO_CODES[infoCode] ?? "an undocumented condition reported by the search service";
+  const consequence = INDEX_NOT_READY.has(infoCode) ? " The results are incomplete: an empty result does not mean nothing matches." : "";
+  return `Search returned infoCode ${infoCode}: ${meaning}.${consequence}\n${text}`;
 }
 
 interface SearchResult {

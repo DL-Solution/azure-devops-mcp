@@ -147,5 +147,52 @@ describe("configureSearchTools", () => {
 
       await expect(handler({ searchText: "TODO", includeFacets: false, skip: 0, top: 5 })).rejects.toThrow(/401/);
     });
+
+    it("explains a non-zero infoCode instead of passing off an unready index as no matches", async () => {
+      const handler = getHandler(SEARCH_TOOLS.search_code);
+      mockFetch.mockResolvedValue(ok('{"count":0,"results":[],"infoCode":6}'));
+
+      const result = await handler({ searchText: "image", includeFacets: false, skip: 0, top: 5 });
+
+      expect(result.content[0].text).toMatch(/^Search returned infoCode 6: the organization is being onboarded .*an empty result does not mean nothing matches\.\n\{"count":0/);
+    });
+  });
+
+  describe("infoCode notes", () => {
+    it("adds no note when infoCode is 0", async () => {
+      const handler = getHandler(SEARCH_TOOLS.search_workitem);
+      mockFetch.mockResolvedValue(ok('{"count":0,"results":[],"infoCode":0}'));
+
+      const result = await handler({ searchText: "x", includeFacets: false, skip: 0, top: 10 });
+
+      expect(result.content[0].text).toBe('{"count":0,"results":[],"infoCode":0}');
+    });
+
+    it("describes a code that does not mean the index is unready without the incompleteness warning", async () => {
+      const handler = getHandler(SEARCH_TOOLS.search_wiki);
+      mockFetch.mockResolvedValue(ok('{"count":0,"results":[],"infoCode":4}'));
+
+      const result = await handler({ searchText: "*log", includeFacets: false, skip: 0, top: 10 });
+
+      expect(result.content[0].text).toBe('Search returned infoCode 4: prefix wildcard queries are not supported.\n{"count":0,"results":[],"infoCode":4}');
+    });
+
+    it("labels an undocumented code as such", async () => {
+      const handler = getHandler(SEARCH_TOOLS.search_workitem);
+      mockFetch.mockResolvedValue(ok('{"count":0,"infoCode":42}'));
+
+      const result = await handler({ searchText: "x", includeFacets: false, skip: 0, top: 10 });
+
+      expect(result.content[0].text).toMatch(/^Search returned infoCode 42: an undocumented condition/);
+    });
+
+    it("leaves a body that is not JSON untouched", async () => {
+      const handler = getHandler(SEARCH_TOOLS.search_wiki);
+      mockFetch.mockResolvedValue(ok("not json"));
+
+      const result = await handler({ searchText: "x", includeFacets: false, skip: 0, top: 10 });
+
+      expect(result.content[0].text).toBe("not json");
+    });
   });
 });
