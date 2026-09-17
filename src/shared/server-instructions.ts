@@ -20,12 +20,12 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.CORE, "core_ — projects, teams, processes, identity lookup. Start here when the project or team is not known."],
   [
     Domain.WORK_ITEMS,
-    "wit_ — work items: read, create, update, link, query (WIQL), comments and their reactions, attachments, tags, templates, saved queries, fields (including creating organization fields) and type metadata.",
+    "wit_ — work items: CRUD, links, WIQL, history, comments, attachments, tags, templates, saved queries, fields, type states and allowed values, items linked to commits/PRs/builds.",
   ],
   [Domain.WORK, "work_ — the board: backlogs, sprints/iterations, area paths, capacity, delivery plans, taskboards, board columns and rules."],
   [
     Domain.REPOSITORIES,
-    "repo_ — Git: repositories (settings, recycle bin, imports, forks and fork sync), branches with ahead/behind stats and locks, tags, file contents, commits, pushes and comparisons between versions, pull requests with their commits, work items, reviewers, labels, comment threads and likes, commit and pull request statuses, cherry-picks and reverts.",
+    "repo_ — Git: repositories, imports, forks, branches (ahead/behind, locks), tags, files, commits, pushes, diffs between versions, pull requests (reviewers, threads, labels, statuses), cherry-picks, reverts.",
   ],
   [Domain.PIPELINES, "pipelines_ — builds and YAML pipelines: definitions and their folders, runs, logs, timelines, artifacts, tags, retention leases."],
   [Domain.RELEASE, "release_ — classic release pipelines: definitions, releases, environments, approvals."],
@@ -38,10 +38,7 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.TASK_AGENT, "taskagent_ — variable groups, agent pools, queues and agents, environments, task groups, secure file metadata."],
   [Domain.SERVICE_ENDPOINT, "serviceendpoint_ — service connections."],
   [Domain.SERVICE_HOOKS, "servicehook_ — service hook subscriptions (outgoing webhooks)."],
-  [
-    Domain.ARTIFACTS,
-    "artifacts_ — package feeds: settings, permissions, views, retention, recycle bin; packages and versions, their provenance and downloads; promoting, unlisting, deleting and restoring versions (NuGet, npm, PyPI, Maven, Universal, Cargo).",
-  ],
+  [Domain.ARTIFACTS, "artifacts_ — package feeds (permissions, views, retention, recycle bin) and package versions: provenance, promotion to views, unlisting, deletion, upstream behavior."],
   [Domain.ADVANCED_SECURITY, "advsec_ — Advanced Security alerts (secrets, dependencies, code scanning)."],
   [Domain.APPROVALS, "approvals_ — pipeline approval checks awaiting a decision."],
   [Domain.ANALYTICS, "analytics_ — OData reporting: counts, sums and groupings over work items, history snapshots and trends, pipeline and test pass rates."],

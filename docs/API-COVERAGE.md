@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     495 | 48% |
+| Потрібні області      |     1024 |     509 | 50% |
 | Свідомо не покриваємо |      167 |      23 |   — |
 
 ## Прогрес
@@ -22,6 +22,7 @@
 | 2026-09-17 |          420 |              398 | 1024 | 39% | перший замір, після PR #71–#79 |
 | 2026-09-17 |          450 |              469 | 1024 | 46% | Artifacts, PR #81              |
 | 2026-09-17 |          474 |              495 | 1024 | 48% | Git, PR #82                    |
+| 2026-09-17 |          487 |              509 | 1024 | 50% | Робочі елементи, PR #83        |
 
 <!-- history:end -->
 
@@ -35,7 +36,7 @@
 
 - [x] **Artifacts** (~40 з 110) — PR #81: +68 операцій; лишилися пакетні (batch) операції, завантаження вмісту, scoped npm у кошику й відстеження змін фідів: фіди — зміна, видалення, кошик, права, views, retention; пакети й версії, provenance; просування версії у view, unlist, видалення й відновлення версій (один інструмент на всі протоколи)
 - [x] **Git** (~25 з 66) — PR #82: +26 операцій; лишилися blobs і trees, батч-операції, вкладення й властивості PR, merges, обрані refs, окремі get-и: порівняння комітів, окремий коміт, пуші; конфлікти й коміти PR; зміна репозиторію, імпорт, форки
-- [ ] **Робочі елементи** (~10 з 39): видалення коментаря й версії коментарів, зміна й видалення поля, історія змін
+- [x] **Робочі елементи** (~10 з 39) — PR #83: +13 операцій; лишилися reporting-API (його перекриває Analytics), іконки, тимчасові запити, розсилка пошти, GitHub connections: видалення коментаря й версії коментарів, зміна й видалення поля, історія змін
 - [ ] **Збірки** (~15 з 65): видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
 - [ ] **Агенти й середовища** (~20 з 67): пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
 - [ ] **Тест-плани** (~20 з 31): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
@@ -57,10 +58,10 @@
 | Збірки (`build`)                                           |       93 |      28 |  30% |        65 |                                                              |
 | Агенти, змінні, task groups (`distributedTask`)            |       72 |      17 |  24% |        55 |                                                              |
 | Git (`git`)                                                |      112 |      72 |  64% |        40 |                                                              |
-| Робочі елементи (`wit`)                                    |       89 |      49 |  55% |        40 |                                                              |
 | Тест-плани (`testPlan`)                                    |       44 |      12 |  27% |        32 |                                                              |
 | Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
 | Artifacts: пакети за протоколами (`artifactsPackageTypes`) |       73 |      46 |  63% |        27 |                                                              |
+| Робочі елементи (`wit`)                                    |       89 |      63 |  71% |        26 |                                                              |
 | Користувачі й групи (`graph`)                              |       28 |       7 |  25% |        21 |                                                              |
 | Service hooks (`hooks`)                                    |       22 |       4 |  18% |        18 |                                                              |
 | Погодження й перевірки (`approvalsAndChecks`)              |       15 |       3 |  20% |        12 |                                                              |
@@ -382,54 +383,6 @@
 </details>
 
 <details>
-<summary>Робочі елементи — 40 з 89</summary>
-
-| Група                           | Метод  | Шлях                                                                 | Що робить                                                                                                      |
-| ------------------------------- | ------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Account My Work Recent Activity | GET    | `work/accountmyworkrecentactivity`                                   | Gets recent work item activities                                                                               |
-| Artifact Link Types             | GET    | `wit/artifactlinktypes`                                              | Get the list of work item tracking outbound artifact link types.                                               |
-| Artifact Uri Query              | POST   | `wit/artifacturiquery`                                               | Queries work items linked to a given list of artifact URI.                                                     |
-| Attachments                     | PUT    | `wit/attachments/{id}`                                               | Uploads an attachment chunk.                                                                                   |
-| Attachments                     | DELETE | `wit/attachments/{id}`                                               | Permanently delete an attachment.                                                                              |
-| Classification Nodes            | GET    | `wit/classificationnodes`                                            | Gets root classification nodes under the project.                                                              |
-| Classification Nodes            | GET    | `wit/classificationnodes/{structureGroup}/{path}`                    | Gets the classification node for a given node path.                                                            |
-| Comments                        | GET    | `wit/workItems/{workItemId}/comments`                                | Returns a list of work item comments by ids.                                                                   |
-| Comments                        | GET    | `wit/workItems/{workItemId}/comments/{commentId}`                    | Returns a work item comment.                                                                                   |
-| Comments                        | DELETE | `wit/workItems/{workItemId}/comments/{commentId}`                    | Delete a comment on a work item.                                                                               |
-| Comments Versions               | GET    | `wit/workItems/{workItemId}/comments/{commentId}/versions`           |                                                                                                                |
-| Comments Versions               | GET    | `wit/workItems/{workItemId}/comments/{commentId}/versions/{version}` |                                                                                                                |
-| Fields                          | PATCH  | `wit/fields/{fieldNameOrRefName}`                                    | Update a field.                                                                                                |
-| Fields                          | DELETE | `wit/fields/{fieldNameOrRefName}`                                    | Deletes the field. To undelete a filed, see "Update Field" API.                                                |
-| Github Connections              | GET    | `githubconnections`                                                  | Gets a list of github connections                                                                              |
-| Github Connections              | GET    | `githubconnections/{connectionId}/repos`                             | Gets a list of repos within specified github connection.                                                       |
-| Github Connections              | POST   | `githubconnections/{connectionId}/reposBatch`                        | Add/remove list of repos within specified github connection.                                                   |
-| Project Process Migration       | POST   | `wit/projectprocessmigration`                                        | Migrates a project to a different process within the same OOB type. For example, you can only migrate a proje… |
-| Queries                         | GET    | `wit/queries`                                                        | Searches all queries the user has access to in the current project                                             |
-| Queries                         | POST   | `wit/queriesbatch`                                                   | Gets a list of queries by ids (Maximum 1000)                                                                   |
-| Recyclebin                      | GET    | `wit/recyclebin/{id}`                                                | Gets a deleted work item from Recycle Bin.                                                                     |
-| Reporting Work Item Links       | GET    | `wit/reporting/workitemlinks`                                        | Get a batch of work item links                                                                                 |
-| Reporting Work Item Revisions   | GET    | `wit/reporting/workitemrevisions`                                    | Get a batch of work item revisions with the option of including deleted items                                  |
-| Reporting Work Item Revisions   | POST   | `wit/reporting/workitemrevisions`                                    | Get a batch of work item revisions. This request may be used if your list of fields is large enough that it m… |
-| Revisions                       | GET    | `wit/workItems/{id}/revisions/{revisionNumber}`                      | Returns a fully hydrated work item for the requested revision                                                  |
-| Send Mail                       | POST   | `wit/sendmail`                                                       | RESTful method to send mail for selected/queried work items.                                                   |
-| Temp Queries                    | POST   | `wit/tempqueries`                                                    | Creates a temporary query                                                                                      |
-| Updates                         | GET    | `wit/workItems/{id}/updates`                                         | Returns the deltas between work item revisions                                                                 |
-| Updates                         | GET    | `wit/workItems/{id}/updates/{updateNumber}`                          | Returns a single update for a work item                                                                        |
-| Work Item Icons                 | GET    | `wit/workitemicons`                                                  | Get a list of all work item icons.                                                                             |
-| Work Item Icons                 | GET    | `wit/workitemicons/{icon}`                                           | Get a work item icon given the friendly name and icon color.                                                   |
-| Work Item Relation Types        | GET    | `wit/workitemrelationtypes/{relation}`                               | Gets the work item relation type definition.                                                                   |
-| Work Item Revisions Discussions | GET    | `wit/reporting/workItemRevisions/discussions`                        |                                                                                                                |
-| Work Item Transitions           | GET    | `wit/workitemtransitions`                                            | Returns the next state on the given work item IDs.                                                             |
-| Work Item Type States           | GET    | `wit/workitemtypes/{type}/states`                                    | Returns the state names and colors for a work item type.                                                       |
-| Work Item Types Field           | GET    | `wit/workitemtypes/{type}/fields`                                    | Get a list of fields for a work item type with detailed references.                                            |
-| Work Item Types Field           | GET    | `wit/workitemtypes/{type}/fields/{field}`                            | Get a field for a work item type with detailed references.                                                     |
-| Work Items                      | GET    | `wit/workitems`                                                      | Returns a list of work items (Maximum 200)                                                                     |
-| Work Items                      | GET    | `wit/workitems/${type}`                                              | Returns a single work item from a template.                                                                    |
-| Work Items                      | POST   | `wit/workitemsdelete`                                                | Deletes specified work items and sends them to the Recycle Bin, so that it can be restored back, if required.… |
-
-</details>
-
-<details>
 <summary>Тест-плани — 32 з 44</summary>
 
 | Група                             | Метод  | Шлях                                                             | Що робить                                                                                                      |
@@ -536,6 +489,40 @@
 | Python    | POST   | `packaging/feeds/{feedId}/pypi/RecycleBin/packagesBatch`                                                           | Delete or restore several package versions from the recycle bin.                                               |
 | Universal | POST   | `packaging/feeds/{feedId}/upack/packagesbatch`                                                                     | Update several packages from a single feed in a single request. The updates to the packages do not happen ato… |
 | Universal | POST   | `packaging/feeds/{feedId}/upack/RecycleBin/packagesBatch`                                                          | Delete or restore several package versions from the recycle bin.                                               |
+
+</details>
+
+<details>
+<summary>Робочі елементи — 26 з 89</summary>
+
+| Група                           | Метод  | Шлях                                              | Що робить                                                                                                      |
+| ------------------------------- | ------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Account My Work Recent Activity | GET    | `work/accountmyworkrecentactivity`                | Gets recent work item activities                                                                               |
+| Artifact Link Types             | GET    | `wit/artifactlinktypes`                           | Get the list of work item tracking outbound artifact link types.                                               |
+| Attachments                     | PUT    | `wit/attachments/{id}`                            | Uploads an attachment chunk.                                                                                   |
+| Classification Nodes            | GET    | `wit/classificationnodes`                         | Gets root classification nodes under the project.                                                              |
+| Classification Nodes            | GET    | `wit/classificationnodes/{structureGroup}/{path}` | Gets the classification node for a given node path.                                                            |
+| Comments                        | GET    | `wit/workItems/{workItemId}/comments`             | Returns a list of work item comments by ids.                                                                   |
+| Comments                        | GET    | `wit/workItems/{workItemId}/comments/{commentId}` | Returns a work item comment.                                                                                   |
+| Fields                          | PATCH  | `wit/fields/{fieldNameOrRefName}`                 | Update a field.                                                                                                |
+| Fields                          | DELETE | `wit/fields/{fieldNameOrRefName}`                 | Deletes the field. To undelete a filed, see "Update Field" API.                                                |
+| Github Connections              | GET    | `githubconnections`                               | Gets a list of github connections                                                                              |
+| Github Connections              | GET    | `githubconnections/{connectionId}/repos`          | Gets a list of repos within specified github connection.                                                       |
+| Github Connections              | POST   | `githubconnections/{connectionId}/reposBatch`     | Add/remove list of repos within specified github connection.                                                   |
+| Queries                         | POST   | `wit/queriesbatch`                                | Gets a list of queries by ids (Maximum 1000)                                                                   |
+| Recyclebin                      | GET    | `wit/recyclebin/{id}`                             | Gets a deleted work item from Recycle Bin.                                                                     |
+| Reporting Work Item Links       | GET    | `wit/reporting/workitemlinks`                     | Get a batch of work item links                                                                                 |
+| Reporting Work Item Revisions   | GET    | `wit/reporting/workitemrevisions`                 | Get a batch of work item revisions with the option of including deleted items                                  |
+| Reporting Work Item Revisions   | POST   | `wit/reporting/workitemrevisions`                 | Get a batch of work item revisions. This request may be used if your list of fields is large enough that it m… |
+| Send Mail                       | POST   | `wit/sendmail`                                    | RESTful method to send mail for selected/queried work items.                                                   |
+| Temp Queries                    | POST   | `wit/tempqueries`                                 | Creates a temporary query                                                                                      |
+| Work Item Icons                 | GET    | `wit/workitemicons`                               | Get a list of all work item icons.                                                                             |
+| Work Item Icons                 | GET    | `wit/workitemicons/{icon}`                        | Get a work item icon given the friendly name and icon color.                                                   |
+| Work Item Relation Types        | GET    | `wit/workitemrelationtypes/{relation}`            | Gets the work item relation type definition.                                                                   |
+| Work Item Revisions Discussions | GET    | `wit/reporting/workItemRevisions/discussions`     |                                                                                                                |
+| Work Item Transitions           | GET    | `wit/workitemtransitions`                         | Returns the next state on the given work item IDs.                                                             |
+| Work Items                      | GET    | `wit/workitems`                                   | Returns a list of work items (Maximum 200)                                                                     |
+| Work Items                      | GET    | `wit/workitems/${type}`                           | Returns a single work item from a template.                                                                    |
 
 </details>
 
@@ -890,4 +877,4 @@
 - `featuremanagement/featurestatesforscope/{}/{}/{}/{}` (feature-management.ts)
 - `wit/$batch` (work-items.ts)
 
-- Методи `azure-devops-node-api` без відповідної операції: `getAgentRequestsForAgent`, `getFileDiffs`, `getGitRepositoriesActivityMetrics`, `getProjectActivityMetrics`, `getProjectCollections`, `getProjectLanguageAnalytics`, `getRepositoryActivityMetrics`, `undeleteTaskGroup`, `updateAutomationRule`.
+- Методи `azure-devops-node-api` без відповідної операції: `deleteField`, `getAgentRequestsForAgent`, `getFileDiffs`, `getGitRepositoriesActivityMetrics`, `getProjectActivityMetrics`, `getProjectCollections`, `getProjectLanguageAnalytics`, `getRepositoryActivityMetrics`, `undeleteTaskGroup`, `updateAutomationRule`.

@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
-import { CommentReactionType, FieldType, FieldUsage, GetFieldsExpand, QueryExpand, WorkItemField } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
+import { CommentReactionType, FieldType, FieldUsage, GetFieldsExpand, QueryExpand, WorkItemField, WorkItemTypeFieldsExpandLevel } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { z } from "zod";
 import { batchApiVersion, markdownCommentsApiVersion, getEnumKeys, safeEnumConvert, encodeFormattedValue } from "../utils.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
@@ -69,6 +69,19 @@ const WORKITEM_TOOLS = {
   list_comment_reaction_users: "wit_list_comment_reaction_users",
   add_comment_reaction: "wit_add_comment_reaction",
   remove_comment_reaction: "wit_remove_comment_reaction",
+  delete_work_item_comment: "wit_delete_work_item_comment",
+  list_work_item_comment_versions: "wit_list_work_item_comment_versions",
+  list_work_item_updates: "wit_list_work_item_updates",
+  get_work_item_revision: "wit_get_work_item_revision",
+  list_work_item_type_states: "wit_list_work_item_type_states",
+  list_work_item_type_fields: "wit_list_work_item_type_fields",
+  search_queries: "wit_search_queries",
+  delete_work_items: "wit_delete_work_items",
+  list_work_items_for_artifacts: "wit_list_work_items_for_artifacts",
+  delete_attachment: "wit_delete_attachment",
+  delete_field: "wit_delete_field",
+  restore_field: "wit_restore_field",
+  migrate_project_process: "wit_migrate_project_process",
 };
 
 /** Field types a new field can have, as the REST API spells them. */
@@ -2686,6 +2699,322 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error removing comment reaction: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  // ------------------------------------------------ history, comments, types ---
+
+  const workItemIdParam = z.coerce.number().min(1).describe("The ID of the work item.");
+  const failure = (action: string, error: unknown) => ({
+    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : "Unknown error occurred"}` }],
+    isError: true,
+  });
+  const json = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.delete_work_item_comment,
+    "Delete a comment from a work item. The comment's earlier versions go with it.",
+    {
+      project: optionalProject,
+      workItemId: workItemIdParam,
+      commentId: z.coerce.number().min(1).describe("The ID of the comment, as wit_list_work_item_comments returns it."),
+    },
+    async ({ project, workItemId, commentId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project of the work item.");
+        if ("response" in ctx) return ctx.response;
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        await workItemApi.deleteComment(ctx.project, workItemId, commentId);
+        return json({ deleted: commentId, workItemId });
+      } catch (error) {
+        return failure(`deleting comment ${commentId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.list_work_item_comment_versions,
+    "List the edit history of a work item comment — every version of its text with who changed it and when — or get one version.",
+    {
+      project: optionalProject,
+      workItemId: workItemIdParam,
+      commentId: z.coerce.number().min(1).describe("The ID of the comment."),
+      version: z.coerce.number().min(1).optional().describe("Return only this version, starting at 1."),
+    },
+    async ({ project, workItemId, commentId, version }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project of the work item.");
+        if ("response" in ctx) return ctx.response;
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const versions =
+          version !== undefined ? await workItemApi.getCommentVersion(ctx.project, workItemId, commentId, version) : await workItemApi.getCommentVersions(ctx.project, workItemId, commentId);
+        return createExternalContentResponse(versions, "work item comment versions");
+      } catch (error) {
+        return failure(`listing versions of comment ${commentId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.list_work_item_updates,
+    "List a work item's change history as deltas: for each update, which fields changed from what to what, which links were added or removed, and who made the change when. Unlike wit_list_work_item_revisions, which returns full snapshots, this shows only what changed.",
+    {
+      project: optionalProject,
+      workItemId: workItemIdParam,
+      updateNumber: z.coerce.number().min(1).optional().describe("Return only this update, starting at 1."),
+      top: z.coerce.number().min(1).optional().describe("Maximum number of updates to return."),
+      skip: z.coerce.number().min(0).optional().describe("Number of updates to skip."),
+    },
+    async ({ project, workItemId, updateNumber, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const updates = updateNumber !== undefined ? await workItemApi.getUpdate(workItemId, updateNumber, project) : await workItemApi.getUpdates(workItemId, top, skip, project);
+        return createExternalContentResponse(updates, "work item updates");
+      } catch (error) {
+        return failure(`listing updates of work item ${workItemId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.get_work_item_revision,
+    "Get a work item as it was at one revision: all its fields at that point in time.",
+    {
+      project: optionalProject,
+      workItemId: workItemIdParam,
+      revision: z.coerce.number().min(1).describe("The revision number, starting at 1."),
+      expand: z
+        .enum(getEnumKeys(WorkItemExpand) as [string, ...string[]])
+        .optional()
+        .describe("Also return relations, links or everything."),
+    },
+    async ({ project, workItemId, revision, expand }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const snapshot = await workItemApi.getRevision(workItemId, revision, safeEnumConvert(WorkItemExpand, expand), project);
+        if (!snapshot) {
+          return { content: [{ type: "text", text: `Revision ${revision} of work item ${workItemId} not found` }], isError: true };
+        }
+        return createExternalContentResponse(snapshot, "work item revision");
+      } catch (error) {
+        return failure(`getting revision ${revision} of work item ${workItemId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.list_work_item_type_states,
+    "List the states of a work item type in a project, with each state's category (Proposed, InProgress, Resolved, Completed, Removed) and color. Use it to know which values System.State accepts.",
+    {
+      project: requiredProjectWith("The states come from the process this project uses."),
+      type: z.string().describe("The work item type name, e.g. 'Bug' or 'User Story'."),
+    },
+    async ({ project, type }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        return json(await workItemApi.getWorkItemTypeStates(project, type));
+      } catch (error) {
+        return failure(`listing states of '${type}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.list_work_item_type_fields,
+    "List the fields a work item type has in a project, with whether each is required, its default and — with expand — the values it allows. Pass field for a single one. This is the project's effective view; witprocess_list_work_item_type_fields shows the same type inside a process definition.",
+    {
+      project: requiredProjectWith("The fields come from the process this project uses."),
+      type: z.string().describe("The work item type name, e.g. 'Bug' or 'User Story'."),
+      field: z.string().optional().describe("Only this field, by reference name or name, e.g. 'Microsoft.VSTS.Common.Priority'."),
+      expand: z
+        .enum(getEnumKeys(WorkItemTypeFieldsExpandLevel) as [string, ...string[]])
+        .default("AllowedValues")
+        .describe("'AllowedValues' adds the permitted values, 'DependentFields' the fields that depend on it, 'All' both, 'None' neither."),
+    },
+    async ({ project, type, field, expand }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const level = safeEnumConvert(WorkItemTypeFieldsExpandLevel, expand);
+        const result = field ? await workItemApi.getWorkItemTypeFieldWithReferences(project, type, field, level) : await workItemApi.getWorkItemTypeFieldsWithReferences(project, type, level);
+        if (!result) {
+          return { content: [{ type: "text", text: `Field '${field}' not found on '${type}'` }], isError: true };
+        }
+        return json(result);
+      } catch (error) {
+        return failure(`listing fields of '${type}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.search_queries,
+    "Find saved work item queries by name in a project, across My Queries and Shared Queries folders you can see.",
+    {
+      project: optionalProject,
+      filter: z.string().describe("Text the query name must contain."),
+      top: z.coerce.number().min(1).max(200).default(50).describe("Maximum number of queries to return."),
+      includeDeleted: z.boolean().optional().describe("Also return deleted queries."),
+    },
+    async ({ project, filter, top, includeDeleted }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project to search queries in.");
+        if ("response" in ctx) return ctx.response;
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        return json(await workItemApi.searchQueries(ctx.project, filter, top, undefined, includeDeleted));
+      } catch (error) {
+        return failure(`searching queries for '${filter}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.list_work_items_for_artifacts,
+    "Find the work items linked to commits, pull requests, builds or other artifacts, given their artifact URIs, e.g. 'vstfs:///Git/Commit/{projectId}%2F{repositoryId}%2F{commitId}' or 'vstfs:///Git/PullRequestId/{projectId}%2F{repositoryId}%2F{pullRequestId}' or 'vstfs:///Build/Build/{buildId}'.",
+    {
+      project: optionalProject,
+      artifactUris: z.array(z.string()).min(1).describe("The artifact URIs to look up."),
+    },
+    async ({ project, artifactUris }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const result = await workItemApi.queryWorkItemsForArtifactUris({ artifactUris }, project);
+        return json(result?.artifactUrisQueryResult ?? {});
+      } catch (error) {
+        return failure("looking up work items for artifacts", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.delete_work_items,
+    "Delete several work items at once, moving them to the recycle bin — or, with destroy, erasing them permanently. Reports the outcome per work item.",
+    {
+      project: optionalProject,
+      ids: z.array(z.coerce.number().min(1)).min(1).max(200).describe("The IDs of the work items to delete, up to 200."),
+      destroy: z.boolean().default(false).describe("Erase permanently instead of moving to the recycle bin. This cannot be undone."),
+      skipNotifications: z.boolean().optional().describe("Do not notify subscribers about the deletion."),
+    },
+    async ({ project, ids, destroy, skipNotifications }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the work items belong to.");
+        if ("response" in ctx) return ctx.response;
+        const accessToken = await tokenProvider();
+        // The typed client has no batch delete; the REST endpoint does.
+        const response = await fetch(`${connection.serverUrl}/${encodeURIComponent(ctx.project)}/_apis/wit/workitemsdelete?api-version=7.1`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${accessToken}`, "Content-Type": "application/json; charset=utf-8", "User-Agent": userAgentProvider() },
+          body: JSON.stringify({ ids, destroy, skipNotifications }),
+        });
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(`${response.status}: ${text}`);
+        }
+        return { content: [{ type: "text", text }] };
+      } catch (error) {
+        return failure("deleting work items", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.delete_attachment,
+    "Permanently delete a work item attachment's file. Work items that link to it keep a broken attachment link until it is removed from them. This cannot be undone.",
+    {
+      project: optionalProject,
+      attachmentId: z.string().describe("The GUID of the attachment, found in its URL: …/_apis/wit/attachments/{attachmentId}."),
+    },
+    async ({ project, attachmentId }) => {
+      try {
+        const connection = await connectionProvider();
+        const accessToken = await tokenProvider();
+        // The typed client cannot delete attachments; the REST endpoint can.
+        const scope = project ? `${encodeURIComponent(project)}/` : "";
+        const response = await fetch(`${connection.serverUrl}/${scope}_apis/wit/attachments/${encodeURIComponent(attachmentId)}?api-version=7.1`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${accessToken}`, "User-Agent": userAgentProvider() },
+        });
+        if (!response.ok) {
+          throw new Error(`${response.status}: ${await response.text()}`);
+        }
+        return json({ deleted: attachmentId });
+      } catch (error) {
+        return failure(`deleting attachment ${attachmentId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.delete_field,
+    "Delete an organization-wide work item field. It is removed from every process and work item type that uses it; restore it with wit_restore_field. System fields cannot be deleted.",
+    {
+      field: z.string().describe("Reference name or name of the field, e.g. 'Custom.CustomerImpact'."),
+    },
+    async ({ field }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        await workItemApi.deleteField(field);
+        return json({ deleted: field });
+      } catch (error) {
+        return failure(`deleting field '${field}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.restore_field,
+    "Restore a deleted organization-wide work item field.",
+    {
+      field: z.string().describe("Reference name of the deleted field, e.g. 'Custom.CustomerImpact'. wit_list_fields with expand 'IncludeDeleted' lists them."),
+    },
+    async ({ field }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        return json(await workItemApi.updateField({ isDeleted: false }, field));
+      } catch (error) {
+        return failure(`restoring field '${field}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.migrate_project_process,
+    "Switch a project to another process of the same base, e.g. from Agile to an inherited 'Agile – Contoso' or back. Every work item keeps its data; types, fields and rules follow the new process from then on. Affects everyone working in the project.",
+    {
+      project: requiredProjectWith("The project to move to another process."),
+      processTypeId: z.string().describe("The type ID (GUID) of the target process, from witprocess_list_processes. It must derive from the same system process as the current one."),
+    },
+    async ({ project, processTypeId }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        return json(await workItemApi.migrateProjectsProcess({ typeId: processTypeId }, project));
+      } catch (error) {
+        return failure(`moving project '${project}' to process ${processTypeId}`, error);
       }
     }
   );
