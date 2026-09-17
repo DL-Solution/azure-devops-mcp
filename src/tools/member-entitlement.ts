@@ -19,6 +19,8 @@ const MEMBER_ENTITLEMENT_TOOLS = {
   list_group_members: "memberentitlement_list_group_members",
   add_group_member: "memberentitlement_add_group_member",
   remove_group_member: "memberentitlement_remove_group_member",
+  create_group_entitlement: "memberentitlement_create_group_entitlement",
+  delete_group_entitlement: "memberentitlement_delete_group_entitlement",
 };
 
 // Member Entitlement Management lives on a separate host from the core REST APIs.
@@ -51,6 +53,9 @@ const accountLicenseTypeField = z
   .describe(
     "The account license type (access level): 'express' = Basic, 'advanced' = Basic + Test Plans, 'stakeholder' = Stakeholder, 'none' = Visual Studio Subscriber, 'professional' = legacy Basic."
   );
+
+// Project-level groups a group rule can put its members into.
+const PROJECT_GROUP_TYPES = ["projectReader", "projectContributor", "projectAdministrator", "projectStakeholder"] as const;
 
 function configureMemberEntitlementTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
   async function memberEntitlementFetch(method: string, pathAndQuery: string, body?: unknown, contentType = "application/json"): Promise<Response> {
@@ -377,6 +382,80 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error removing group entitlement member: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    MEMBER_ENTITLEMENT_TOOLS.create_group_entitlement,
+    "Create a group rule: every member of an Entra ID or Azure DevOps group gets the given access level (licence) and, optionally, membership in project groups. Members who join the group later get it too. Licences are assigned asynchronously; the response reports the operation's status. Use testOnly first to see how many licences it would take.",
+    {
+      groupOriginId: z.string().describe("The group's ID in its origin: the Entra ID object ID for an Entra group, or the Azure DevOps group ID."),
+      origin: z.enum(["aad", "vsts"]).default("aad").describe("Where the group lives: 'aad' for Microsoft Entra ID, 'vsts' for an Azure DevOps group."),
+      accountLicenseType: accountLicenseTypeField,
+      projectEntitlements: z
+        .array(
+          z.object({
+            projectId: z.string().describe("The ID (GUID) of the project."),
+            groupType: z.enum(PROJECT_GROUP_TYPES).describe("The project group members are added to."),
+          })
+        )
+        .optional()
+        .describe("Project groups the rule adds members to, e.g. Contributors of one project."),
+      testOnly: z.boolean().default(false).describe("Evaluate the rule without creating it or assigning licences."),
+    },
+    async ({ groupOriginId, origin, accountLicenseType, projectEntitlements, testOnly }) => {
+      try {
+        const params = new URLSearchParams({ "api-version": groupEntitlementApiVersion, "ruleOption": testOnly ? "testApplyGroupRule" : "applyGroupRule" });
+        const body = {
+          group: { origin, originId: groupOriginId, subjectKind: "group" },
+          licenseRule: { accountLicenseType, licensingSource: "account" },
+          projectEntitlements: projectEntitlements?.map(({ projectId, groupType }) => ({ group: { groupType }, projectRef: { id: projectId } })),
+        };
+
+        const response = await memberEntitlementFetch("POST", `groupentitlements?${params.toString()}`, body);
+        if (!response.ok) {
+          throw new Error(`Failed to create group entitlement (${response.status}): ${await response.text()}`);
+        }
+
+        return { content: [{ type: "text", text: await response.text() }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error creating group entitlement: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    MEMBER_ENTITLEMENT_TOOLS.delete_group_entitlement,
+    "Delete a group rule. Members stop receiving the access level and project memberships the rule granted, so people who had access only through this rule can lose it. Use testOnly first to see the effect.",
+    {
+      groupId: z.string().describe("The ID (GUID) of the group entitlement."),
+      removeGroupMembership: z.boolean().default(false).describe("Also remove the group from every Azure DevOps group it was made a member of."),
+      testOnly: z.boolean().default(false).describe("Evaluate the removal without applying it."),
+    },
+    async ({ groupId, removeGroupMembership, testOnly }) => {
+      try {
+        const params = new URLSearchParams({
+          "api-version": groupEntitlementApiVersion,
+          "ruleOption": testOnly ? "testApplyGroupRule" : "applyGroupRule",
+          "removeGroupMembership": String(removeGroupMembership),
+        });
+
+        const response = await memberEntitlementFetch("DELETE", `groupentitlements/${encodeURIComponent(groupId)}?${params.toString()}`);
+        if (response.status === 404) {
+          return { content: [{ type: "text", text: `Group entitlement '${groupId}' not found` }], isError: true };
+        }
+        if (!response.ok) {
+          throw new Error(`Failed to delete group entitlement (${response.status}): ${await response.text()}`);
+        }
+
+        return { content: [{ type: "text", text: await response.text() }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error deleting group entitlement: ${errorMessage}` }], isError: true };
       }
     }
   );

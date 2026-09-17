@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
-import { GetFieldsExpand, QueryExpand } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
+import { CommentReactionType, FieldType, FieldUsage, GetFieldsExpand, QueryExpand, WorkItemField } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { z } from "zod";
 import { batchApiVersion, markdownCommentsApiVersion, getEnumKeys, safeEnumConvert, encodeFormattedValue } from "../utils.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
@@ -64,7 +64,23 @@ const WORKITEM_TOOLS = {
   list_relation_types: "wit_list_relation_types",
   list_fields: "wit_list_fields",
   get_field: "wit_get_field",
+  create_field: "wit_create_field",
+  list_comment_reactions: "wit_list_comment_reactions",
+  list_comment_reaction_users: "wit_list_comment_reaction_users",
+  add_comment_reaction: "wit_add_comment_reaction",
+  remove_comment_reaction: "wit_remove_comment_reaction",
 };
+
+/** Field types a new field can have, as the REST API spells them. */
+const NEW_FIELD_TYPES = ["string", "integer", "double", "dateTime", "boolean", "plainText", "html", "identity", "picklistString", "picklistInteger", "picklistDouble"] as const;
+
+/** The reactions a work item comment accepts, as the REST API spells them. */
+const COMMENT_REACTIONS = ["like", "dislike", "heart", "hooray", "smile", "confused"] as const;
+
+/** The route takes the reaction by name; the typed client declares the numeric enum. */
+function reactionType(reaction: (typeof COMMENT_REACTIONS)[number]): CommentReactionType {
+  return reaction as unknown as CommentReactionType;
+}
 
 function getLinkTypeFromName(name: string) {
   switch (name.toLowerCase()) {
@@ -2485,6 +2501,191 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error fetching work item field: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.create_field,
+    "Create a work item field for the whole organization. Creating it does not put it on any form: add it to a work item type of an inherited process with witprocess_add_field_to_work_item_type, then place it with witprocess_add_control. A field's reference name and type cannot be changed later.",
+    {
+      name: z.string().describe("Display name, e.g. 'Customer Impact'. Must be unique in the organization."),
+      referenceName: z.string().optional().describe("Reference name, e.g. 'Custom.CustomerImpact'. Omit to let Azure DevOps derive 'Custom.<name without spaces>'."),
+      type: z.enum(NEW_FIELD_TYPES).describe("Data type. 'html' is rich text, 'plainText' is a long unformatted text, 'identity' holds a person, and the 'picklist…' types need picklistId."),
+      description: z.string().optional().describe("Help text shown when hovering over the field."),
+      picklistId: z.string().optional().describe("For a picklist type: the ID of the list of values, created with witprocess_create_picklist."),
+      isPicklistSuggested: z.boolean().optional().describe("For a picklist type: whether people may also enter values that are not in the list."),
+    },
+    async ({ name, referenceName, type, description, picklistId, isPicklistSuggested }) => {
+      const isPicklist = type.startsWith("picklist");
+      if (isPicklist !== Boolean(picklistId)) {
+        return {
+          content: [{ type: "text", text: isPicklist ? `A '${type}' field needs picklistId.` : "picklistId is only valid with a picklist type." }],
+          isError: true,
+        };
+      }
+      try {
+        const connection = await connectionProvider();
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        // The body carries the enums by name, the way the REST API documents them.
+        const field = {
+          name,
+          referenceName,
+          description,
+          type,
+          usage: "workItem",
+          isIdentity: type === "identity" || undefined,
+          isPicklist: isPicklist || undefined,
+          picklistId,
+          isPicklistSuggested,
+        } as unknown as WorkItemField;
+        const created = await workItemTrackingApi.createField(field);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  ...created,
+                  type: created.type !== undefined ? (FieldType[created.type] ?? created.type) : undefined,
+                  usage: created.usage !== undefined ? (FieldUsage[created.usage] ?? created.usage) : undefined,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error creating work item field: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  const commentReactionParams = {
+    project: optionalProject,
+    workItemId: z.coerce.number().min(1).describe("The ID of the work item."),
+    commentId: z.coerce.number().min(1).describe("The ID of the comment, as listed by wit_list_work_item_comments."),
+  };
+  const reactionParam = z.enum(COMMENT_REACTIONS).describe("The reaction.");
+
+  const describeReaction = (reaction: { type?: CommentReactionType; count?: number; isCurrentUserEngaged?: boolean; commentId?: number }) => ({
+    commentId: reaction.commentId,
+    type: reaction.type !== undefined ? (CommentReactionType[reaction.type] ?? reaction.type) : undefined,
+    count: reaction.count,
+    isCurrentUserEngaged: reaction.isCurrentUserEngaged,
+  });
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.list_comment_reactions,
+    "List the reactions on a work item comment: how many of each kind, and whether you gave it.",
+    commentReactionParams,
+    async ({ project, workItemId, commentId }) => {
+      try {
+        const connection = await connectionProvider();
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project of the work item.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const reactions = await workItemApi.getCommentReactions(resolvedProject, workItemId, commentId);
+        return { content: [{ type: "text", text: JSON.stringify((reactions ?? []).map(describeReaction), null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error listing comment reactions: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.list_comment_reaction_users,
+    "List who gave a particular reaction to a work item comment.",
+    {
+      ...commentReactionParams,
+      reaction: reactionParam,
+      top: z.coerce.number().min(1).optional().describe("Maximum number of people to return."),
+      skip: z.coerce.number().min(0).optional().describe("Number of people to skip."),
+    },
+    async ({ project, workItemId, commentId, reaction, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project of the work item.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const users = await workItemApi.getEngagedUsers(resolvedProject, workItemId, commentId, reactionType(reaction), top, skip);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                (users ?? []).map((user) => ({ id: user.id, displayName: user.displayName, uniqueName: user.uniqueName })),
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error listing users who reacted: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.add_comment_reaction,
+    "React to a work item comment as yourself, e.g. 'like'. Giving the same reaction twice has no further effect.",
+    { ...commentReactionParams, reaction: reactionParam },
+    async ({ project, workItemId, commentId, reaction }) => {
+      try {
+        const connection = await connectionProvider();
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project of the work item.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const result = await workItemApi.createCommentReaction(resolvedProject, workItemId, commentId, reactionType(reaction));
+        return { content: [{ type: "text", text: JSON.stringify(describeReaction(result), null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error adding comment reaction: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WORKITEM_TOOLS.remove_comment_reaction,
+    "Withdraw your own reaction from a work item comment. Other people's reactions are not affected.",
+    { ...commentReactionParams, reaction: reactionParam },
+    async ({ project, workItemId, commentId, reaction }) => {
+      try {
+        const connection = await connectionProvider();
+        let resolvedProject = project;
+        if (!resolvedProject) {
+          const result = await elicitProject(server, connection, "Select the Azure DevOps project of the work item.");
+          if ("response" in result) return result.response;
+          resolvedProject = result.resolved;
+        }
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const result = await workItemApi.deleteCommentReaction(resolvedProject, workItemId, commentId, reactionType(reaction));
+        return { content: [{ type: "text", text: JSON.stringify(describeReaction(result), null, 2) }] };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return { content: [{ type: "text", text: `Error removing comment reaction: ${errorMessage}` }], isError: true };
       }
     }
   );

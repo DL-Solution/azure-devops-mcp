@@ -66,6 +66,11 @@
 | Work Items         | [mcp_ado_wit_list_relation_types](#mcp_ado_wit_list_relation_types)                                       | List the work item link types the organization supports, with their reference names                                   |
 | Work Items         | [mcp_ado_wit_list_fields](#mcp_ado_wit_list_fields)                                                       | List work item fields with their reference names and types                                                            |
 | Work Items         | [mcp_ado_wit_get_field](#mcp_ado_wit_get_field)                                                           | Get a single work item field by name or reference name, e.g                                                           |
+| Work Items         | [mcp_ado_wit_create_field](#mcp_ado_wit_create_field)                                                     | Create a work item field for the whole organization                                                                   |
+| Work Items         | [mcp_ado_wit_list_comment_reactions](#mcp_ado_wit_list_comment_reactions)                                 | List the reactions on a work item comment                                                                             |
+| Work Items         | [mcp_ado_wit_list_comment_reaction_users](#mcp_ado_wit_list_comment_reaction_users)                       | List who gave a particular reaction to a work item comment                                                            |
+| Work Items         | [mcp_ado_wit_add_comment_reaction](#mcp_ado_wit_add_comment_reaction)                                     | React to a work item comment as yourself                                                                              |
+| Work Items         | [mcp_ado_wit_remove_comment_reaction](#mcp_ado_wit_remove_comment_reaction)                               | Withdraw your own reaction from a work item comment                                                                   |
 | Work               | [mcp_ado_work_list_team_iterations](#mcp_ado_work_list_team_iterations)                                   | List iterations assigned to a team                                                                                    |
 | Work               | [mcp_ado_work_create_iterations](#mcp_ado_work_create_iterations)                                         | Create new iterations in a project                                                                                    |
 | Work               | [mcp_ado_work_list_iterations](#mcp_ado_work_list_iterations)                                             | List all iterations in a project                                                                                      |
@@ -353,6 +358,21 @@
 | Process            | [mcp_ado_witprocess_create_picklist](#mcp_ado_witprocess_create_picklist)                                 | Create a picklist for use by custom dropdown fields                                                                   |
 | Process            | [mcp_ado_witprocess_update_picklist](#mcp_ado_witprocess_update_picklist)                                 | Replace the contents of a picklist                                                                                    |
 | Process            | [mcp_ado_witprocess_delete_picklist](#mcp_ado_witprocess_delete_picklist)                                 | Delete a picklist                                                                                                     |
+| Process            | [mcp_ado_witprocess_get_form_layout](#mcp_ado_witprocess_get_form_layout)                                 | Get the form layout of a work item type                                                                               |
+| Process            | [mcp_ado_witprocess_add_page](#mcp_ado_witprocess_add_page)                                               | Add a page (tab) to a work item type's form                                                                           |
+| Process            | [mcp_ado_witprocess_update_page](#mcp_ado_witprocess_update_page)                                         | Rename, reorder, show or hide a page of a work item type's form                                                       |
+| Process            | [mcp_ado_witprocess_remove_page](#mcp_ado_witprocess_remove_page)                                         | Remove a custom page from a work item type's form, with its groups and controls                                       |
+| Process            | [mcp_ado_witprocess_add_group](#mcp_ado_witprocess_add_group)                                             | Add a group of fields to a section of a form page                                                                     |
+| Process            | [mcp_ado_witprocess_update_group](#mcp_ado_witprocess_update_group)                                       | Rename, reorder, show or hide a group on a form page                                                                  |
+| Process            | [mcp_ado_witprocess_move_group](#mcp_ado_witprocess_move_group)                                           | Move a group, with its controls, to another section of the same page or to a section of another page                  |
+| Process            | [mcp_ado_witprocess_remove_group](#mcp_ado_witprocess_remove_group)                                       | Remove a custom group from a form page                                                                                |
+| Process            | [mcp_ado_witprocess_add_control](#mcp_ado_witprocess_add_control)                                         | Show a field on the form by adding its control to a group                                                             |
+| Process            | [mcp_ado_witprocess_update_control](#mcp_ado_witprocess_update_control)                                   | Change how a control in a group is shown                                                                              |
+| Process            | [mcp_ado_witprocess_move_control](#mcp_ado_witprocess_move_control)                                       | Move a control from one group to another, on the same page or a different one                                         |
+| Process            | [mcp_ado_witprocess_remove_control](#mcp_ado_witprocess_remove_control)                                   | Remove a control from a group, so the field is no longer shown on the form                                            |
+| Process            | [mcp_ado_witprocess_list_system_controls](#mcp_ado_witprocess_list_system_controls)                       | List the system controls of a work item type                                                                          |
+| Process            | [mcp_ado_witprocess_update_system_control](#mcp_ado_witprocess_update_system_control)                     | Relabel, show or hide a system control in the form header                                                             |
+| Process            | [mcp_ado_witprocess_reset_system_control](#mcp_ado_witprocess_reset_system_control)                       | Undo the changes made to a system control, restoring the label and visibility the parent process gives it             |
 | Member Entitlement | [mcp_ado_memberentitlement_list_users](#mcp_ado_memberentitlement_list_users)                             | List user entitlements                                                                                                |
 | Member Entitlement | [mcp_ado_memberentitlement_get_user](#mcp_ado_memberentitlement_get_user)                                 | Get a single user entitlement by its user entitlement ID                                                              |
 | Member Entitlement | [mcp_ado_memberentitlement_add_user](#mcp_ado_memberentitlement_add_user)                                 | Add a user to the organization with a given access level                                                              |
@@ -365,6 +385,8 @@
 | Member Entitlement | [mcp_ado_memberentitlement_list_group_members](#mcp_ado_memberentitlement_list_group_members)             | List the members covered by a group entitlement, with the access level each one ended up with                         |
 | Member Entitlement | [mcp_ado_memberentitlement_add_group_member](#mcp_ado_memberentitlement_add_group_member)                 | Add a user to a group entitlement, which applies that group's licence rule and project memberships to them            |
 | Member Entitlement | [mcp_ado_memberentitlement_remove_group_member](#mcp_ado_memberentitlement_remove_group_member)           | Remove a user from a group entitlement                                                                                |
+| Member Entitlement | [mcp_ado_memberentitlement_create_group_entitlement](#mcp_ado_memberentitlement_create_group_entitlement) | Create a group rule that licenses every member of a group                                                             |
+| Member Entitlement | [mcp_ado_memberentitlement_delete_group_entitlement](#mcp_ado_memberentitlement_delete_group_entitlement) | Delete a group rule and withdraw what it granted                                                                      |
 | Graph              | [mcp_ado_graph_list_users](#mcp_ado_graph_list_users)                                                     | List users in the organization via the Graph API                                                                      |
 | Graph              | [mcp_ado_graph_get_user](#mcp_ado_graph_get_user)                                                         | Get a single user by their Graph subject descriptor                                                                   |
 | Graph              | [mcp_ado_graph_list_groups](#mcp_ado_graph_list_groups)                                                   | List groups in the organization via the Graph API                                                                     |
@@ -827,6 +849,41 @@ List work item fields with their reference names and types.
 Get a single work item field by name or reference name, e.g.
 
 - **Required**: `field`
+- **Optional**: `project`
+
+### mcp_ado_wit_create_field
+
+Create a work item field for the whole organization. It appears on no form until it is added to a work item type with `witprocess_add_field_to_work_item_type` and placed with `witprocess_add_control`; its reference name and type cannot be changed later.
+
+- **Required**: `name`, `type`
+- **Optional**: `description`, `isPicklistSuggested`, `picklistId`, `referenceName`
+
+### mcp_ado_wit_list_comment_reactions
+
+List the reactions on a work item comment: how many of each kind, and whether you gave it.
+
+- **Required**: `workItemId`, `commentId`
+- **Optional**: `project`
+
+### mcp_ado_wit_list_comment_reaction_users
+
+List who gave a particular reaction to a work item comment.
+
+- **Required**: `workItemId`, `commentId`, `reaction` (`like` \| `dislike` \| `heart` \| `hooray` \| `smile` \| `confused`)
+- **Optional**: `project`, `skip`, `top`
+
+### mcp_ado_wit_add_comment_reaction
+
+React to a work item comment as yourself: like, dislike, heart, hooray, smile or confused.
+
+- **Required**: `workItemId`, `commentId`, `reaction` (`like` \| `dislike` \| `heart` \| `hooray` \| `smile` \| `confused`)
+- **Optional**: `project`
+
+### mcp_ado_wit_remove_comment_reaction
+
+Withdraw your own reaction from a work item comment.
+
+- **Required**: `workItemId`, `commentId`, `reaction` (`like` \| `dislike` \| `heart` \| `hooray` \| `smile` \| `confused`)
 - **Optional**: `project`
 
 ## Work
@@ -2876,6 +2933,111 @@ Delete a picklist.
 - **Required**: `listId`
 - **Optional**: None
 
+### mcp_ado_witprocess_get_form_layout
+
+Get the form layout of a work item type: its pages, each page's three sections (columns), the groups in them and the field controls in each group, plus the system controls in the header.
+
+- **Required**: `processId`, `witRefName`
+- **Optional**: None
+
+### mcp_ado_witprocess_add_page
+
+Add a page (tab) to a work item type's form. Only work item types of an inherited process have an editable layout.
+
+- **Required**: `processId`, `witRefName`, `label`
+- **Optional**: `order`, `visible`
+
+### mcp_ado_witprocess_update_page
+
+Rename, reorder, show or hide a page of a work item type's form.
+
+- **Required**: `processId`, `witRefName`, `pageId`
+- **Optional**: `label`, `order`, `visible`
+
+### mcp_ado_witprocess_remove_page
+
+Remove a custom page from a work item type's form, with its groups and controls.
+
+- **Required**: `processId`, `witRefName`, `pageId`
+- **Optional**: None
+
+### mcp_ado_witprocess_add_group
+
+Add a group (a titled box of fields) to a section of a form page.
+
+- **Required**: `processId`, `witRefName`, `pageId`, `sectionId`, `label`
+- **Optional**: `order`, `visible`
+
+### mcp_ado_witprocess_update_group
+
+Rename, reorder, show or hide a group on a form page.
+
+- **Required**: `processId`, `witRefName`, `pageId`, `sectionId`, `groupId`
+- **Optional**: `label`, `order`, `visible`
+
+### mcp_ado_witprocess_move_group
+
+Move a group, with its controls, to another section of the same page or to a section of another page.
+
+- **Required**: `processId`, `witRefName`, `pageId`, `sectionId`, `groupId`, `toSectionId`
+- **Optional**: `order`, `toPageId`
+
+### mcp_ado_witprocess_remove_group
+
+Remove a custom group from a form page.
+
+- **Required**: `processId`, `witRefName`, `pageId`, `sectionId`, `groupId`
+- **Optional**: None
+
+### mcp_ado_witprocess_add_control
+
+Show a field on the form by adding its control to a group. The field must already belong to the work item type.
+
+- **Required**: `processId`, `witRefName`, `groupId`, `fieldReferenceName`
+- **Optional**: `label`, `order`, `readOnly`, `visible`, `watermark`
+
+### mcp_ado_witprocess_update_control
+
+Change how a control in a group is shown: label, position, read-only, visibility or placeholder text.
+
+- **Required**: `processId`, `witRefName`, `groupId`, `controlId`
+- **Optional**: `label`, `order`, `readOnly`, `visible`, `watermark`
+
+### mcp_ado_witprocess_move_control
+
+Move a control from one group to another, on the same page or a different one.
+
+- **Required**: `processId`, `witRefName`, `fromGroupId`, `toGroupId`, `controlId`
+- **Optional**: `order`
+
+### mcp_ado_witprocess_remove_control
+
+Remove a control from a group, so the field is no longer shown on the form.
+
+- **Required**: `processId`, `witRefName`, `groupId`, `controlId`
+- **Optional**: None
+
+### mcp_ado_witprocess_list_system_controls
+
+List the system controls of a work item type — the fixed header fields such as Area Path, Iteration Path, Reason and State — with their current labels and visibility.
+
+- **Required**: `processId`, `witRefName`
+- **Optional**: None
+
+### mcp_ado_witprocess_update_system_control
+
+Relabel, show or hide a system control in the form header, such as `System.Reason`. `witprocess_reset_system_control` undoes it.
+
+- **Required**: `processId`, `witRefName`, `controlId`
+- **Optional**: `label`, `visible`
+
+### mcp_ado_witprocess_reset_system_control
+
+Undo the changes made to a system control, restoring the label and visibility the parent process gives it.
+
+- **Required**: `processId`, `witRefName`, `controlId`
+- **Optional**: None
+
 ## Member Entitlement
 
 ### mcp_ado_memberentitlement_list_users
@@ -2961,6 +3123,20 @@ Remove a user from a group entitlement.
 
 - **Required**: `groupId`, `memberId`
 - **Optional**: None
+
+### mcp_ado_memberentitlement_create_group_entitlement
+
+Create a group rule: every member of an Entra ID or Azure DevOps group gets the given access level (licence) and, optionally, membership in project groups.
+
+- **Required**: `groupOriginId`, `accountLicenseType` (`stakeholder` \| `express` \| `advanced` \| `professional` \| `none`)
+- **Optional**: `origin` (`aad` \| `vsts`), `projectEntitlements`, `testOnly`
+
+### mcp_ado_memberentitlement_delete_group_entitlement
+
+Delete a group rule. People who had access only through it can lose that access, so run it with `testOnly` first.
+
+- **Required**: `groupId`
+- **Optional**: `removeGroupMembership`, `testOnly`
 
 ## Graph
 

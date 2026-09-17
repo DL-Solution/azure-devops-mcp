@@ -8,7 +8,7 @@
 // makes it by far the cheapest place to explain the shape of the server: what
 // each name prefix covers, which tool answers which kind of question, and which
 // writes reach beyond a single project. At roughly 1.4k tokens for the full
-// domain set it costs under 2% of what the tool schemas do (~87k).
+// domain set it costs under 2% of what the tool schemas do (~93k).
 //
 // Only the enabled domains are described, so a preset endpoint (see presets.ts)
 // does not advertise tools it does not serve.
@@ -18,7 +18,10 @@ import { Domain } from "./domains.js";
 /** One line per domain: the name prefix and what it covers. */
 const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.CORE, "core_ — projects, teams, processes, identity lookup. Start here when the project or team is not known."],
-  [Domain.WORK_ITEMS, "wit_ — work items: read, create, update, link, query (WIQL), comments, attachments, tags, templates, saved queries, field and type metadata."],
+  [
+    Domain.WORK_ITEMS,
+    "wit_ — work items: read, create, update, link, query (WIQL), comments and their reactions, attachments, tags, templates, saved queries, fields (including creating organization fields) and type metadata.",
+  ],
   [Domain.WORK, "work_ — the board: backlogs, sprints/iterations, area paths, capacity, delivery plans, taskboards, board columns and rules."],
   [
     Domain.REPOSITORIES,
@@ -40,8 +43,8 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.APPROVALS, "approvals_ — pipeline approval checks awaiting a decision."],
   [Domain.ANALYTICS, "analytics_ — OData reporting: counts, sums and groupings over work items, history snapshots and trends, pipeline and test pass rates."],
   [Domain.PROJECT_ANALYSIS, "projectanalysis_ — language breakdown and repository/project activity."],
-  [Domain.WIT_PROCESS, "witprocess_ — process customization: inherited processes, work item types, fields, states, behaviors, rules, picklists."],
-  [Domain.MEMBER_ENTITLEMENT, "memberentitlement_ — user licenses, group entitlements, organization membership."],
+  [Domain.WIT_PROCESS, "witprocess_ — process customization: inherited processes, work item types, fields, states, behaviors, rules, picklists, form layout (pages, groups, controls)."],
+  [Domain.MEMBER_ENTITLEMENT, "memberentitlement_ — user licenses, group entitlements (group rules), organization membership."],
   [Domain.GRAPH, "graph_ — identities: users, groups, memberships."],
   [Domain.PERMISSIONS, "permissions_ — security namespaces and access control lists: read, check your own rights, grant, deny and remove."],
   [Domain.SECURITY_ROLES, "securityrole_ — role assignments on resources such as pools and environments."],

@@ -237,4 +237,93 @@ describe("configureMemberEntitlementTools", () => {
       expect(result.content[0].text).toContain("Failed to list group entitlements (403)");
     });
   });
+  describe("group entitlement lifecycle", () => {
+    it("creates a group rule for an Entra group with project memberships", async () => {
+      const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.create_group_entitlement);
+      mockFetch.mockResolvedValue(ok('{"id":"op-1","status":"inProgress"}'));
+
+      const result = await handler({
+        groupOriginId: "entra-guid",
+        origin: "aad",
+        accountLicenseType: "express",
+        projectEntitlements: [{ projectId: "proj-guid", groupType: "projectContributor" }],
+        testOnly: false,
+      });
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://vsaex.dev.azure.com/contoso/_apis/groupentitlements?api-version=7.2-preview.1&ruleOption=applyGroupRule");
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(init.body)).toEqual({
+        group: { origin: "aad", originId: "entra-guid", subjectKind: "group" },
+        licenseRule: { accountLicenseType: "express", licensingSource: "account" },
+        projectEntitlements: [{ group: { groupType: "projectContributor" }, projectRef: { id: "proj-guid" } }],
+      });
+      expect(result.content[0].text).toBe('{"id":"op-1","status":"inProgress"}');
+    });
+
+    it("only evaluates the rule in test mode and leaves project memberships out when none are given", async () => {
+      const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.create_group_entitlement);
+      mockFetch.mockResolvedValue(ok("{}"));
+
+      await handler({ groupOriginId: "ado-group", origin: "vsts", accountLicenseType: "stakeholder", testOnly: true });
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toContain("ruleOption=testApplyGroupRule");
+      expect(JSON.parse(init.body)).toEqual({
+        group: { origin: "vsts", originId: "ado-group", subjectKind: "group" },
+        licenseRule: { accountLicenseType: "stakeholder", licensingSource: "account" },
+      });
+    });
+
+    it("surfaces a rejected group rule", async () => {
+      const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.create_group_entitlement);
+      mockFetch.mockResolvedValue(ok("group not found", 400));
+
+      const result = await handler({ groupOriginId: "x", origin: "aad", accountLicenseType: "express", testOnly: false });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("(400): group not found");
+    });
+
+    it("deletes a group rule, keeping the group's memberships by default", async () => {
+      const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.delete_group_entitlement);
+      mockFetch.mockResolvedValue(ok('{"id":"op-2"}'));
+
+      const result = await handler({ groupId: "group-guid", removeGroupMembership: false, testOnly: false });
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://vsaex.dev.azure.com/contoso/_apis/groupentitlements/group-guid?api-version=7.2-preview.1&ruleOption=applyGroupRule&removeGroupMembership=false");
+      expect(init.method).toBe("DELETE");
+      expect(result.content[0].text).toBe('{"id":"op-2"}');
+    });
+
+    it("passes the membership removal and test options through", async () => {
+      const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.delete_group_entitlement);
+      mockFetch.mockResolvedValue(ok("{}"));
+
+      await handler({ groupId: "group-guid", removeGroupMembership: true, testOnly: true });
+
+      expect(mockFetch.mock.calls[0][0]).toContain("ruleOption=testApplyGroupRule&removeGroupMembership=true");
+    });
+
+    it("reports an unknown group rule as not found", async () => {
+      const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.delete_group_entitlement);
+      mockFetch.mockResolvedValue(ok("", 404));
+
+      const result = await handler({ groupId: "ghost", removeGroupMembership: false, testOnly: false });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Group entitlement 'ghost' not found");
+    });
+
+    it("surfaces another failure when deleting", async () => {
+      const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.delete_group_entitlement);
+      mockFetch.mockResolvedValue(ok("denied", 403));
+
+      const result = await handler({ groupId: "group-guid", removeGroupMembership: false, testOnly: false });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("(403): denied");
+    });
+  });
 });
