@@ -9,6 +9,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 import { logger } from "../logger.js";
+import { LANDING_PAGE_HEADERS } from "../shared/landing-page.js";
 import { PRESET_NAMES, resolvePreset } from "../shared/presets.js";
 
 interface RequestAuthContext {
@@ -81,6 +82,8 @@ export interface HttpTransportOptions {
    * `preset` is the trailing path segment of the MCP URL, when one was given.
    */
   createServer: (preset?: string) => McpServer;
+  /** Renders the HTML page served at "/", given the origin the request reached. Omit to answer "/" with 404. */
+  renderLandingPage?: (baseUrl: string) => string;
   /** Test seam: override transport construction. */
   createTransport?: () => TransportLike;
 }
@@ -136,6 +139,18 @@ export function matchMcpPath(pathname: string, mcpPath: string): { preset?: stri
   return { preset };
 }
 
+/**
+ * The origin to show on the landing page. Behind a TLS-terminating proxy the
+ * request arrives over http, so X-Forwarded-Proto decides the scheme. The Host
+ * header is caller-controlled, so it is only echoed when it is an allowed host.
+ */
+export function requestBaseUrl(req: IncomingMessage, allowedHosts: string[]): string {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const proto = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto)?.split(",")[0].trim() === "https" ? "https" : "http";
+  const host = req.headers.host && allowedHosts.includes(req.headers.host) ? req.headers.host : (allowedHosts[0] ?? "localhost");
+  return `${proto}://${host}`;
+}
+
 function sendJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
   res.writeHead(status, { "Content-Type": "application/json", ...headers });
   res.end(JSON.stringify(body));
@@ -151,6 +166,12 @@ export function createMcpRequestListener(opts: HttpTransportOptions): (req: Inco
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     try {
       const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+      if (url.pathname === "/" && opts.renderLandingPage && (req.method === "GET" || req.method === "HEAD")) {
+        const html = opts.renderLandingPage(requestBaseUrl(req, opts.allowedHosts));
+        res.writeHead(200, LANDING_PAGE_HEADERS);
+        res.end(req.method === "HEAD" ? undefined : html);
+        return;
+      }
       const route = matchMcpPath(url.pathname, opts.mcpPath);
       if (!route) {
         sendJson(res, 404, { error: "Not found" });
