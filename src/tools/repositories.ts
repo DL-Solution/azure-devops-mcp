@@ -27,6 +27,10 @@ import {
   GitChange,
   ItemContentType,
   GitStatusState,
+  GitAsyncOperationStatus,
+  GitAsyncRefOperation,
+  GitAsyncRefOperationFailureStatus,
+  GitAsyncRefOperationParameters,
 } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { z } from "zod";
 import { getCurrentUserDetails, getUserIdFromEmail } from "./auth.js";
@@ -71,6 +75,17 @@ const REPO_TOOLS = {
   list_pull_request_labels: "repo_list_pull_request_labels",
   add_pull_request_label: "repo_add_pull_request_label",
   remove_pull_request_label: "repo_remove_pull_request_label",
+  cherry_pick: "repo_cherry_pick",
+  get_cherry_pick: "repo_get_cherry_pick",
+  revert: "repo_revert",
+  get_revert: "repo_get_revert",
+  list_pull_request_statuses: "repo_list_pull_request_statuses",
+  create_pull_request_status: "repo_create_pull_request_status",
+  delete_pull_request_status: "repo_delete_pull_request_status",
+  list_deleted_repositories: "repo_list_deleted_repositories",
+  restore_repository: "repo_restore_repository",
+  lock_branch: "repo_lock_branch",
+  unlock_branch: "repo_unlock_branch",
 };
 
 /** A ref update to the all-zero object id deletes the ref. */
@@ -79,6 +94,31 @@ const DELETED_OBJECT_ID = "0".repeat(40);
 /** Strip the `refs/tags/` prefix that the refs API returns. */
 function tagNameFromRef(refName: string | undefined): string | undefined {
   return refName?.replace(/^refs\/tags\//, "");
+}
+
+/** Accept a branch as 'main' or 'refs/heads/main'. */
+function branchRef(branch: string): string {
+  return branch.startsWith("refs/") ? branch : `refs/heads/${branch}`;
+}
+
+/** Cherry-picks and reverts run asynchronously; report their state by name rather than enum number. */
+function summarizeAsyncRefOperation(id: number | undefined, operation: GitAsyncRefOperation) {
+  const detail = operation.detailedStatus;
+  return {
+    id,
+    status: operation.status !== undefined ? GitAsyncOperationStatus[operation.status] : undefined,
+    ontoRefName: operation.parameters?.ontoRefName,
+    generatedRefName: operation.parameters?.generatedRefName,
+    source: operation.parameters?.source,
+    detail: detail && {
+      conflict: detail.conflict,
+      currentCommitId: detail.currentCommitId,
+      failureMessage: detail.failureMessage,
+      failure: detail.status !== undefined && detail.status !== GitAsyncRefOperationFailureStatus.None ? GitAsyncRefOperationFailureStatus[detail.status] : undefined,
+      progress: detail.progress,
+      timedout: detail.timedout,
+    },
+  };
 }
 
 function branchesFilterOutIrrelevantProperties(branches: GitRef[], top: number) {
@@ -2687,6 +2727,304 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         return ok({ removed: label, pullRequestId });
       } catch (error) {
         return failed(`removing label '${label}' from pull request ${pullRequestId}`, error);
+      }
+    }
+  );
+
+  const asyncRefOperationParams = {
+    repositoryId: repositoryIdParam,
+    project: requiredProject,
+    pullRequestId: z.number().optional().describe("Take every commit of this pull request. Give either this or commitIds."),
+    commitIds: z.array(z.string()).optional().describe("Full SHAs of the commits to take, applied in the order given. Give either this or pullRequestId."),
+    ontoBranch: z.string().describe("The branch the new branch starts from, e.g. 'release/1.4' or 'refs/heads/release/1.4'."),
+    newBranch: z.string().describe("Name of the branch to create with the result, e.g. 'cherry-pick/1234-onto-release'. Must not exist yet."),
+  };
+
+  function asyncRefOperationParameters(
+    repositoryId: string,
+    pullRequestId: number | undefined,
+    commitIds: string[] | undefined,
+    ontoBranch: string,
+    newBranch: string
+  ): GitAsyncRefOperationParameters | string {
+    const commits = commitIds ?? [];
+    if ((pullRequestId === undefined) === (commits.length === 0)) {
+      return "Give exactly one of pullRequestId or commitIds.";
+    }
+    return {
+      repository: { id: repositoryId },
+      ontoRefName: branchRef(ontoBranch),
+      generatedRefName: branchRef(newBranch),
+      source: pullRequestId !== undefined ? { pullRequestId } : { commitList: commits.map((commitId) => ({ commitId })) },
+    };
+  }
+
+  registerTool(
+    server,
+    REPO_TOOLS.cherry_pick,
+    "Cherry-pick a pull request's commits, or a list of commits, onto a branch. Azure DevOps writes the result to a new branch and runs asynchronously: poll repo_get_cherry_pick until the status is Completed, then open a pull request from newBranch with repo_create_pull_request. Conflicts fail the operation instead of producing a branch.",
+    asyncRefOperationParams,
+    async ({ repositoryId, project, pullRequestId, commitIds, ontoBranch, newBranch }) => {
+      const parameters = asyncRefOperationParameters(repositoryId, pullRequestId, commitIds, ontoBranch, newBranch);
+      if (typeof parameters === "string") {
+        return { content: [{ type: "text", text: parameters }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const cherryPick = await gitApi.createCherryPick(parameters, project, repositoryId);
+        return ok(summarizeAsyncRefOperation(cherryPick.cherryPickId, cherryPick));
+      } catch (error) {
+        return failed(`cherry-picking onto '${ontoBranch}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_cherry_pick,
+    "Get the state of a cherry-pick started with repo_cherry_pick: Queued, InProgress, Completed, Failed or Abandoned, with the failure reason and whether it hit a conflict.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      cherryPickId: z.number().describe("The id returned by repo_cherry_pick."),
+    },
+    async ({ repositoryId, project, cherryPickId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const cherryPick = await gitApi.getCherryPick(project, cherryPickId, repositoryId);
+        // The API answers an unknown id with an empty body, which the client turns into null.
+        if (!cherryPick) {
+          return { content: [{ type: "text", text: `Cherry-pick ${cherryPickId} not found in repository ${repositoryId}` }], isError: true };
+        }
+        return ok(summarizeAsyncRefOperation(cherryPick.cherryPickId ?? cherryPickId, cherryPick));
+      } catch (error) {
+        return failed(`getting cherry-pick ${cherryPickId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.revert,
+    "Revert a completed pull request, or a list of commits, on a branch. Azure DevOps writes the reverting commits to a new branch and runs asynchronously: poll repo_get_revert until the status is Completed, then open a pull request from newBranch with repo_create_pull_request. Nothing lands on ontoBranch until that pull request completes.",
+    asyncRefOperationParams,
+    async ({ repositoryId, project, pullRequestId, commitIds, ontoBranch, newBranch }) => {
+      const parameters = asyncRefOperationParameters(repositoryId, pullRequestId, commitIds, ontoBranch, newBranch);
+      if (typeof parameters === "string") {
+        return { content: [{ type: "text", text: parameters }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const revert = await gitApi.createRevert(parameters, project, repositoryId);
+        return ok(summarizeAsyncRefOperation(revert.revertId, revert));
+      } catch (error) {
+        return failed(`reverting onto '${ontoBranch}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_revert,
+    "Get the state of a revert started with repo_revert: Queued, InProgress, Completed, Failed or Abandoned, with the failure reason and whether it hit a conflict.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      revertId: z.number().describe("The id returned by repo_revert."),
+    },
+    async ({ repositoryId, project, revertId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const revert = await gitApi.getRevert(project, revertId, repositoryId);
+        // The API answers an unknown id with an empty body, which the client turns into null.
+        if (!revert) {
+          return { content: [{ type: "text", text: `Revert ${revertId} not found in repository ${repositoryId}` }], isError: true };
+        }
+        return ok(summarizeAsyncRefOperation(revert.revertId ?? revertId, revert));
+      } catch (error) {
+        return failed(`getting revert ${revertId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_pull_request_statuses,
+    "List the statuses posted on a pull request itself — external checks that a 'status check' branch policy evaluates. Statuses on the source commit are listed by repo_list_commit_statuses instead.",
+    {
+      repositoryId: repositoryIdParam,
+      pullRequestId: z.number().describe("The ID of the pull request."),
+      project: requiredProject,
+      iterationId: z.number().optional().describe("Only the statuses posted against this iteration (push) of the pull request. Omit for all of them."),
+    },
+    async ({ repositoryId, pullRequestId, project, iterationId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const statuses =
+          iterationId !== undefined
+            ? await gitApi.getPullRequestIterationStatuses(repositoryId, pullRequestId, iterationId, project)
+            : await gitApi.getPullRequestStatuses(repositoryId, pullRequestId, project);
+        return ok(statuses);
+      } catch (error) {
+        return failed(`listing statuses on pull request ${pullRequestId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.create_pull_request_status,
+    "Post a status on a pull request, e.g. the result of an external check that a 'status check' branch policy waits for. Posting again with the same name and genre replaces the earlier status.",
+    {
+      repositoryId: repositoryIdParam,
+      pullRequestId: z.number().describe("The ID of the pull request."),
+      project: requiredProject,
+      state: z.enum(getEnumKeys(GitStatusState) as [string, ...string[]]).describe("The outcome being reported."),
+      name: z.string().describe("Name identifying this check, e.g. 'license-scan'. Together with genre it is the status context that a policy matches on."),
+      genre: z.string().optional().describe("Namespace for the check, e.g. 'continuous-integration'. Omit for the default genre."),
+      description: z.string().optional().describe("Human-readable summary of the outcome."),
+      targetUrl: z.string().optional().describe("URL with the details behind the status."),
+      iterationId: z
+        .number()
+        .optional()
+        .describe("Tie the status to this iteration (push), so a policy set to reset on new pushes ignores it once the source branch moves on. Omit to post against the pull request as a whole."),
+    },
+    async ({ repositoryId, pullRequestId, project, state, name, genre, description, targetUrl, iterationId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const status = await gitApi.createPullRequestStatus(
+          {
+            state: safeEnumConvert(GitStatusState, state),
+            description,
+            targetUrl,
+            context: { name, genre },
+            iterationId,
+          },
+          repositoryId,
+          pullRequestId,
+          project
+        );
+        return ok(status);
+      } catch (error) {
+        return failed(`creating a status on pull request ${pullRequestId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.delete_pull_request_status,
+    "Delete one status from a pull request. A policy that required it goes back to waiting.",
+    {
+      repositoryId: repositoryIdParam,
+      pullRequestId: z.number().describe("The ID of the pull request."),
+      project: requiredProject,
+      statusId: z.number().describe("The status id, as returned by repo_list_pull_request_statuses."),
+    },
+    async ({ repositoryId, pullRequestId, project, statusId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        await gitApi.deletePullRequestStatus(repositoryId, pullRequestId, statusId, project);
+        return ok({ deleted: statusId, pullRequestId });
+      } catch (error) {
+        return failed(`deleting status ${statusId} from pull request ${pullRequestId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_deleted_repositories,
+    "List the repositories in a project's recycle bin, with who deleted them and when. Restore one with repo_restore_repository.",
+    {
+      project: requiredProject,
+    },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const repositories = await gitApi.getRecycleBinRepositories(project);
+        return ok(
+          repositories.map((repository) => ({
+            id: repository.id,
+            name: repository.name,
+            deletedBy: repository.deletedBy?.displayName,
+            deletedDate: repository.deletedDate,
+            createdDate: repository.createdDate,
+          }))
+        );
+      } catch (error) {
+        return failed("listing deleted repositories", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.restore_repository,
+    "Restore a deleted repository from the project's recycle bin, with its history, branches and pull requests. Fails if a repository with the same name has been created since.",
+    {
+      repositoryId: z.string().describe("The GUID of the deleted repository, as listed by repo_list_deleted_repositories."),
+      project: requiredProject,
+    },
+    async ({ repositoryId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const repository = await gitApi.restoreRepositoryFromRecycleBin({ deleted: false }, project, repositoryId);
+        return ok(repository);
+      } catch (error) {
+        return failed(`restoring repository ${repositoryId}`, error);
+      }
+    }
+  );
+
+  const setBranchLock = async (repositoryId: string, project: string, branch: string, isLocked: boolean) => {
+    const connection = await connectionProvider();
+    const gitApi = await connection.getGitApi();
+    const ref = await gitApi.updateRef({ isLocked }, repositoryId, branchRef(branch).replace(/^refs\//, ""), project);
+    return ok({ name: ref.name, isLocked: ref.isLocked, isLockedBy: ref.isLockedBy?.displayName });
+  };
+
+  registerTool(
+    server,
+    REPO_TOOLS.lock_branch,
+    "Lock a branch: nobody but the person who locked it can push to it, and pull requests into it cannot be completed. Meant for freezing a branch temporarily — use branch policies for lasting rules.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      branch: z.string().describe("The branch to lock, e.g. 'release/1.4' or 'refs/heads/release/1.4'."),
+    },
+    async ({ repositoryId, project, branch }) => {
+      try {
+        return await setBranchLock(repositoryId, project, branch, true);
+      } catch (error) {
+        return failed(`locking branch '${branch}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.unlock_branch,
+    "Unlock a branch locked with repo_lock_branch or from the web UI.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      branch: z.string().describe("The branch to unlock, e.g. 'release/1.4' or 'refs/heads/release/1.4'."),
+    },
+    async ({ repositoryId, project, branch }) => {
+      try {
+        return await setBranchLock(repositoryId, project, branch, false);
+      } catch (error) {
+        return failed(`unlocking branch '${branch}'`, error);
       }
     }
   );

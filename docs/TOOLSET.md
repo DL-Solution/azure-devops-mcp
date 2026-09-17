@@ -161,6 +161,17 @@
 | Repositories       | [mcp_ado_repo_list_pull_request_labels](#mcp_ado_repo_list_pull_request_labels)                           | List the labels on a pull request                                                                                     |
 | Repositories       | [mcp_ado_repo_add_pull_request_label](#mcp_ado_repo_add_pull_request_label)                               | Add one label to a pull request, leaving its other labels alone                                                       |
 | Repositories       | [mcp_ado_repo_remove_pull_request_label](#mcp_ado_repo_remove_pull_request_label)                         | Remove one label from a pull request                                                                                  |
+| Repositories       | [mcp_ado_repo_cherry_pick](#mcp_ado_repo_cherry_pick)                                                     | Cherry-pick a pull request's commits, or a list of commits, onto a branch                                             |
+| Repositories       | [mcp_ado_repo_get_cherry_pick](#mcp_ado_repo_get_cherry_pick)                                             | Get the state of a cherry-pick started with repo_cherry_pick                                                          |
+| Repositories       | [mcp_ado_repo_revert](#mcp_ado_repo_revert)                                                               | Revert a completed pull request, or a list of commits, on a branch                                                    |
+| Repositories       | [mcp_ado_repo_get_revert](#mcp_ado_repo_get_revert)                                                       | Get the state of a revert started with repo_revert                                                                    |
+| Repositories       | [mcp_ado_repo_list_pull_request_statuses](#mcp_ado_repo_list_pull_request_statuses)                       | List the statuses posted on a pull request itself                                                                     |
+| Repositories       | [mcp_ado_repo_create_pull_request_status](#mcp_ado_repo_create_pull_request_status)                       | Post a status on a pull request, such as an external check a branch policy waits for                                  |
+| Repositories       | [mcp_ado_repo_delete_pull_request_status](#mcp_ado_repo_delete_pull_request_status)                       | Delete one status from a pull request                                                                                 |
+| Repositories       | [mcp_ado_repo_list_deleted_repositories](#mcp_ado_repo_list_deleted_repositories)                         | List the repositories in a project's recycle bin, with who deleted them and when                                      |
+| Repositories       | [mcp_ado_repo_restore_repository](#mcp_ado_repo_restore_repository)                                       | Restore a deleted repository from the project's recycle bin, with its history, branches and pull requests             |
+| Repositories       | [mcp_ado_repo_lock_branch](#mcp_ado_repo_lock_branch)                                                     | Lock a branch so only its locker can push and pull requests into it cannot complete                                   |
+| Repositories       | [mcp_ado_repo_unlock_branch](#mcp_ado_repo_unlock_branch)                                                 | Unlock a branch locked with repo_lock_branch or from the web UI                                                       |
 | Pipelines          | [mcp_ado_pipelines_get_build_definitions](#mcp_ado_pipelines_get_build_definitions)                       | List build/pipeline definitions in a project                                                                          |
 | Pipelines          | [mcp_ado_pipelines_create_pipeline](#mcp_ado_pipelines_create_pipeline)                                   | Create a new pipeline with YAML configuration                                                                         |
 | Pipelines          | [mcp_ado_pipelines_get_build_definition_revisions](#mcp_ado_pipelines_get_build_definition_revisions)     | Get revision history of a build definition                                                                            |
@@ -1475,6 +1486,83 @@ Add one label to a pull request, leaving its other labels alone.
 Remove one label from a pull request.
 
 - **Required**: `repositoryId`, `pullRequestId`, `project`, `label`
+- **Optional**: None
+
+### mcp_ado_repo_cherry_pick
+
+Cherry-pick a pull request's commits, or a list of commits, onto a branch. The result goes to a new branch and the operation runs asynchronously: poll `repo_get_cherry_pick` until it is Completed, then open a pull request from the new branch. A conflict fails the operation instead of producing a branch.
+
+- **Required**: `repositoryId`, `project`, `ontoBranch`, `newBranch`
+- **Optional**: `commitIds`, `pullRequestId`
+
+### mcp_ado_repo_get_cherry_pick
+
+Get the state of a cherry-pick started with repo_cherry_pick: Queued, InProgress, Completed, Failed or Abandoned, with the failure reason and whether it hit a conflict.
+
+- **Required**: `repositoryId`, `project`, `cherryPickId`
+- **Optional**: None
+
+### mcp_ado_repo_revert
+
+Revert a completed pull request, or a list of commits, on a branch. The reverting commits go to a new branch and the operation runs asynchronously: poll `repo_get_revert` until it is Completed, then open a pull request from the new branch.
+
+- **Required**: `repositoryId`, `project`, `ontoBranch`, `newBranch`
+- **Optional**: `commitIds`, `pullRequestId`
+
+### mcp_ado_repo_get_revert
+
+Get the state of a revert started with repo_revert: Queued, InProgress, Completed, Failed or Abandoned, with the failure reason and whether it hit a conflict.
+
+- **Required**: `repositoryId`, `project`, `revertId`
+- **Optional**: None
+
+### mcp_ado_repo_list_pull_request_statuses
+
+List the statuses posted on a pull request itself — external checks that a 'status check' branch policy evaluates.
+
+- **Required**: `repositoryId`, `pullRequestId`, `project`
+- **Optional**: `iterationId`
+
+### mcp_ado_repo_create_pull_request_status
+
+Post a status on a pull request, such as the result of an external check that a status check branch policy waits for. Posting again with the same name and genre replaces the earlier status; with `iterationId` the status is tied to one push.
+
+- **Required**: `repositoryId`, `pullRequestId`, `project`, `state`, `name`
+- **Optional**: `description`, `genre`, `iterationId`, `targetUrl`
+
+### mcp_ado_repo_delete_pull_request_status
+
+Delete one status from a pull request.
+
+- **Required**: `repositoryId`, `pullRequestId`, `project`, `statusId`
+- **Optional**: None
+
+### mcp_ado_repo_list_deleted_repositories
+
+List the repositories in a project's recycle bin, with who deleted them and when.
+
+- **Required**: `project`
+- **Optional**: None
+
+### mcp_ado_repo_restore_repository
+
+Restore a deleted repository from the project's recycle bin, with its history, branches and pull requests.
+
+- **Required**: `repositoryId`, `project`
+- **Optional**: None
+
+### mcp_ado_repo_lock_branch
+
+Lock a branch: nobody but the person who locked it can push to it, and pull requests into it cannot be completed. Meant for freezing a branch temporarily; lasting rules belong in branch policies.
+
+- **Required**: `repositoryId`, `project`, `branch`
+- **Optional**: None
+
+### mcp_ado_repo_unlock_branch
+
+Unlock a branch locked with repo_lock_branch or from the web UI.
+
+- **Required**: `repositoryId`, `project`, `branch`
 - **Optional**: None
 
 ## Pipelines

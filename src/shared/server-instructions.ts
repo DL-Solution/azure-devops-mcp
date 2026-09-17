@@ -20,7 +20,10 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.CORE, "core_ — projects, teams, processes, identity lookup. Start here when the project or team is not known."],
   [Domain.WORK_ITEMS, "wit_ — work items: read, create, update, link, query (WIQL), comments, attachments, tags, templates, saved queries, field and type metadata."],
   [Domain.WORK, "work_ — the board: backlogs, sprints/iterations, area paths, capacity, delivery plans, taskboards, board columns and rules."],
-  [Domain.REPOSITORIES, "repo_ — Git: repositories, branches, tags, file contents, commits and their statuses, pull requests, reviewers, labels, comment threads."],
+  [
+    Domain.REPOSITORIES,
+    "repo_ — Git: repositories and their recycle bin, branches and branch locks, tags, file contents, commits, pull requests, reviewers, labels, comment threads, commit and pull request statuses, cherry-picks and reverts.",
+  ],
   [Domain.PIPELINES, "pipelines_ — builds and YAML pipelines: definitions, runs, logs, timelines, artifacts, tags."],
   [Domain.RELEASE, "release_ — classic release pipelines: definitions, releases, environments, approvals."],
   [Domain.SEARCH, "search_ — full-text search across code, wikis and work items."],
