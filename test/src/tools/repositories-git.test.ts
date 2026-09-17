@@ -9,7 +9,7 @@
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
-import { GitAsyncOperationStatus, GitAsyncRefOperationFailureStatus, GitStatusState } from "azure-devops-node-api/interfaces/GitInterfaces.js";
+import { GitAsyncOperationStatus, GitAsyncRefOperationFailureStatus, GitStatusState, GitVersionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 
 jest.mock("../../../src/tools/auth", () => ({
   getCurrentUserDetails: jest.fn(),
@@ -26,6 +26,7 @@ const DELETED = "0".repeat(40);
 describe("repo git tools", () => {
   let server: McpServer;
   let gitApi: Record<string, jest.Mock>;
+  let coreApi: Record<string, jest.Mock>;
   let connectionProvider: () => Promise<WebApi>;
 
   beforeEach(() => {
@@ -53,9 +54,37 @@ describe("repo git tools", () => {
       getRecycleBinRepositories: jest.fn(),
       restoreRepositoryFromRecycleBin: jest.fn(),
       updateRef: jest.fn(),
+      getCommit: jest.fn(),
+      getChanges: jest.fn(),
+      getCommitDiffs: jest.fn(),
+      getMergeBases: jest.fn(),
+      getPushes: jest.fn(),
+      getPush: jest.fn(),
+      getBranch: jest.fn(),
+      getBranches: jest.fn(),
+      getSuggestions: jest.fn(),
+      getPullRequestCommits: jest.fn(),
+      getPullRequestIterationCommits: jest.fn(),
+      getPullRequestWorkItemRefs: jest.fn(),
+      deleteComment: jest.fn(),
+      getLikes: jest.fn(),
+      createLike: jest.fn(),
+      deleteLike: jest.fn(),
+      updateRepository: jest.fn(),
+      deleteRepositoryFromRecycleBin: jest.fn(),
+      createImportRequest: jest.fn(),
+      queryImportRequests: jest.fn(),
+      getImportRequest: jest.fn(),
+      updateImportRequest: jest.fn(),
+      getForks: jest.fn(),
+      createForkSyncRequest: jest.fn(),
+      getForkSyncRequests: jest.fn(),
+      getForkSyncRequest: jest.fn(),
     };
+    coreApi = { getProjectCollections: jest.fn() };
     connectionProvider = jest.fn().mockResolvedValue({
       getGitApi: jest.fn().mockResolvedValue(gitApi),
+      getCoreApi: jest.fn().mockResolvedValue(coreApi),
     } as unknown as WebApi) as () => Promise<WebApi>;
   });
 
@@ -632,5 +661,319 @@ describe("repo git tools", () => {
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain(`Error ${verb} branch 'main'`);
     });
+  });
+
+  describe("commits and pushes", () => {
+    const R = { repositoryId: "repo", project: "Contoso" };
+
+    it("gets a commit with some of its changes", async () => {
+      gitApi.getCommit.mockResolvedValue({ commitId: "abc", comment: "fix" });
+
+      const result = await handlerFor(REPO_TOOLS.get_commit)({ ...R, commitId: "abc", changeCount: 5 });
+
+      expect(gitApi.getCommit).toHaveBeenCalledWith("abc", "repo", "Contoso", 5);
+      expect(parsed(result)).toEqual({ commitId: "abc", comment: "fix" });
+    });
+
+    it("reports an unknown commit", async () => {
+      gitApi.getCommit.mockResolvedValue(null);
+
+      const result = await handlerFor(REPO_TOOLS.get_commit)({ ...R, commitId: "ghost" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Commit ghost not found in repository repo");
+    });
+
+    it("lists the changes of a commit", async () => {
+      gitApi.getChanges.mockResolvedValue({ changeCounts: { Edit: 1 } });
+
+      await handlerFor(REPO_TOOLS.list_commit_changes)({ ...R, commitId: "abc", top: 10, skip: 20 });
+
+      expect(gitApi.getChanges).toHaveBeenCalledWith("abc", "repo", "Contoso", 10, 20);
+    });
+
+    // The client reads version/versionType off the descriptors; baseVersion/targetVersion are silently ignored.
+    it("compares two branches through version and versionType, naming the change counts", async () => {
+      gitApi.getCommitDiffs.mockResolvedValue({ aheadCount: 2, behindCount: 1, changeCounts: { 1: 3, 2: 4 } });
+
+      const result = await handlerFor(REPO_TOOLS.compare_commits)({
+        ...R,
+        baseVersion: "main",
+        baseVersionType: "branch",
+        targetVersion: "abc123",
+        targetVersionType: "commit",
+        diffCommonCommit: true,
+        top: 50,
+      });
+
+      expect(gitApi.getCommitDiffs).toHaveBeenCalledWith(
+        "repo",
+        "Contoso",
+        true,
+        50,
+        undefined,
+        { version: "main", versionType: GitVersionType.Branch },
+        { version: "abc123", versionType: GitVersionType.Commit }
+      );
+      expect(parsed(result)).toEqual({ aheadCount: 2, behindCount: 1, changeCounts: { Add: 3, Edit: 4 } });
+    });
+
+    it("finds merge bases, optionally across a fork", async () => {
+      gitApi.getMergeBases.mockResolvedValue([{ commitId: "base" }]);
+
+      await handlerFor(REPO_TOOLS.get_merge_bases)({ ...R, commitId: "a", otherCommitId: "b", otherRepositoryId: "fork" });
+
+      expect(gitApi.getMergeBases).toHaveBeenCalledWith("repo", "a", "b", "Contoso", undefined, "fork");
+    });
+
+    it("lists pushes with its search criteria", async () => {
+      gitApi.getPushes.mockResolvedValue([{ pushId: 7 }]);
+      const fromDate = new Date("2026-09-01T00:00:00Z");
+
+      await handlerFor(REPO_TOOLS.list_pushes)({ ...R, refName: "refs/heads/main", fromDate, includeRefUpdates: true, top: 5 });
+
+      expect(gitApi.getPushes).toHaveBeenCalledWith("repo", "Contoso", undefined, 5, {
+        refName: "refs/heads/main",
+        pusherId: undefined,
+        fromDate,
+        toDate: undefined,
+        includeRefUpdates: true,
+      });
+    });
+
+    it("gets a push with its commits and ref updates, or reports it missing", async () => {
+      gitApi.getPush.mockResolvedValue({ pushId: 7 });
+      await handlerFor(REPO_TOOLS.get_push)({ ...R, pushId: 7, includeCommits: 10 });
+      expect(gitApi.getPush).toHaveBeenCalledWith("repo", 7, "Contoso", 10, true);
+
+      gitApi.getPush.mockResolvedValue(null);
+      const result = await handlerFor(REPO_TOOLS.get_push)({ ...R, pushId: 8, includeCommits: 0 });
+      expect(result.content[0].text).toBe("Push 8 not found in repository repo");
+    });
+
+    it("gets stats of one branch against a chosen base", async () => {
+      gitApi.getBranch.mockResolvedValue({ name: "feature", aheadCount: 3 });
+
+      await handlerFor(REPO_TOOLS.get_branch_stats)({ ...R, branch: "feature", baseBranch: "develop" });
+
+      expect(gitApi.getBranch).toHaveBeenCalledWith("repo", "feature", "Contoso", { version: "develop", versionType: GitVersionType.Branch });
+    });
+
+    it("gets stats of every branch against the default branch", async () => {
+      gitApi.getBranches.mockResolvedValue([]);
+
+      await handlerFor(REPO_TOOLS.get_branch_stats)(R);
+
+      expect(gitApi.getBranches).toHaveBeenCalledWith("repo", "Contoso", undefined);
+      expect(gitApi.getBranch).not.toHaveBeenCalled();
+    });
+
+    it("gets pull request suggestions", async () => {
+      gitApi.getSuggestions.mockResolvedValue([{ type: "HeadRef" }]);
+
+      const result = await handlerFor(REPO_TOOLS.get_pull_request_suggestions)(R);
+
+      expect(gitApi.getSuggestions).toHaveBeenCalledWith("repo", "Contoso");
+      expect(parsed(result)).toEqual([{ type: "HeadRef" }]);
+    });
+  });
+
+  describe("pull request commits, work items, comments and likes", () => {
+    const PR = { repositoryId: "repo", pullRequestId: 42, project: "Contoso" };
+    const COMMENT = { ...PR, threadId: 3, commentId: 9 };
+
+    it("lists the commits of a whole pull request or of one iteration", async () => {
+      gitApi.getPullRequestCommits.mockResolvedValue([{ commitId: "a" }]);
+      await handlerFor(REPO_TOOLS.list_pull_request_commits)(PR);
+      expect(gitApi.getPullRequestCommits).toHaveBeenCalledWith("repo", 42, "Contoso");
+
+      gitApi.getPullRequestIterationCommits.mockResolvedValue([]);
+      await handlerFor(REPO_TOOLS.list_pull_request_commits)({ ...PR, iterationId: 2, top: 5, skip: 1 });
+      expect(gitApi.getPullRequestIterationCommits).toHaveBeenCalledWith("repo", 42, 2, "Contoso", 5, 1);
+    });
+
+    it("lists linked work items as ids and urls", async () => {
+      gitApi.getPullRequestWorkItemRefs.mockResolvedValue([{ id: "116", url: "https://x/116", extra: true }]);
+
+      const result = await handlerFor(REPO_TOOLS.list_pull_request_work_items)(PR);
+
+      expect(parsed(result)).toEqual([{ id: "116", url: "https://x/116" }]);
+    });
+
+    it("deletes a comment", async () => {
+      gitApi.deleteComment.mockResolvedValue(undefined);
+
+      const result = await handlerFor(REPO_TOOLS.delete_pull_request_comment)(COMMENT);
+
+      expect(gitApi.deleteComment).toHaveBeenCalledWith("repo", 42, 3, 9, "Contoso");
+      expect(parsed(result)).toEqual({ deleted: 9, threadId: 3, pullRequestId: 42 });
+    });
+
+    it("lists, adds and removes likes", async () => {
+      gitApi.getLikes.mockResolvedValue([{ id: "u1", displayName: "Ada", uniqueName: "ada@contoso.com", imageUrl: "x" }]);
+      expect(parsed(await handlerFor(REPO_TOOLS.list_pull_request_comment_likes)(COMMENT))).toEqual([{ id: "u1", displayName: "Ada", uniqueName: "ada@contoso.com" }]);
+
+      gitApi.createLike.mockResolvedValue(undefined);
+      expect(parsed(await handlerFor(REPO_TOOLS.like_pull_request_comment)(COMMENT))).toEqual({ liked: 9, threadId: 3, pullRequestId: 42 });
+      expect(gitApi.createLike).toHaveBeenCalledWith("repo", 42, 3, 9, "Contoso");
+
+      gitApi.deleteLike.mockResolvedValue(undefined);
+      expect(parsed(await handlerFor(REPO_TOOLS.unlike_pull_request_comment)(COMMENT))).toEqual({ unliked: 9, threadId: 3, pullRequestId: 42 });
+      expect(gitApi.deleteLike).toHaveBeenCalledWith("repo", 42, 3, 9, "Contoso");
+    });
+  });
+
+  describe("repository settings, recycle bin and imports", () => {
+    const R = { repositoryId: "repo", project: "Contoso" };
+
+    it("renames a repository and sets its default branch as a full ref", async () => {
+      gitApi.updateRepository.mockResolvedValue({ name: "api" });
+
+      await handlerFor(REPO_TOOLS.update_repository)({ ...R, name: "api", defaultBranch: "develop" });
+
+      expect(gitApi.updateRepository).toHaveBeenCalledWith({ name: "api", defaultBranch: "refs/heads/develop" }, "repo", "Contoso");
+    });
+
+    it("refuses an update with nothing to change", async () => {
+      const result = await handlerFor(REPO_TOOLS.update_repository)(R);
+
+      expect(result.isError).toBe(true);
+      expect(gitApi.updateRepository).not.toHaveBeenCalled();
+    });
+
+    it("erases a repository from the recycle bin", async () => {
+      gitApi.deleteRepositoryFromRecycleBin.mockResolvedValue(undefined);
+
+      const result = await handlerFor(REPO_TOOLS.destroy_repository)({ repositoryId: "g1", project: "Contoso" });
+
+      expect(gitApi.deleteRepositoryFromRecycleBin).toHaveBeenCalledWith("Contoso", "g1");
+      expect(parsed(result)).toEqual({ destroyed: "g1" });
+    });
+
+    it("creates an import request from a URL and a service connection, naming its status", async () => {
+      gitApi.createImportRequest.mockResolvedValue({ importRequestId: 5, status: GitAsyncOperationStatus.Queued, repository: { id: "repo", name: "app", url: "x" } });
+
+      const result = await handlerFor(REPO_TOOLS.create_import_request)({
+        ...R,
+        sourceUrl: "https://github.com/contoso/app.git",
+        serviceEndpointId: "se1",
+        deleteServiceEndpointAfterImportIsDone: true,
+      });
+
+      expect(gitApi.createImportRequest).toHaveBeenCalledWith(
+        { parameters: { gitSource: { url: "https://github.com/contoso/app.git" }, serviceEndpointId: "se1", deleteServiceEndpointAfterImportIsDone: true } },
+        "Contoso",
+        "repo"
+      );
+      expect(parsed(result)).toMatchObject({ importRequestId: 5, status: "Queued", repository: { id: "repo", name: "app" } });
+    });
+
+    it("lists and gets import requests", async () => {
+      gitApi.queryImportRequests.mockResolvedValue([{ importRequestId: 5, status: GitAsyncOperationStatus.Completed }]);
+      expect(parsed(await handlerFor(REPO_TOOLS.list_import_requests)({ ...R, includeAbandoned: true }))).toEqual([expect.objectContaining({ status: "Completed" })]);
+      expect(gitApi.queryImportRequests).toHaveBeenCalledWith("Contoso", "repo", true);
+
+      gitApi.getImportRequest.mockResolvedValue({ importRequestId: 5, status: GitAsyncOperationStatus.Failed, detailedStatus: { errorMessage: "auth" } });
+      expect(parsed(await handlerFor(REPO_TOOLS.get_import_request)({ ...R, importRequestId: 5 }))).toMatchObject({ status: "Failed", detailedStatus: { errorMessage: "auth" } });
+
+      gitApi.getImportRequest.mockResolvedValue(null);
+      expect((await handlerFor(REPO_TOOLS.get_import_request)({ ...R, importRequestId: 6 })).content[0].text).toBe("Import request 6 not found in repository repo");
+    });
+
+    it.each([
+      ["retry", "queued"],
+      ["abandon", "abandoned"],
+    ])("sends %s as the documented status name", async (action, status) => {
+      gitApi.updateImportRequest.mockResolvedValue({ importRequestId: 5 });
+
+      await handlerFor(REPO_TOOLS.update_import_request)({ ...R, importRequestId: 5, action });
+
+      expect(gitApi.updateImportRequest).toHaveBeenCalledWith({ status }, "Contoso", "repo", 5);
+    });
+  });
+
+  describe("forks", () => {
+    const R = { repositoryId: "repo", project: "Contoso" };
+
+    it("lists forks within the organization's collection", async () => {
+      coreApi.getProjectCollections.mockResolvedValue([{ id: "coll-1" }]);
+      gitApi.getForks.mockResolvedValue([{ id: "fork" }]);
+
+      const result = await handlerFor(REPO_TOOLS.list_forks)(R);
+
+      expect(coreApi.getProjectCollections).toHaveBeenCalledWith(1);
+      expect(gitApi.getForks).toHaveBeenCalledWith("repo", "coll-1", "Contoso");
+      expect(parsed(result)).toEqual([{ id: "fork" }]);
+    });
+
+    it("reports a missing collection", async () => {
+      coreApi.getProjectCollections.mockResolvedValue([]);
+
+      const result = await handlerFor(REPO_TOOLS.list_forks)(R);
+
+      expect(result.isError).toBe(true);
+      expect(gitApi.getForks).not.toHaveBeenCalled();
+    });
+
+    it("requests a sync from the parent for chosen refs", async () => {
+      gitApi.createForkSyncRequest.mockResolvedValue({ operationId: 11 });
+      const refs = [{ sourceRef: "refs/heads/main", targetRef: "refs/heads/main" }];
+
+      await handlerFor(REPO_TOOLS.create_fork_sync_request)({ ...R, sourceRepositoryId: "parent", sourceProjectId: "p1", refs });
+
+      expect(gitApi.createForkSyncRequest).toHaveBeenCalledWith({ source: { repositoryId: "parent", projectId: "p1" }, sourceToTargetRefs: refs }, "repo", "Contoso");
+    });
+
+    it("lists and gets fork sync operations", async () => {
+      gitApi.getForkSyncRequests.mockResolvedValue([]);
+      await handlerFor(REPO_TOOLS.list_fork_sync_requests)({ ...R, includeAbandoned: false });
+      expect(gitApi.getForkSyncRequests).toHaveBeenCalledWith("repo", "Contoso", false);
+
+      gitApi.getForkSyncRequest.mockResolvedValue({ operationId: 11 });
+      await handlerFor(REPO_TOOLS.get_fork_sync_request)({ ...R, forkSyncOperationId: 11 });
+      expect(gitApi.getForkSyncRequest).toHaveBeenCalledWith("repo", 11, "Contoso");
+
+      gitApi.getForkSyncRequest.mockResolvedValue(null);
+      expect((await handlerFor(REPO_TOOLS.get_fork_sync_request)({ ...R, forkSyncOperationId: 12 })).content[0].text).toBe("Fork sync operation 12 not found");
+    });
+  });
+
+  it.each([
+    [REPO_TOOLS.get_commit, "getCommit", { commitId: "a" }, "getting commit a"],
+    [REPO_TOOLS.list_commit_changes, "getChanges", { commitId: "a" }, "listing changes of commit a"],
+    [
+      REPO_TOOLS.compare_commits,
+      "getCommitDiffs",
+      { baseVersion: "main", baseVersionType: "branch", targetVersion: "dev", targetVersionType: "branch", diffCommonCommit: true },
+      "comparing main with dev",
+    ],
+    [REPO_TOOLS.get_merge_bases, "getMergeBases", { commitId: "a", otherCommitId: "b" }, "finding the merge base of a and b"],
+    [REPO_TOOLS.list_pushes, "getPushes", { includeRefUpdates: true, top: 1 }, "listing pushes"],
+    [REPO_TOOLS.get_push, "getPush", { pushId: 1, includeCommits: 0 }, "getting push 1"],
+    [REPO_TOOLS.get_branch_stats, "getBranches", {}, "getting branch statistics"],
+    [REPO_TOOLS.get_pull_request_suggestions, "getSuggestions", {}, "getting pull request suggestions"],
+    [REPO_TOOLS.list_pull_request_commits, "getPullRequestCommits", { pullRequestId: 1 }, "listing commits of pull request 1"],
+    [REPO_TOOLS.list_pull_request_work_items, "getPullRequestWorkItemRefs", { pullRequestId: 1 }, "listing work items of pull request 1"],
+    [REPO_TOOLS.delete_pull_request_comment, "deleteComment", { pullRequestId: 1, threadId: 2, commentId: 3 }, "deleting comment 3"],
+    [REPO_TOOLS.list_pull_request_comment_likes, "getLikes", { pullRequestId: 1, threadId: 2, commentId: 3 }, "listing likes of comment 3"],
+    [REPO_TOOLS.like_pull_request_comment, "createLike", { pullRequestId: 1, threadId: 2, commentId: 3 }, "liking comment 3"],
+    [REPO_TOOLS.unlike_pull_request_comment, "deleteLike", { pullRequestId: 1, threadId: 2, commentId: 3 }, "unliking comment 3"],
+    [REPO_TOOLS.update_repository, "updateRepository", { name: "x" }, "updating repository repo"],
+    [REPO_TOOLS.destroy_repository, "deleteRepositoryFromRecycleBin", {}, "erasing repository repo"],
+    [REPO_TOOLS.create_import_request, "createImportRequest", { sourceUrl: "u" }, "importing u"],
+    [REPO_TOOLS.list_import_requests, "queryImportRequests", {}, "listing import requests"],
+    [REPO_TOOLS.get_import_request, "getImportRequest", { importRequestId: 1 }, "getting import request 1"],
+    [REPO_TOOLS.update_import_request, "updateImportRequest", { importRequestId: 1, action: "retry" }, "updating import request 1"],
+    [REPO_TOOLS.list_forks, "getProjectCollections", {}, "listing forks of repository repo"],
+    [REPO_TOOLS.create_fork_sync_request, "createForkSyncRequest", { sourceRepositoryId: "p", sourceProjectId: "q" }, "syncing repository repo"],
+    [REPO_TOOLS.list_fork_sync_requests, "getForkSyncRequests", {}, "listing fork sync requests"],
+    [REPO_TOOLS.get_fork_sync_request, "getForkSyncRequest", { forkSyncOperationId: 1 }, "getting fork sync operation 1"],
+  ])("%s surfaces an API failure", async (tool, method, args, action) => {
+    (gitApi[method] ?? coreApi[method]).mockRejectedValue(new Error("TF400898"));
+
+    const result = await handlerFor(tool)({ repositoryId: "repo", project: "Contoso", ...args });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe(`Error ${action}: TF400898`);
   });
 });

@@ -34,6 +34,7 @@ describe("categorizeTool", () => {
 
   it("honors explicit overrides (mcp_apps_ping is read)", () => {
     expect(categorizeTool("mcp_apps_ping")).toBe("read");
+    expect(categorizeTool("repo_compare_commits")).toBe("read");
   });
 
   // Granting a deny bit can lock everyone out, so clients must confirm it.

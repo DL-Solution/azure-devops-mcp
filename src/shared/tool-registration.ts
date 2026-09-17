@@ -28,6 +28,8 @@ const READ_VERBS = new Set(["list", "get", "show", "search", "find", "query", "m
 const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   // A connectivity check with no side effects.
   mcp_apps_ping: "read",
+  // "compare" names no verb the heuristics know, but the tool only reads a diff.
+  repo_compare_commits: "read",
   // "set" reads as an ordinary write, but a deny bit or a merge=false replace
   // can lock every user out of a resource, so clients should confirm it.
   permissions_set_access_control_entries: "destructive",
