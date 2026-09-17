@@ -65,5 +65,6 @@ module.exports = {
     "^\\./tools/(.+)\\.js$": "<rootDir>/src/tools/$1.ts",
     "^(.+)/server-instructions\\.js$": "$1/server-instructions.ts",
     "^(.+)/domains\\.js$": "$1/domains.ts",
+    "^(.+)/landing-page\\.js$": "$1/landing-page.ts",
   },
 };

@@ -18,6 +18,7 @@ import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middlew
 import { logger } from "../logger.js";
 import { isOriginAllowed, runWithRequestToken } from "./http.js";
 import { EntraOAuthProvider } from "../shared/oauth/entra-oauth-provider.js";
+import { LANDING_PAGE_HEADERS } from "../shared/landing-page.js";
 import { PRESET_NAMES, resolvePreset } from "../shared/presets.js";
 
 export interface OAuthHttpTransportOptions {
@@ -34,6 +35,8 @@ export interface OAuthHttpTransportOptions {
    * `preset` is the trailing path segment of the MCP URL, when one was given.
    */
   createServer: (preset?: string) => McpServer;
+  /** Renders the HTML page served at "/", given the public origin. Omit to leave "/" unanswered. */
+  renderLandingPage?: (baseUrl: string) => string;
 }
 
 /** Start the OAuth-fronted HTTP MCP server and resolve once it is listening. */
@@ -62,6 +65,15 @@ export async function startOAuthHttpServer(opts: OAuthHttpTransportOptions): Pro
   app.get(new URL(opts.provider.redirectUri).pathname, (req, res) => {
     void opts.provider.handleCallback(req, res);
   });
+
+  // A human opening the server's address sees what it is and how to connect.
+  const renderLandingPage = opts.renderLandingPage;
+  if (renderLandingPage) {
+    const baseUrl = issuerUrl.origin;
+    app.get("/", (_req, res) => {
+      res.set(LANDING_PAGE_HEADERS).status(200).send(renderLandingPage(baseUrl));
+    });
+  }
 
   // The MCP endpoint, gated by a valid bearer token (validated by the provider).
   // Served both bare and under a preset name ("/mcp" and "/mcp/dev"), which is

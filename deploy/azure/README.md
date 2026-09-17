@@ -148,6 +148,10 @@ az account get-access-token \
 }
 ```
 
+Opening `https://<app-fqdn>/` in a browser shows a landing page (in Ukrainian) with
+every endpoint below, its live tool count, and step-by-step connection instructions
+for claude.ai, Claude Code and VS Code.
+
 ### Tool presets (a smaller tool list per endpoint)
 
 The full server registers 336 tools, whose schemas cost roughly **83k tokens**

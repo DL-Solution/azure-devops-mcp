@@ -9,17 +9,20 @@ jest.mock("../../../src/logger", () => ({
   logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }));
 
-import { createMcpRequestListener, extractBearerToken, getRequestToken, HttpTransportOptions, isOriginAllowed, matchMcpPath } from "../../../src/transports/http";
+import { createMcpRequestListener, extractBearerToken, getRequestToken, HttpTransportOptions, isOriginAllowed, matchMcpPath, requestBaseUrl } from "../../../src/transports/http";
 
-function mockReq(opts: { url?: string; host?: string; authorization?: string; origin?: string } = {}): IncomingMessage {
+function mockReq(opts: { url?: string; host?: string; authorization?: string; origin?: string; method?: string; forwardedProto?: string } = {}): IncomingMessage {
   const headers: Record<string, string> = { host: opts.host ?? "127.0.0.1:3000" };
+  if (opts.forwardedProto !== undefined) {
+    headers["x-forwarded-proto"] = opts.forwardedProto;
+  }
   if (opts.authorization !== undefined) {
     headers.authorization = opts.authorization;
   }
   if (opts.origin !== undefined) {
     headers.origin = opts.origin;
   }
-  return { method: "POST", url: opts.url ?? "/mcp", headers } as unknown as IncomingMessage;
+  return { method: opts.method ?? "POST", url: opts.url ?? "/mcp", headers } as unknown as IncomingMessage;
 }
 
 interface MockRes extends ServerResponse {
@@ -104,6 +107,23 @@ describe("isOriginAllowed", () => {
   });
 });
 
+describe("requestBaseUrl", () => {
+  it("uses https when the proxy says the request came in over TLS", () => {
+    expect(requestBaseUrl(mockReq({ host: "mcp.example", forwardedProto: "https, http" }), ["mcp.example"])).toBe("https://mcp.example");
+  });
+
+  it("uses http without a forwarded scheme", () => {
+    expect(requestBaseUrl(mockReq({ host: "127.0.0.1:3000" }), ["127.0.0.1:3000"])).toBe("http://127.0.0.1:3000");
+  });
+
+  // The Host header is caller-controlled; echoing it would let a link to the
+  // page show someone else's address as the one to connect to.
+  it("falls back to the first allowed host for a Host that is not allowed", () => {
+    expect(requestBaseUrl(mockReq({ host: "evil.example" }), ["mcp.example", "localhost:3000"])).toBe("http://mcp.example");
+    expect(requestBaseUrl(mockReq({ host: "evil.example" }), [])).toBe("http://localhost");
+  });
+});
+
 describe("createMcpRequestListener", () => {
   const makeOptions = (
     overrides: Partial<HttpTransportOptions> = {}
@@ -130,6 +150,51 @@ describe("createMcpRequestListener", () => {
 
     return { options, server, transport };
   };
+
+  describe("landing page", () => {
+    const renderLandingPage = jest.fn((baseUrl: string) => `<p>${baseUrl}</p>`);
+
+    it("serves the page at / without a token, with a CSP that allows no script", async () => {
+      const { options, server } = makeOptions({ renderLandingPage });
+      const res = mockRes();
+
+      await createMcpRequestListener(options)(mockReq({ url: "/", method: "GET" }), res);
+
+      expect(res._status).toBe(200);
+      expect(res._headers["Content-Type"]).toBe("text/html; charset=utf-8");
+      expect(res._headers["Content-Security-Policy"]).toContain("default-src 'none'");
+      expect(res._body).toBe("<p>http://127.0.0.1:3000</p>");
+      expect(server.connect).not.toHaveBeenCalled();
+    });
+
+    it("answers HEAD without a body", async () => {
+      const { options } = makeOptions({ renderLandingPage });
+      const res = mockRes();
+
+      await createMcpRequestListener(options)(mockReq({ url: "/", method: "HEAD" }), res);
+
+      expect(res._status).toBe(200);
+      expect(res._body).toBe("");
+    });
+
+    it("keeps / a 404 for other methods", async () => {
+      const { options } = makeOptions({ renderLandingPage });
+      const res = mockRes();
+
+      await createMcpRequestListener(options)(mockReq({ url: "/", method: "POST" }), res);
+
+      expect(res._status).toBe(404);
+    });
+
+    it("keeps / a 404 when no page is configured", async () => {
+      const { options } = makeOptions();
+      const res = mockRes();
+
+      await createMcpRequestListener(options)(mockReq({ url: "/", method: "GET" }), res);
+
+      expect(res._status).toBe(404);
+    });
+  });
 
   it("returns 404 for a path other than the MCP endpoint", async () => {
     const { options } = makeOptions();

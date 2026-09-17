@@ -20,6 +20,7 @@ import { packageVersion } from "./version.js";
 import { DomainsManager } from "./shared/domains.js";
 import { PRESET_NAMES, resolvePreset } from "./shared/presets.js";
 import { buildServerInstructions } from "./shared/server-instructions.js";
+import { LandingEndpoint, renderLandingPage } from "./shared/landing-page.js";
 import { getRequestToken, startHttpServer } from "./transports/http.js";
 import { startOAuthHttpServer } from "./transports/http-oauth.js";
 import { EntraOAuthProvider } from "./shared/oauth/entra-oauth-provider.js";
@@ -238,6 +239,34 @@ function createOAuthStateStore(): OAuthStateStore | undefined {
   return new TableOAuthStateStore(tableEndpoint, tableName, new DefaultAzureCredential(managedIdentityClientId ? { managedIdentityClientId } : {}));
 }
 
+/**
+ * Count the tools a domain set registers, for the landing page. Registration
+ * only records handlers, so a throwaway server with providers that are never
+ * called is enough.
+ */
+function countTools(domains: Set<string>, userAgentComposer: UserAgentComposer): number {
+  const server = new McpServer({ name: "tool-count", version: packageVersion });
+  let count = 0;
+  const register = server.registerTool.bind(server) as (...args: unknown[]) => unknown;
+  (server as unknown as { registerTool: (...args: unknown[]) => unknown }).registerTool = (...args: unknown[]) => {
+    count++;
+    return register(...args);
+  };
+  const unused = () => Promise.reject(new Error("not used while counting tools"));
+  configureAllTools(server, unused, unused, () => userAgentComposer.userAgent, domains);
+  return count;
+}
+
+/** The endpoints listed on the landing page. Counted once at startup; the page itself is rendered per request. */
+function landingEndpoints(userAgentComposer: UserAgentComposer): LandingEndpoint[] {
+  const bare: LandingEndpoint = { path: argv.path, domains: Array.from(enabledDomains), toolCount: countTools(enabledDomains, userAgentComposer) };
+  const presets = PRESET_NAMES.flatMap((name): LandingEndpoint[] => {
+    const domains = resolvePreset(name);
+    return domains ? [{ path: `${argv.path}/${name}`, preset: name, domains: Array.from(domains), toolCount: countTools(domains, userAgentComposer) }] : [];
+  });
+  return [...presets, bare];
+}
+
 async function runHttpTransport(userAgentComposer: UserAgentComposer) {
   // In both HTTP auth modes the Azure DevOps bearer token is resolved per-request
   // from the in-flight context (token pass-through), so no credential is stored.
@@ -257,6 +286,9 @@ async function runHttpTransport(userAgentComposer: UserAgentComposer) {
     }
     return createConfiguredServer(authenticator, connectionProvider, userAgentComposer, domains, preset);
   };
+
+  const endpoints = landingEndpoints(userAgentComposer);
+  const landingPage = (auth: "oauth" | "passthrough") => (baseUrl: string) => renderLandingPage({ baseUrl, organization: orgName, version: packageVersion, auth, endpoints });
 
   const allowedHosts = argv.allowedHosts && argv.allowedHosts.length > 0 ? argv.allowedHosts : [`${argv.host}:${argv.port}`, `localhost:${argv.port}`, `127.0.0.1:${argv.port}`];
 
@@ -281,6 +313,7 @@ async function runHttpTransport(userAgentComposer: UserAgentComposer) {
       allowedOrigins: argv.allowedOrigins,
       provider,
       createServer,
+      renderLandingPage: landingPage("oauth"),
     });
     return;
   }
@@ -294,6 +327,7 @@ async function runHttpTransport(userAgentComposer: UserAgentComposer) {
     allowedHosts,
     allowedOrigins: argv.allowedOrigins,
     createServer,
+    renderLandingPage: landingPage("passthrough"),
   });
 }
 
