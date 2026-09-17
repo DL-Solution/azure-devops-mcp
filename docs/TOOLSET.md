@@ -488,6 +488,18 @@
 | Artifacts          | [mcp_ado_artifacts_set_upstreaming_behavior](#mcp_ado_artifacts_set_upstreaming_behavior)                     | Set whether a package may take versions from external upstream sources                                                                                |
 | Advanced Security  | [mcp_ado_advsec_get_alerts](#mcp_ado_advsec_get_alerts)                                                       | Retrieve Advanced Security alerts for a repository                                                                                                    |
 | Advanced Security  | [mcp_ado_advsec_get_alert_details](#mcp_ado_advsec_get_alert_details)                                         | Get detailed information about a specific security alert                                                                                              |
+| Advanced Security  | [mcp_ado_advsec_update_alert](#mcp_ado_advsec_update_alert)                                                   | Dismiss an Advanced Security alert with a reason, or reopen a dismissed one                                                                           |
+| Advanced Security  | [mcp_ado_advsec_list_alert_instances](#mcp_ado_advsec_list_alert_instances)                                   | List where an alert was found                                                                                                                         |
+| Advanced Security  | [mcp_ado_advsec_get_alert_metadata](#mcp_ado_advsec_get_alert_metadata)                                       | Get the metadata attached to an alert                                                                                                                 |
+| Advanced Security  | [mcp_ado_advsec_list_analyzed_branches](#mcp_ado_advsec_list_analyzed_branches)                               | List the branches of a repository that have scan results for one kind of alert, in alphabetical order                                                 |
+| Advanced Security  | [mcp_ado_advsec_delete_pipeline_analysis](#mcp_ado_advsec_delete_pipeline_analysis)                           | Soft-delete the analysis results a pipeline submitted for a repository, cleaning up the alerts associated with them                                   |
+| Advanced Security  | [mcp_ado_advsec_get_enablement](#mcp_ado_advsec_get_enablement)                                               | Get which Advanced Security features are on                                                                                                           |
+| Advanced Security  | [mcp_ado_advsec_update_enablement](#mcp_ado_advsec_update_enablement)                                         | Turn Advanced Security features on or off for a repository, a project or the organization                                                             |
+| Advanced Security  | [mcp_ado_advsec_get_committer_estimate](#mcp_ado_advsec_get_committer_estimate)                               | Estimate how many committers would be billed if a plan were turned on for a repository, a project or the organization, and who they are               |
+| Advanced Security  | [mcp_ado_advsec_get_meter_usage](#mcp_ado_advsec_get_meter_usage)                                             | Get the committers the organization was billed for on a given day, per plan                                                                           |
+| Advanced Security  | [mcp_ado_advsec_get_alert_summary](#mcp_ado_advsec_get_alert_summary)                                         | Count alerts across the organization by severity, per project and repository                                                                          |
+| Advanced Security  | [mcp_ado_advsec_get_enablement_summary](#mcp_ado_advsec_get_enablement_summary)                               | Summarize which repositories across the organization have which Advanced Security tools on                                                            |
+| Advanced Security  | [mcp_ado_advsec_list_organization_alerts](#mcp_ado_advsec_list_organization_alerts)                           | List alerts across every repository of the organization with filters                                                                                  |
 | Process            | [mcp_ado_witprocess_list_processes](#mcp_ado_witprocess_list_processes)                                       | List processes                                                                                                                                        |
 | Process            | [mcp_ado_witprocess_get_process](#mcp_ado_witprocess_get_process)                                             | Get a process                                                                                                                                         |
 | Process            | [mcp_ado_witprocess_list_work_item_types](#mcp_ado_witprocess_list_work_item_types)                           | List process work item types                                                                                                                          |
@@ -4022,6 +4034,90 @@ Get detailed information about a specific Advanced Security alert.
 
 - **Required**: `project`, `repository`, `alertId`
 - **Optional**: `ref`
+
+### mcp_ado_advsec_update_alert
+
+Dismiss an Advanced Security alert with a reason, or reopen a dismissed one.
+
+- **Required**: `project`, `repository`, `alertId`, `state` (`dismissed` \| `active`)
+- **Optional**: `dismissedComment`, `dismissedReason` (`acceptedRisk` \| `falsePositive` \| `agreedToGuidance` \| `toolUpgrade` \| `notDistributed` \| `fixed`)
+
+### mcp_ado_advsec_list_alert_instances
+
+List where an alert was found: each analysis instance with its file locations and the branch it was seen on.
+
+- **Required**: `project`, `repository`, `alertId`
+- **Optional**: `ref`
+
+### mcp_ado_advsec_get_alert_metadata
+
+Get the metadata attached to an alert.
+
+- **Required**: `project`, `repository`, `alertId`
+- **Optional**: None
+
+### mcp_ado_advsec_list_analyzed_branches
+
+List the branches of a repository that have scan results for one kind of alert, in alphabetical order.
+
+- **Required**: `project`, `repository`, `alertType` (`dependency` \| `secret` \| `code` \| `aiCode` \| `malware`)
+- **Optional**: `branchNameContains`, `continuationToken`, `includePullRequestBranches`, `top`
+
+### mcp_ado_advsec_delete_pipeline_analysis
+
+Soft-delete the analysis results a pipeline submitted for a repository, cleaning up the alerts associated with them — for a scanning pipeline that no longer exists.
+
+- **Required**: `project`, `repository`
+- **Optional**: `pipelineId`
+
+### mcp_ado_advsec_get_enablement
+
+Get which Advanced Security features are on — Secret Protection (secret scanning, push protection) and Code Security (dependency scanning, CodeQL, autofix) — for a repository, a project or the organization.
+
+- **Required**: None
+- **Optional**: `includeAllProperties`, `project`, `repository`
+
+### mcp_ado_advsec_update_enablement
+
+Turn Advanced Security features on or off for a repository, a project or the organization.
+
+- **Required**: None
+- **Optional**: `codeSecurity`, `onCreate`, `project`, `repository`, `secretProtection`
+
+### mcp_ado_advsec_get_committer_estimate
+
+Estimate how many committers would be billed if a plan were turned on for a repository, a project or the organization, and who they are.
+
+- **Required**: None
+- **Optional**: `plan` (`codeSecurity` \| `secretProtection` \| `all`), `project`, `repository`
+
+### mcp_ado_advsec_get_meter_usage
+
+Get the committers the organization was billed for on a given day, per plan.
+
+- **Required**: `plan` (`codeSecurity` \| `secretProtection` \| `all`)
+- **Optional**: `billingDate`
+
+### mcp_ado_advsec_get_alert_summary
+
+Count alerts across the organization by severity, per project and repository — the security overview dashboard.
+
+- **Required**: None
+- **Optional**: `alertTypes` (`dependency` \| `secret` \| `code` \| `aiCode` \| `malware`), `keywords`, `period` (`last24Hours` \| `last7Days` \| `last14Days` \| `last30Days` \| `last90Days`), `projects`, `severities`
+
+### mcp_ado_advsec_get_enablement_summary
+
+Summarize which repositories across the organization have which Advanced Security tools on.
+
+- **Required**: None
+- **Optional**: `anyTool`, `codeAlerts`, `dependencyAlerts`, `keywords`, `projects`, `pushProtection`, `secretAlerts`
+
+### mcp_ado_advsec_list_organization_alerts
+
+List alerts across every repository of the organization with filters, such as every open critical dependency alert for one package. For one repository `advsec_get_alerts` has more filters.
+
+- **Required**: None
+- **Optional**: `alertType` (`dependency` \| `secret` \| `code` \| `aiCode` \| `malware`), `componentNames`, `componentTypes`, `continuationToken`, `introducedDateEnd`, `introducedDateStart`, `keywords`, `projects`, `repositories`, `ruleNames`, `severities`, `state` (`open` \| `closed`), `toolNames`, `top`
 
 ## Process
 

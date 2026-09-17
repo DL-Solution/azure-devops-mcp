@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     630 | 62% |
+| Потрібні області      |     1024 |     649 | 63% |
 | Свідомо не покриваємо |      167 |      24 |   — |
 
 ## Прогрес
@@ -28,6 +28,7 @@
 | 2026-09-17 |          565 |              592 | 1024 | 58% | Тест-плани, PR #86                                |
 | 2026-09-17 |          573 |              601 | 1024 | 59% | Погодження й перевірки, PR #87                    |
 | 2026-09-17 |          602 |              630 | 1024 | 62% | Service hooks, service connections, graph, PR #88 |
+| 2026-09-17 |          614 |              649 | 1024 | 63% | Advanced Security, PR #89                         |
 
 <!-- history:end -->
 
@@ -47,7 +48,7 @@
 - [x] **Тест-плани** (~20 з 31) — PR #86: область покрита повністю (44 з 44): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
 - [x] **Погодження й перевірки** (~10 з 12) — PR #87: +9 операцій; лишилися запуск і оновлення оцінки перевірок (службові) і пакетна зміна дозволів: конфігурації перевірок, дозволи пайплайнів на ресурси
 - [x] **Service hooks, service connections, graph** (~25) — PR #88: +29 операцій; лишилися аватари, прив'язка користувача до іншого, query-варіанти hooks, окремі get-и дій споживача й типу подій, proxy запитів через підключення: service principals, створення й видалення груп, пошук і розв'язання дескрипторів, історія доставки й діагностика підписок, типи підключень, спільний доступ до підключення, історія його використання
-- [ ] **Advanced Security** (~15 з 27): стан увімкнення, зведення, оновлення алертів
+- [x] **Advanced Security** (~15 з 27) — PR #89: +19 операцій; лишилися збережені фільтри (dl-sol відповідає 403 без увімкненого Advanced Security), пакетні запити алертів і метаданих: закриття й повторне відкриття алертів, їх екземпляри й метадані, гілки зі сканами, видалення аналізу пайплайна, стан увімкнення й оцінка оплачуваних комітерів на рівні організації, проєкту й репозиторію, облік використання, зведення по організації
 - [ ] **Wiki** (5): зміна й видалення wiki, вкладення, переміщення сторінок, статистика переглядів
 - [ ] Переглянути **testResults** (85): більшість — службові операції log store і вкладень; відібрати корисне
 
@@ -63,11 +64,11 @@
 | Збірки (`build`)                                           |       93 |      49 |  53% |        44 |                                                              |
 | Git (`git`)                                                |      112 |      72 |  64% |        40 |                                                              |
 | Агенти, змінні, task groups (`distributedTask`)            |       72 |      41 |  57% |        31 |                                                              |
-| Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
 | Artifacts: пакети за протоколами (`artifactsPackageTypes`) |       73 |      46 |  63% |        27 |                                                              |
 | Робочі елементи (`wit`)                                    |       89 |      63 |  71% |        26 |                                                              |
 | Обране (`favorite`)                                        |        9 |       0 |   0% |         9 |                                                              |
 | Сповіщення (`notification`)                                |       17 |       8 |  47% |         9 |                                                              |
+| Advanced Security (`advancedSecurity`)                     |       29 |      21 |  72% |         8 |                                                              |
 | Artifacts: фіди (`artifacts`)                              |       37 |      29 |  78% |         8 |                                                              |
 | Service hooks (`hooks`)                                    |       22 |      14 |  64% |         8 |                                                              |
 | Аудит (`audit`)                                            |        9 |       2 |  22% |         7 |                                                              |
@@ -343,41 +344,6 @@
 </details>
 
 <details>
-<summary>Advanced Security — 27 з 29</summary>
-
-| Група                        | Метод  | Шлях                                                               | Що робить                                                                                                      |
-| ---------------------------- | ------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Alerts                       | PATCH  | `alert/repositories/{repository}/alerts/{alertId}`                 | Update the status of an alert                                                                                  |
-| Alerts Batch                 | POST   | `alert/repositories/{repository}/AlertsBatch`                      | Get alerts by alert IDs Currently supports fetching secret alerts only.                                        |
-| Alerts Query                 | POST   | `alert/repositories/{repository}/alertsquery`                      | Query alerts for a repository by metadata type linkage.                                                        |
-| Analysis                     | GET    | `alert/repositories/{repository}/filters/branches`                 | Returns the branches for which analysis results were submitted.                                                |
-| Filters Settings             | GET    | `reporting/filtersSettings/alertsbatch`                            | Gets all advanced filters for the organization.                                                                |
-| Filters Settings             | POST   | `reporting/filtersSettings/alertsbatch`                            | Creates a new advanced filter for the organization.                                                            |
-| Filters Settings             | GET    | `reporting/filtersSettings/alertsbatch/{filterId}`                 | Gets a specific advanced filter by its ID.                                                                     |
-| Filters Settings             | PATCH  | `reporting/filtersSettings/alertsbatch/{filterId}`                 | Updates an advanced filter. Only the name can be updated.                                                      |
-| Filters Settings             | DELETE | `reporting/filtersSettings/alertsbatch/{filterId}`                 | Deletes an advanced filter.                                                                                    |
-| Instances                    | GET    | `alert/repositories/{repository}/alerts/{alertId}/instances`       | Get instances of an alert on a branch specified with @ref. If @ref is not provided, return instances of an al… |
-| Metadata Batch               | POST   | `alert/repositories/{repository}/alerts/metadatabatch`             | Get alerts metadata.                                                                                           |
-| Metadata2                    | GET    | `alert/repositories/{repository}/alerts/{alertId}/metadata`        | Get an alert metadata.                                                                                         |
-| Meter Usage                  | GET    | `management/meterusage/default`                                    | Get commiters used when calculating billing information.                                                       |
-| Org Enablement               | GET    | `management/enablement`                                            | Get the current status of Advanced Security for the organization                                               |
-| Org Enablement               | PATCH  | `management/enablement`                                            | Update the status of Advanced Security for the organization                                                    |
-| Org Meter Usage Estimate     | GET    | `management/meterUsageEstimate/default`                            | Estimate the pushers that would be added to the customer's usage if Advanced Security was enabled for this or… |
-| Pipeline Analyses            | DELETE | `alert/repositories/{repository}/pipelineAnalyses`                 | Soft-deletes analysis data for all pipelines in a repository, cleaning up the associated Advanced Security al… |
-| Pipeline Analysis            | DELETE | `alert/repositories/{repository}/pipelineAnalysis/{adoPipelineId}` | Soft-deletes analysis data for a specific pipeline, cleaning up the associated Advanced Security alerts.       |
-| Project Enablement           | GET    | `management/enablement`                                            | Get the current status of Advanced Security for a project                                                      |
-| Project Enablement           | PATCH  | `management/enablement`                                            | Update the status of Advanced Security for the project                                                         |
-| Project Meter Usage Estimate | GET    | `management/meterUsageEstimate/default`                            | Estimate the pushers that would be added to the customer's usage if Advanced Security was enabled for this pr… |
-| Repo Enablement              | GET    | `management/repositories/{repository}/enablement`                  | Determines if Code Security, Secret Protection, and their features are enabled for the repository.             |
-| Repo Enablement              | PATCH  | `management/repositories/{repository}/enablement`                  | Update the enablement status of Code Security and Secret Protection, along with their respective features, fo… |
-| Repo Meter Usage Estimate    | GET    | `management/repositories/{repository}/meterUsageEstimate/default`  | Estimate the pushers that would be added to the customer's usage if Advanced Security was enabled for this re… |
-| Summary Dashboard            | GET    | `reporting/summary/alerts`                                         | Get Alert summary by severity for the org                                                                      |
-| Summary Dashboard            | GET    | `reporting/summary/alertsbatch`                                    | Get Combined Alerts for the org                                                                                |
-| Summary Dashboard            | GET    | `reporting/summary/enablement`                                     | Get Enablement summary for the org                                                                             |
-
-</details>
-
-<details>
 <summary>Artifacts: пакети за протоколами — 27 з 73</summary>
 
 | Група     | Метод  | Шлях                                                                                                               | Що робить                                                                                                      |
@@ -477,6 +443,22 @@
 | Subscribers     | PATCH | `notification/subscribers/{subscriberId}`                           | Update delivery preferences of a notifications subscriber.                                                    |
 | Subscriptions   | POST  | `notification/subscriptionquery`                                    | Query for subscriptions. A subscription is returned if it matches one or more of the specified conditions.    |
 | Subscriptions   | PUT   | `notification/Subscriptions/{subscriptionId}/usersettings/{userId}` | Update the specified user's settings for the specified subscription. This API is typically used to opt in or… |
+
+</details>
+
+<details>
+<summary>Advanced Security — 8 з 29</summary>
+
+| Група            | Метод  | Шлях                                                   | Що робить                                                               |
+| ---------------- | ------ | ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Alerts Batch     | POST   | `alert/repositories/{repository}/AlertsBatch`          | Get alerts by alert IDs Currently supports fetching secret alerts only. |
+| Alerts Query     | POST   | `alert/repositories/{repository}/alertsquery`          | Query alerts for a repository by metadata type linkage.                 |
+| Filters Settings | GET    | `reporting/filtersSettings/alertsbatch`                | Gets all advanced filters for the organization.                         |
+| Filters Settings | POST   | `reporting/filtersSettings/alertsbatch`                | Creates a new advanced filter for the organization.                     |
+| Filters Settings | GET    | `reporting/filtersSettings/alertsbatch/{filterId}`     | Gets a specific advanced filter by its ID.                              |
+| Filters Settings | PATCH  | `reporting/filtersSettings/alertsbatch/{filterId}`     | Updates an advanced filter. Only the name can be updated.               |
+| Filters Settings | DELETE | `reporting/filtersSettings/alertsbatch/{filterId}`     | Deletes an advanced filter.                                             |
+| Metadata Batch   | POST   | `alert/repositories/{repository}/alerts/metadatabatch` | Get alerts metadata.                                                    |
 
 </details>
 

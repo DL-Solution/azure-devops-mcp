@@ -45,6 +45,7 @@ describe("categorizeTool", () => {
     expect(categorizeTool("artifacts_set_global_permissions")).toBe("destructive");
     expect(categorizeTool("approvals_set_pipeline_permissions")).toBe("destructive");
     expect(categorizeTool("serviceendpoint_share_service_endpoint")).toBe("destructive");
+    expect(categorizeTool("advsec_update_enablement")).toBe("destructive");
   });
 });
 
