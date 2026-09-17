@@ -43,7 +43,7 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.SERVICE_HOOKS, "servicehook_ — service hook subscriptions (outgoing webhooks)."],
   [Domain.ARTIFACTS, "artifacts_ — package feeds (permissions, views, retention, recycle bin) and package versions: provenance, promotion to views, unlisting, deletion, upstream behavior."],
   [Domain.ADVANCED_SECURITY, "advsec_ — Advanced Security alerts (secrets, dependencies, code scanning)."],
-  [Domain.APPROVALS, "approvals_ — pipeline approval checks awaiting a decision."],
+  [Domain.APPROVALS, "approvals_ — pipeline approvals awaiting a decision, checks on protected resources, which pipelines may use a resource."],
   [Domain.ANALYTICS, "analytics_ — OData reporting: counts, sums and groupings over work items, history snapshots and trends, pipeline and test pass rates."],
   [Domain.PROJECT_ANALYSIS, "projectanalysis_ — language breakdown and repository/project activity."],
   [Domain.WIT_PROCESS, "witprocess_ — process customization: inherited processes, work item types, fields, states, behaviors, rules, picklists, form layout (pages, groups, controls)."],

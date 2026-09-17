@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     592 | 58% |
+| Потрібні області      |     1024 |     601 | 59% |
 | Свідомо не покриваємо |      167 |      24 |   — |
 
 ## Прогрес
@@ -26,6 +26,7 @@
 | 2026-09-17 |          505 |              530 | 1024 | 52% | Збірки, PR #84                 |
 | 2026-09-17 |          535 |              560 | 1024 | 55% | Агенти й середовища, PR #85    |
 | 2026-09-17 |          565 |              592 | 1024 | 58% | Тест-плани, PR #86             |
+| 2026-09-17 |          573 |              601 | 1024 | 59% | Погодження й перевірки, PR #87 |
 
 <!-- history:end -->
 
@@ -43,7 +44,7 @@
 - [x] **Збірки** (~15 з 65) — PR #84: +21 операція; лишилися source providers (GitHub/Bitbucket), шаблони визначень, властивості, бейджі, контролери XAML, вкладення, пакетні оновлення: видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
 - [x] **Агенти й середовища** (~20 з 67) — PR #85: +30 операцій; лишилися agent clouds, службові операції execution plan (логи, події, OIDC-токени агентів), YAML-схема, вебхуки, пакетні запити secure files: пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
 - [x] **Тест-плани** (~20 з 31) — PR #86: область покрита повністю (44 з 44): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
-- [ ] **Погодження й перевірки** (~10 з 12): конфігурації перевірок, дозволи пайплайнів на ресурси
+- [x] **Погодження й перевірки** (~10 з 12) — PR #87: +9 операцій; лишилися запуск і оновлення оцінки перевірок (службові) і пакетна зміна дозволів: конфігурації перевірок, дозволи пайплайнів на ресурси
 - [ ] **Service hooks, service connections, graph** (~25): решта операцій підписок і підключень, service principals
 - [ ] **Advanced Security** (~15 з 27): стан увімкнення, зведення, оновлення алертів
 - [ ] **Wiki** (5): зміна й видалення wiki, вкладення, переміщення сторінок, статистика переглядів
@@ -66,7 +67,6 @@
 | Робочі елементи (`wit`)                                    |       89 |      63 |  71% |        26 |                                                              |
 | Користувачі й групи (`graph`)                              |       28 |       7 |  25% |        21 |                                                              |
 | Service hooks (`hooks`)                                    |       22 |       4 |  18% |        18 |                                                              |
-| Погодження й перевірки (`approvalsAndChecks`)              |       15 |       3 |  20% |        12 |                                                              |
 | Обране (`favorite`)                                        |        9 |       0 |   0% |         9 |                                                              |
 | Сповіщення (`notification`)                                |       17 |       8 |  47% |         9 |                                                              |
 | Artifacts: фіди (`artifacts`)                              |       37 |      29 |  78% |         8 |                                                              |
@@ -82,6 +82,7 @@
 | Звіти про права (`permissionsReport`)                      |        4 |       0 |   0% |         4 |                                                              |
 | YAML-пайплайни (`pipelines`)                               |       10 |       6 |  60% |         4 |                                                              |
 | Кастомізація процесів (`processes`)                        |       57 |      53 |  93% |         4 |                                                              |
+| Погодження й перевірки (`approvalsAndChecks`)              |       15 |      12 |  80% |         3 |                                                              |
 | Пошук (`search`)                                           |        6 |       3 |  50% |         3 |                                                              |
 | Розширення (`extensionManagement`)                         |        5 |       4 |  80% |         1 |                                                              |
 | Профіль (`profile`)                                        |        1 |       0 |   0% |         1 |                                                              |
@@ -500,26 +501,6 @@
 </details>
 
 <details>
-<summary>Погодження й перевірки — 12 з 15</summary>
-
-| Група                | Метод  | Шлях                                                        | Що робить                                                                              |
-| -------------------- | ------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Check Configurations | GET    | `pipelines/checks/configurations`                           | Get Check configuration by resource type and id                                        |
-| Check Configurations | POST   | `pipelines/checks/configurations`                           | Add a check configuration                                                              |
-| Check Configurations | GET    | `pipelines/checks/configurations/{id}`                      | Get Check configuration by Id                                                          |
-| Check Configurations | PATCH  | `pipelines/checks/configurations/{id}`                      | Update check configuration                                                             |
-| Check Configurations | DELETE | `pipelines/checks/configurations/{id}`                      | Delete check configuration by id                                                       |
-| Check Configurations | POST   | `pipelines/checks/queryconfigurations`                      | Get check configurations for multiple resources by resource type and id.               |
-| Check Evaluations    | POST   | `pipelines/checks/runs`                                     | Initiate an evaluation for a check in a pipeline                                       |
-| Check Evaluations    | GET    | `pipelines/checks/runs/{checkSuiteId}`                      | Get details for a specific check evaluation                                            |
-| Check Evaluations    | PATCH  | `pipelines/checks/runs/{checkSuiteId}`                      | Update a check run of a check suite                                                    |
-| Pipeline Permissions | PATCH  | `pipelines/pipelinepermissions`                             | Batch API to authorize/unauthorize a list of definitions for a multiple resources.     |
-| Pipeline Permissions | GET    | `pipelines/pipelinepermissions/{resourceType}/{resourceId}` | Given a ResourceType and ResourceId, returns authorized definitions for that resource. |
-| Pipeline Permissions | PATCH  | `pipelines/pipelinepermissions/{resourceType}/{resourceId}` | Authorizes/Unauthorizes a list of definitions for a given resource.                    |
-
-</details>
-
-<details>
 <summary>Обране — 9 з 9</summary>
 
 | Група     | Метод  | Шлях                              | Що робить |
@@ -730,6 +711,17 @@
 | Work Item Types Behaviors | GET   | `work/processes/{processId}/workitemtypesbehaviors/{witRefNameForBehaviors}/behaviors`                   | Returns a list of all behaviors for the work item type of the process. |
 | Work Item Types Behaviors | PATCH | `work/processes/{processId}/workitemtypesbehaviors/{witRefNameForBehaviors}/behaviors`                   | Updates a behavior for the work item type of the process.              |
 | Work Item Types Behaviors | GET   | `work/processes/{processId}/workitemtypesbehaviors/{witRefNameForBehaviors}/behaviors/{behaviorRefName}` | Returns a behavior for the work item type of the process.              |
+
+</details>
+
+<details>
+<summary>Погодження й перевірки — 3 з 15</summary>
+
+| Група                | Метод | Шлях                                   | Що робить                                                                          |
+| -------------------- | ----- | -------------------------------------- | ---------------------------------------------------------------------------------- |
+| Check Evaluations    | POST  | `pipelines/checks/runs`                | Initiate an evaluation for a check in a pipeline                                   |
+| Check Evaluations    | PATCH | `pipelines/checks/runs/{checkSuiteId}` | Update a check run of a check suite                                                |
+| Pipeline Permissions | PATCH | `pipelines/pipelinepermissions`        | Batch API to authorize/unauthorize a list of definitions for a multiple resources. |
 
 </details>
 

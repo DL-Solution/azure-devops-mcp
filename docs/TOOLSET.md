@@ -422,6 +422,14 @@
 | Approvals          | [mcp_ado_approvals_list](#mcp_ado_approvals_list)                                                             | List approvals of YAML pipeline stages, e.g                                                                                          |
 | Approvals          | [mcp_ado_approvals_get](#mcp_ado_approvals_get)                                                               | Get a single pipeline approval by its ID, including who it is assigned to and the instructions shown to the approvers                |
 | Approvals          | [mcp_ado_approvals_update](#mcp_ado_approvals_update)                                                         | Act on a pipeline approval                                                                                                           |
+| Approvals          | [mcp_ado_approvals_list_check_configurations](#mcp_ado_approvals_list_check_configurations)                   | List the checks on protected resources                                                                                               |
+| Approvals          | [mcp_ado_approvals_get_check_configuration](#mcp_ado_approvals_get_check_configuration)                       | Get one check configuration with its settings                                                                                        |
+| Approvals          | [mcp_ado_approvals_add_check_configuration](#mcp_ado_approvals_add_check_configuration)                       | Add a check, such as a required approval, to a protected resource                                                                    |
+| Approvals          | [mcp_ado_approvals_update_check_configuration](#mcp_ado_approvals_update_check_configuration)                 | Replace a check's settings or timeout                                                                                                |
+| Approvals          | [mcp_ado_approvals_delete_check_configuration](#mcp_ado_approvals_delete_check_configuration)                 | Remove a check from a protected resource                                                                                             |
+| Approvals          | [mcp_ado_approvals_get_check_run](#mcp_ado_approvals_get_check_run)                                           | Get the evaluation of the checks a stage is waiting on                                                                               |
+| Approvals          | [mcp_ado_approvals_get_pipeline_permissions](#mcp_ado_approvals_get_pipeline_permissions)                     | List which pipelines may use a protected resource, and whether every pipeline is allowed to                                          |
+| Approvals          | [mcp_ado_approvals_set_pipeline_permissions](#mcp_ado_approvals_set_pipeline_permissions)                     | Allow or deny pipelines the use of a protected resource                                                                              |
 | Service Endpoints  | [mcp_ado_serviceendpoint_list_service_endpoints](#mcp_ado_serviceendpoint_list_service_endpoints)             | List service connections                                                                                                             |
 | Service Endpoints  | [mcp_ado_serviceendpoint_get_service_endpoint](#mcp_ado_serviceendpoint_get_service_endpoint)                 | Get a single service connection                                                                                                      |
 | Service Endpoints  | [mcp_ado_serviceendpoint_create_service_endpoint](#mcp_ado_serviceendpoint_create_service_endpoint)           | Create a service connection                                                                                                          |
@@ -3515,6 +3523,62 @@ Act on a pipeline approval: approve, reject, defer or reassign it.
 
 - **Required**: `project`, `approvalId`, `status` (`approved` \| `rejected` \| `deferred` \| `pending`)
 - **Optional**: `comment`, `deferredTo`, `reassignTo`
+
+### mcp_ado_approvals_list_check_configurations
+
+List the checks on protected resources — approvals, branch control, business hours, Azure Function or REST API calls — that a stage must pass before it may use them.
+
+- **Required**: `project`, `resources`
+- **Optional**: `includeSettings`
+
+### mcp_ado_approvals_get_check_configuration
+
+Get one check configuration with its settings.
+
+- **Required**: `project`, `checkId`
+- **Optional**: None
+
+### mcp_ado_approvals_add_check_configuration
+
+Add a check to a protected resource, such as requiring an approval before any pipeline deploys to a production environment. It applies to every run that uses the resource from then on; an approval check has type `8C6F20A7-A545-4486-9777-F762FAFE0D4D`.
+
+- **Required**: `project`, `resourceType` (`environment` \| `endpoint` \| `queue` \| `variablegroup` \| `securefile` \| `repository`), `resourceId`, `checkTypeId`, `settings`
+- **Optional**: `timeoutMinutes`
+
+### mcp_ado_approvals_update_check_configuration
+
+Replace a check's settings or timeout, such as the approvers of an approval check. Pass the complete settings, not only the changed part.
+
+- **Required**: `project`, `checkId`, `resourceType` (`environment` \| `endpoint` \| `queue` \| `variablegroup` \| `securefile` \| `repository`), `resourceId`, `checkTypeId`, `settings`
+- **Optional**: `timeoutMinutes`
+
+### mcp_ado_approvals_delete_check_configuration
+
+Remove a check from a protected resource.
+
+- **Required**: `project`, `checkId`
+- **Optional**: None
+
+### mcp_ado_approvals_get_check_run
+
+Get the evaluation of the checks a stage is waiting on: each check's status and result.
+
+- **Required**: `project`, `checkSuiteId`
+- **Optional**: `includeResources`
+
+### mcp_ado_approvals_get_pipeline_permissions
+
+List which pipelines may use a protected resource, and whether every pipeline is allowed to.
+
+- **Required**: `project`, `resourceType` (`environment` \| `endpoint` \| `queue` \| `variablegroup` \| `securefile` \| `repository`), `resourceId`
+- **Optional**: None
+
+### mcp_ado_approvals_set_pipeline_permissions
+
+Allow or deny pipelines the use of a protected resource — individually, or all pipelines of the project at once.
+
+- **Required**: `project`, `resourceType` (`environment` \| `endpoint` \| `queue` \| `variablegroup` \| `securefile` \| `repository`), `resourceId`
+- **Optional**: `allPipelinesAuthorized`, `pipelines`
 
 ## Service Endpoints
 
