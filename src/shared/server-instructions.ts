@@ -24,7 +24,7 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
     Domain.REPOSITORIES,
     "repo_ — Git: repositories and their recycle bin, branches and branch locks, tags, file contents, commits, pull requests, reviewers, labels, comment threads, commit and pull request statuses, cherry-picks and reverts.",
   ],
-  [Domain.PIPELINES, "pipelines_ — builds and YAML pipelines: definitions, runs, logs, timelines, artifacts, tags."],
+  [Domain.PIPELINES, "pipelines_ — builds and YAML pipelines: definitions and their folders, runs, logs, timelines, artifacts, tags, retention leases."],
   [Domain.RELEASE, "release_ — classic release pipelines: definitions, releases, environments, approvals."],
   [Domain.SEARCH, "search_ — full-text search across code, wikis and work items."],
   [Domain.WIKI, "wiki_ — wikis and their pages."],

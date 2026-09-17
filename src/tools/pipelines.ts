@@ -5,13 +5,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { apiVersion, getEnumKeys, safeEnumConvert } from "../utils.js";
 import { WebApi } from "azure-devops-node-api";
-import { BuildQueryOrder, DefinitionQueryOrder, Build, BuildStatus, TaskResult } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
+import { BuildQueryOrder, DefinitionQueryOrder, Build, BuildDefinition, BuildStatus, FolderQueryOrder, TaskResult } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
 import { z } from "zod";
 import { StageUpdateType } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
 import { ConfigurationType, RepositoryType } from "azure-devops-node-api/interfaces/PipelinesInterfaces.js";
 import { mkdirSync, createWriteStream } from "fs";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { join, posix, resolve, win32 } from "path";
+import { requiredProject } from "../shared/common-params.js";
 
 const PIPELINE_TOOLS = {
   pipelines_get_builds: "pipelines_get_builds",
@@ -36,7 +37,23 @@ const PIPELINE_TOOLS = {
   pipelines_get_build_tags: "pipelines_get_build_tags",
   pipelines_add_build_tag: "pipelines_add_build_tag",
   pipelines_delete_build_tag: "pipelines_delete_build_tag",
+  pipelines_create_build_definition: "pipelines_create_build_definition",
+  pipelines_update_build_definition: "pipelines_update_build_definition",
+  pipelines_list_retention_leases: "pipelines_list_retention_leases",
+  pipelines_add_retention_lease: "pipelines_add_retention_lease",
+  pipelines_update_retention_lease: "pipelines_update_retention_lease",
+  pipelines_delete_retention_leases: "pipelines_delete_retention_leases",
+  pipelines_list_folders: "pipelines_list_folders",
+  pipelines_create_folder: "pipelines_create_folder",
+  pipelines_update_folder: "pipelines_update_folder",
+  pipelines_delete_folder: "pipelines_delete_folder",
 };
+
+/** Pipeline folders are backslash paths rooted at '\\'; accept 'infra/docker' and '/infra/docker' too. */
+function folderPath(path: string): string {
+  const normalized = path.replace(/\//g, "\\").replace(/\\+$/, "");
+  return normalized.startsWith("\\") ? normalized : `\\${normalized}`;
+}
 
 function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
   registerTool(
@@ -868,6 +885,242 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error deleting build tag: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
+  const failed = (action: string, error: unknown) => ({
+    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
+    isError: true,
+  });
+  const definitionParam = z
+    .record(z.string(), z.unknown())
+    .describe("The complete build definition as JSON, in the shape pipelines_get_build_definition returns (name, path, process, repository, queue, variables, triggers, …).");
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_create_build_definition,
+    "Create a build definition from a complete definition object. For a new YAML pipeline, pipelines_create_pipeline needs far less input. To copy an existing definition, read it with pipelines_get_build_definition, change its name (and path), drop id, revision and url, and pass the result here.",
+    {
+      project: requiredProject,
+      definition: definitionParam,
+    },
+    async ({ project, definition }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const created = await buildApi.createDefinition(definition as BuildDefinition, project);
+        return ok(created);
+      } catch (error) {
+        return failed("creating build definition", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_update_build_definition,
+    "Replace a build definition — rename it, move it to another folder, change its variables, triggers, YAML path, agent queue or any other setting. The API takes the whole definition, not a patch: read it with pipelines_get_build_definition, change what you need and send all of it back. Its revision must still be the latest, otherwise the update is rejected so that someone else's change is not overwritten.",
+    {
+      project: requiredProject,
+      definitionId: z.coerce.number().min(1).describe("ID of the build definition to update."),
+      definition: definitionParam,
+    },
+    async ({ project, definitionId, definition }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const updated = await buildApi.updateDefinition(definition as BuildDefinition, project, definitionId);
+        return ok(updated);
+      } catch (error) {
+        return failed(`updating build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_list_retention_leases,
+    "List the retention leases that keep runs from being deleted by retention policies. Azure DevOps adds its own leases (owners 'Pipeline:<id>', 'Branch:…', 'Build:…'); leases added by people usually have the owner 'User:<id>'. Filter by pipeline, run or owner.",
+    {
+      project: requiredProject,
+      definitionId: z.coerce.number().min(1).optional().describe("Only leases on runs of this pipeline (build definition)."),
+      runId: z.coerce.number().min(1).optional().describe("Only leases on this run (build ID)."),
+      ownerId: z.string().optional().describe("Only leases with exactly this owner, e.g. 'User:<identity GUID>' or 'Pipeline:12'."),
+    },
+    async ({ project, definitionId, runId, ownerId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const leases = await buildApi.getRetentionLeasesByOwnerId(project, ownerId, definitionId, runId);
+        return ok(leases);
+      } catch (error) {
+        return failed("listing retention leases", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_add_retention_lease,
+    "Keep a run from being deleted by retention policies for a number of days, e.g. a release that must stay auditable. The same run can hold several leases; it is kept while any of them is valid.",
+    {
+      project: requiredProject,
+      definitionId: z.coerce.number().min(1).describe("ID of the pipeline (build definition) the run belongs to."),
+      runId: z.coerce.number().min(1).describe("ID of the run (build ID) to retain."),
+      ownerId: z.string().describe("Who holds the lease, used to find and remove it later. By convention 'User:<identity GUID>' for a person; any string is accepted."),
+      daysValid: z.coerce.number().min(1).describe("How many days to keep the run. 36500 keeps it effectively forever, as 'Retain' in the web UI does."),
+      protectPipeline: z.boolean().default(false).describe("Also stop the pipeline itself from being deleted while this lease is valid."),
+    },
+    async ({ project, definitionId, runId, ownerId, daysValid, protectPipeline }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const leases = await buildApi.addRetentionLeases([{ definitionId, runId, ownerId, daysValid, protectPipeline }], project);
+        return ok(leases);
+      } catch (error) {
+        return failed(`adding a retention lease on run ${runId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_update_retention_lease,
+    "Change how long a retention lease lasts, counted from now, or whether it also protects the pipeline.",
+    {
+      project: requiredProject,
+      leaseId: z.coerce.number().min(1).describe("ID of the lease, as listed by pipelines_list_retention_leases."),
+      daysValid: z.coerce.number().min(1).optional().describe("New validity in days from now."),
+      protectPipeline: z.boolean().optional().describe("Whether the lease also stops the pipeline from being deleted."),
+    },
+    async ({ project, leaseId, daysValid, protectPipeline }) => {
+      if (daysValid === undefined && protectPipeline === undefined) {
+        return { content: [{ type: "text", text: "Nothing to update: give daysValid, protectPipeline or both." }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const lease = await buildApi.updateRetentionLease({ daysValid, protectPipeline }, project, leaseId);
+        return ok(lease);
+      } catch (error) {
+        return failed(`updating retention lease ${leaseId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_delete_retention_leases,
+    "Delete retention leases. A run with no valid lease left becomes subject to retention policies and may be deleted with its logs and artifacts. Leases owned by Azure DevOps itself ('Pipeline:…', 'Branch:…', 'Build:…') can be deleted too, so check the owner first.",
+    {
+      project: requiredProject,
+      leaseIds: z.array(z.coerce.number().min(1)).min(1).describe("IDs of the leases to delete."),
+    },
+    async ({ project, leaseIds }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        await buildApi.deleteRetentionLeasesById(project, leaseIds);
+        return ok({ deleted: leaseIds });
+      } catch (error) {
+        return failed("deleting retention leases", error);
+      }
+    }
+  );
+
+  const folderPathParam = (purpose: string) => z.string().describe(`${purpose} Written as '\\infra\\docker'; 'infra/docker' is accepted too.`);
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_list_folders,
+    "List the folders that pipelines are organized in.",
+    {
+      project: requiredProject,
+      path: z.string().optional().describe("Only this folder and the folders below it, e.g. '\\infra'. Omit for all folders."),
+      queryOrder: z
+        .enum(getEnumKeys(FolderQueryOrder) as [string, ...string[]])
+        .optional()
+        .describe("Sort order of the folders."),
+    },
+    async ({ project, path, queryOrder }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const folders = await buildApi.getFolders(project, path === undefined ? undefined : folderPath(path), safeEnumConvert(FolderQueryOrder, queryOrder));
+        return ok(folders);
+      } catch (error) {
+        return failed("listing pipeline folders", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_create_folder,
+    "Create a pipeline folder. Move a pipeline into it by changing the path of its definition with pipelines_update_build_definition.",
+    {
+      project: requiredProject,
+      path: folderPathParam("Full path of the new folder."),
+      description: z.string().optional().describe("Description of the folder."),
+    },
+    async ({ project, path, description }) => {
+      const fullPath = folderPath(path);
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const folder = await buildApi.createFolder({ path: fullPath, description }, project, fullPath);
+        return ok(folder);
+      } catch (error) {
+        return failed(`creating pipeline folder '${fullPath}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_update_folder,
+    "Rename or move a pipeline folder, or change its description. The pipelines and subfolders inside move with it.",
+    {
+      project: requiredProject,
+      path: folderPathParam("Current full path of the folder."),
+      newPath: z.string().optional().describe("New full path, e.g. '\\platform\\docker'. Omit to keep the folder where it is."),
+      description: z.string().optional().describe("New description of the folder."),
+    },
+    async ({ project, path, newPath, description }) => {
+      const fullPath = folderPath(path);
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const folder = await buildApi.updateFolder({ path: newPath === undefined ? fullPath : folderPath(newPath), description }, project, fullPath);
+        return ok(folder);
+      } catch (error) {
+        return failed(`updating pipeline folder '${fullPath}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_delete_folder,
+    "Delete a pipeline folder together with everything in it: its subfolders, every pipeline definition inside and all their runs. To keep the pipelines, move them out first by changing their path with pipelines_update_build_definition.",
+    {
+      project: requiredProject,
+      path: folderPathParam("Full path of the folder to delete. The root folder '\\' cannot be deleted."),
+    },
+    async ({ project, path }) => {
+      const fullPath = folderPath(path);
+      if (fullPath === "\\") {
+        return { content: [{ type: "text", text: "The root folder '\\' cannot be deleted." }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        await buildApi.deleteFolder(project, fullPath);
+        return ok({ deleted: fullPath });
+      } catch (error) {
+        return failed(`deleting pipeline folder '${fullPath}'`, error);
       }
     }
   );
