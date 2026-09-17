@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     649 | 63% |
+| Потрібні області      |     1024 |     654 | 64% |
 | Свідомо не покриваємо |      167 |      24 |   — |
 
 ## Прогрес
@@ -29,6 +29,7 @@
 | 2026-09-17 |          573 |              601 | 1024 | 59% | Погодження й перевірки, PR #87                    |
 | 2026-09-17 |          602 |              630 | 1024 | 62% | Service hooks, service connections, graph, PR #88 |
 | 2026-09-17 |          614 |              649 | 1024 | 63% | Advanced Security, PR #89                         |
+| 2026-09-17 |          620 |              654 | 1024 | 64% | Wiki, PR #90                                      |
 
 <!-- history:end -->
 
@@ -49,7 +50,7 @@
 - [x] **Погодження й перевірки** (~10 з 12) — PR #87: +9 операцій; лишилися запуск і оновлення оцінки перевірок (службові) і пакетна зміна дозволів: конфігурації перевірок, дозволи пайплайнів на ресурси
 - [x] **Service hooks, service connections, graph** (~25) — PR #88: +29 операцій; лишилися аватари, прив'язка користувача до іншого, query-варіанти hooks, окремі get-и дій споживача й типу подій, proxy запитів через підключення: service principals, створення й видалення груп, пошук і розв'язання дескрипторів, історія доставки й діагностика підписок, типи підключень, спільний доступ до підключення, історія його використання
 - [x] **Advanced Security** (~15 з 27) — PR #89: +19 операцій; лишилися збережені фільтри (dl-sol відповідає 403 без увімкненого Advanced Security), пакетні запити алертів і метаданих: закриття й повторне відкриття алертів, їх екземпляри й метадані, гілки зі сканами, видалення аналізу пайплайна, стан увімкнення й оцінка оплачуваних комітерів на рівні організації, проєкту й репозиторію, облік використання, зведення по організації
-- [ ] **Wiki** (5): зміна й видалення wiki, вкладення, переміщення сторінок, статистика переглядів
+- [x] **Wiki** (5) — PR #90: область покрита повністю (15 з 15); окремим інструментом додано й видалення сторінки, яке звіт зараховував через інший виклик на тому ж шляху: зміна й видалення wiki, вкладення, переміщення сторінок, статистика переглядів
 - [ ] Переглянути **testResults** (85): більшість — службові операції log store і вкладень; відібрати корисне
 
 <!-- plan:end -->
@@ -79,7 +80,6 @@
 | Користувачі й групи (`graph`)                              |       28 |      22 |  79% |         6 |                                                              |
 | Дашборди (`dashboard`)                                     |       16 |      11 |  69% |         5 |                                                              |
 | Імпорт/експорт процесів (`processadmin`)                   |        5 |       0 |   0% |         5 |                                                              |
-| Wiki (`wiki`)                                              |       15 |      10 |  67% |         5 |                                                              |
 | Звіти про права (`permissionsReport`)                      |        4 |       0 |   0% |         4 |                                                              |
 | YAML-пайплайни (`pipelines`)                               |       10 |       6 |  60% |         4 |                                                              |
 | Кастомізація процесів (`processes`)                        |       57 |      53 |  93% |         4 |                                                              |
@@ -93,6 +93,7 @@
 | Асинхронні операції (`operations`)                         |        1 |       1 | 100% |         0 |                                                              |
 | Політики гілок (`policy`)                                  |       12 |      12 | 100% |         0 |                                                              |
 | Тест-плани (`testPlan`)                                    |       44 |      44 | 100% |         0 |                                                              |
+| Wiki (`wiki`)                                              |       15 |      15 | 100% |         0 |                                                              |
 | processDefinitions (`processDefinitions`)                  |       45 |       0 |    — |        45 | XML-процеси (лише 4.1) — замінені успадкованими процесами    |
 | test (`test`)                                              |       40 |      14 |    — |        26 | старий Test API — перекритий testPlan і testResults          |
 | release (`release`)                                        |       32 |       9 |    — |        23 | класичні релізи — застарілий механізм, свідомо відкладено    |
@@ -604,19 +605,6 @@
 | Processes | GET   | `work/processadmin/processes/export/{id}` | Returns requested process template.                                   |
 | Processes | POST  | `work/processadmin/processes/import`      | Imports a process from zip file.                                      |
 | Processes | GET   | `work/processadmin/processes/status/{id}` | Tells whether promote has completed for the specified promote job ID. |
-
-</details>
-
-<details>
-<summary>Wiki — 5 з 15</summary>
-
-| Група       | Метод  | Шлях                                               | Що робить                                                                                                |
-| ----------- | ------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Attachments | PUT    | `wiki/wikis/{wikiIdentifier}/attachments`          | Creates an attachment in the wiki.                                                                       |
-| Page Moves  | POST   | `wiki/wikis/{wikiIdentifier}/pagemoves`            | Creates a page move operation that updates the path and order of the page as provided in the parameters. |
-| Page Stats  | GET    | `wiki/wikis/{wikiIdentifier}/pages/{pageId}/stats` | Returns page detail corresponding to Page ID.                                                            |
-| Wikis       | PATCH  | `wiki/wikis/{wikiIdentifier}`                      | Updates the wiki corresponding to the wiki ID or wiki name provided using the update parameters.         |
-| Wikis       | DELETE | `wiki/wikis/{wikiIdentifier}`                      | Deletes the wiki corresponding to the wiki ID or wiki name provided.                                     |
 
 </details>
 

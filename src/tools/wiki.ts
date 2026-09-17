@@ -9,6 +9,8 @@ import { WikiPagesBatchRequest, WikiCreateParametersV2, WikiType } from "azure-d
 import { GitVersionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { apiVersion, extractAdoStreamError, getOrgFromUrl } from "../utils.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
+import { adoFetch } from "../shared/ado-rest.js";
+import { requiredProject } from "../shared/common-params.js";
 
 const WIKI_TOOLS = {
   list_wikis: "wiki_list_wikis",
@@ -18,6 +20,12 @@ const WIKI_TOOLS = {
   get_wiki_page_content: "wiki_get_page_content",
   create_or_update_page: "wiki_create_or_update_page",
   create_wiki: "wiki_create_wiki",
+  update_wiki: "wiki_update_wiki",
+  delete_wiki: "wiki_delete_wiki",
+  delete_page: "wiki_delete_page",
+  move_page: "wiki_move_page",
+  upload_attachment: "wiki_upload_attachment",
+  get_page_stats: "wiki_get_page_stats",
 };
 
 function configureWikiTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
@@ -499,6 +507,175 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
         };
       }
     }
+  );
+
+  async function call(action: string, run: () => Promise<string>) {
+    try {
+      return { content: [{ type: "text" as const, text: (await run()) || "Done." }] };
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+    }
+  }
+
+  // Page moves, page deletes and attachments have no azure-devops-node-api method, and the client
+  // turns a 404 into null and shifts view-stat days into local time, so these tools call REST directly.
+  async function rest(method: string, pathAndQuery: string, body?: unknown): Promise<string> {
+    const connection = await connectionProvider();
+    const token = await tokenProvider();
+    const baseUrl = connection.serverUrl.replace(/\/$/, "");
+    const response = await adoFetch({ url: `${baseUrl}/${pathAndQuery}`, method, token, userAgent: userAgentProvider(), body });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error(`${response.status}: ${text}`);
+    }
+    return text;
+  }
+
+  const wikiIdentifierParam = z.string().describe("The wiki name or ID.");
+  const versionParams = (params: URLSearchParams, branch: string | undefined) => {
+    if (branch) {
+      params.append("versionDescriptor.version", branch);
+      params.append("versionDescriptor.versionType", "branch");
+    }
+  };
+  const branchParam = z.string().optional().describe("For a code wiki: the published branch to change. The wiki's first version when omitted.");
+
+  registerTool(
+    server,
+    WIKI_TOOLS.update_wiki,
+    "Rename a wiki, or change which branches of a code wiki are published. versions replaces the whole list of published branches.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      name: z.string().optional().describe("The new name of the wiki."),
+      versions: z.array(z.string()).optional().describe("For a code wiki: every branch to publish, e.g. ['main', 'release/1.0']."),
+    },
+    async ({ project, wikiIdentifier, name, versions }) => {
+      if (name === undefined && !versions?.length) {
+        return { content: [{ type: "text", text: "Nothing to change: give name, versions or both." }], isError: true };
+      }
+      return call(`updating wiki ${wikiIdentifier}`, () =>
+        rest("PATCH", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}?api-version=${apiVersion}`, {
+          name,
+          versions: versions?.map((version) => ({ version, versionType: "branch" })),
+        })
+      );
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.delete_wiki,
+    "Delete a wiki. For a code wiki this unpublishes it; the repository and its files stay.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+    },
+    async ({ project, wikiIdentifier }) =>
+      call(`deleting wiki ${wikiIdentifier}`, () => rest("DELETE", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}?api-version=${apiVersion}`))
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.delete_page,
+    "Delete a wiki page by path or by ID. The deletion is a commit to the wiki's repository.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      path: z.string().optional().describe("The page path, e.g. '/Architecture/Overview'."),
+      pageId: z.coerce.number().min(1).optional().describe("The page ID, instead of path."),
+      comment: z.string().optional().describe("The commit comment."),
+      branch: branchParam,
+    },
+    async ({ project, wikiIdentifier, path, pageId, comment, branch }) => {
+      if ((path === undefined) === (pageId === undefined)) {
+        return { content: [{ type: "text", text: "Give exactly one of path or pageId." }], isError: true };
+      }
+      const params = new URLSearchParams({ "api-version": apiVersion });
+      if (comment) params.append("comment", comment);
+      return call(`deleting wiki page ${path ?? pageId}`, async () => {
+        if (pageId !== undefined) {
+          return rest("DELETE", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}/pages/${pageId}?${params.toString()}`);
+        }
+        params.append("path", path as string);
+        versionParams(params, branch);
+        return rest("DELETE", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}/pages?${params.toString()}`);
+      });
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.move_page,
+    "Move or rename a wiki page, or change its position among its siblings.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      path: z.string().describe("The current page path, e.g. '/Drafts/Overview'."),
+      newPath: z.string().describe("The new page path, e.g. '/Architecture/Overview'. The same as path to only reorder."),
+      newOrder: z.coerce.number().min(0).optional().describe("The position among the pages of the new parent, starting at 0."),
+      comment: z.string().optional().describe("The commit comment."),
+      branch: branchParam,
+    },
+    async ({ project, wikiIdentifier, path, newPath, newOrder, comment, branch }) => {
+      const params = new URLSearchParams({ "api-version": apiVersion });
+      if (comment) params.append("comment", comment);
+      versionParams(params, branch);
+      return call(`moving wiki page ${path}`, () =>
+        rest("POST", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}/pagemoves?${params.toString()}`, { path, newPath, newOrder })
+      );
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.upload_attachment,
+    "Upload a file to a wiki, e.g. an image for a page. Returns the attachment's path; reference it from page markdown as ![name](path).",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      name: z.string().describe("The file name, e.g. 'diagram.png'."),
+      contentBase64: z.string().describe("The file content, base64-encoded."),
+      branch: branchParam,
+    },
+    async ({ project, wikiIdentifier, name, contentBase64, branch }) => {
+      const params = new URLSearchParams({ "name": name, "api-version": apiVersion });
+      versionParams(params, branch);
+      return call(`uploading wiki attachment ${name}`, async () => {
+        const connection = await connectionProvider();
+        const token = await tokenProvider();
+        const baseUrl = connection.serverUrl.replace(/\/$/, "");
+        // The service expects the base64 text itself as the body, not the decoded bytes.
+        const response = await fetch(`${baseUrl}/${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}/attachments?${params.toString()}`, {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${token}`, "User-Agent": userAgentProvider(), "Content-Type": "application/octet-stream" },
+          body: contentBase64.replace(/\s/g, ""),
+        });
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(`${response.status}: ${text}`);
+        }
+        return text;
+      });
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.get_page_stats,
+    "Get how often a wiki page was viewed, per day.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: z.coerce.number().min(1).describe("The page ID."),
+      pageViewsForDays: z.coerce.number().min(1).max(30).optional().describe("How many days back, including today. Up to 30."),
+    },
+    async ({ project, wikiIdentifier, pageId, pageViewsForDays }) =>
+      call(`getting stats of wiki page ${pageId}`, () => {
+        const params = new URLSearchParams({ "api-version": apiVersion });
+        if (pageViewsForDays !== undefined) params.append("pageViewsForDays", String(pageViewsForDays));
+        return rest("GET", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}/pages/${pageId}/stats?${params.toString()}`);
+      })
   );
 }
 
