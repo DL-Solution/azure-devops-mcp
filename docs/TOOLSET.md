@@ -283,6 +283,12 @@
 | Wiki               | [mcp_ado_wiki_get_page_content](#mcp_ado_wiki_get_page_content)                                               | Retrieve wiki page content                                                                                                                            |
 | Wiki               | [mcp_ado_wiki_create_or_update_page](#mcp_ado_wiki_create_or_update_page)                                     | Create or update a wiki page                                                                                                                          |
 | Wiki               | [mcp_ado_wiki_create_wiki](#mcp_ado_wiki_create_wiki)                                                         | Provision a new wiki in a project                                                                                                                     |
+| Wiki               | [mcp_ado_wiki_update_wiki](#mcp_ado_wiki_update_wiki)                                                         | Rename a wiki, or change which branches of a code wiki are published                                                                                  |
+| Wiki               | [mcp_ado_wiki_delete_wiki](#mcp_ado_wiki_delete_wiki)                                                         | Delete a wiki                                                                                                                                         |
+| Wiki               | [mcp_ado_wiki_delete_page](#mcp_ado_wiki_delete_page)                                                         | Delete a wiki page by path or by ID                                                                                                                   |
+| Wiki               | [mcp_ado_wiki_move_page](#mcp_ado_wiki_move_page)                                                             | Move or rename a wiki page, or change its position among its siblings                                                                                 |
+| Wiki               | [mcp_ado_wiki_upload_attachment](#mcp_ado_wiki_upload_attachment)                                             | Upload a file to a wiki, e.g                                                                                                                          |
+| Wiki               | [mcp_ado_wiki_get_page_stats](#mcp_ado_wiki_get_page_stats)                                                   | Get how often a wiki page was viewed, per day                                                                                                         |
 | Test Plans         | [mcp_ado_testplan_list_test_plans](#mcp_ado_testplan_list_test_plans)                                         | List test plans in a project                                                                                                                          |
 | Test Plans         | [mcp_ado_testplan_create_test_plan](#mcp_ado_testplan_create_test_plan)                                       | Create a new test plan                                                                                                                                |
 | Test Plans         | [mcp_ado_testplan_create_test_suite](#mcp_ado_testplan_create_test_suite)                                     | Create a test suite within a test plan                                                                                                                |
@@ -2575,6 +2581,48 @@ Provision a new wiki in a project.
 
 - **Required**: `name`, `project`
 - **Optional**: `mappedPath`, `repositoryId`, `type` (`projectWiki` \| `codeWiki`), `version`
+
+### mcp_ado_wiki_update_wiki
+
+Rename a wiki, or change which branches of a code wiki are published.
+
+- **Required**: `project`, `wikiIdentifier`
+- **Optional**: `name`, `versions`
+
+### mcp_ado_wiki_delete_wiki
+
+Delete a wiki.
+
+- **Required**: `project`, `wikiIdentifier`
+- **Optional**: None
+
+### mcp_ado_wiki_delete_page
+
+Delete a wiki page by path or by ID.
+
+- **Required**: `project`, `wikiIdentifier`
+- **Optional**: `branch`, `comment`, `pageId`, `path`
+
+### mcp_ado_wiki_move_page
+
+Move or rename a wiki page, or change its position among its siblings.
+
+- **Required**: `project`, `wikiIdentifier`, `path`, `newPath`
+- **Optional**: `branch`, `comment`, `newOrder`
+
+### mcp_ado_wiki_upload_attachment
+
+Upload a file to a wiki, such as an image for a page. Returns the attachment's path; reference it from page markdown as `![name](path)`.
+
+- **Required**: `project`, `wikiIdentifier`, `name`, `contentBase64`
+- **Optional**: `branch`
+
+### mcp_ado_wiki_get_page_stats
+
+Get how often a wiki page was viewed, per day.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`
+- **Optional**: `pageViewsForDays`
 
 ## Test Plans
 
