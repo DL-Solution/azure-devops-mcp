@@ -46,6 +46,21 @@ const WIT_PROCESS_TOOLS = {
   create_picklist: "witprocess_create_picklist",
   update_picklist: "witprocess_update_picklist",
   delete_picklist: "witprocess_delete_picklist",
+  get_form_layout: "witprocess_get_form_layout",
+  add_page: "witprocess_add_page",
+  update_page: "witprocess_update_page",
+  remove_page: "witprocess_remove_page",
+  add_group: "witprocess_add_group",
+  update_group: "witprocess_update_group",
+  move_group: "witprocess_move_group",
+  remove_group: "witprocess_remove_group",
+  add_control: "witprocess_add_control",
+  update_control: "witprocess_update_control",
+  move_control: "witprocess_move_control",
+  remove_control: "witprocess_remove_control",
+  list_system_controls: "witprocess_list_system_controls",
+  update_system_control: "witprocess_update_system_control",
+  reset_system_control: "witprocess_reset_system_control",
 };
 
 const WORK_ITEM_TYPE_EXPAND_MAP: Record<string, GetWorkItemTypeExpand> = {
@@ -979,6 +994,369 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         return { content: [{ type: "text", text: `Error deleting picklist: ${errorMessage}` }], isError: true };
+      }
+    }
+  );
+
+  // Form layout. Only work item types of an inherited process have an editable
+  // layout; the system processes (Agile, Scrum, CMMI, Basic) answer VS403115.
+  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
+  const failed = (action: string, error: unknown) => ({
+    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
+    isError: true,
+  });
+  const processIdParam = z.string().describe("The ID (GUID) of an inherited process. System processes (Agile, Scrum, CMMI, Basic) cannot be customized.");
+  const witRefNameParam = z.string().describe("The reference name of the work item type, e.g. 'MyAgile.Bug'.");
+  const pageIdParam = z.string().describe("The page ID, as returned by witprocess_get_form_layout.");
+  const sectionIdParam = z.string().describe("The section ID within the page: 'Section1', 'Section2' or 'Section3', the page's columns from left to right.");
+  const groupIdParam = z.string().describe("The group ID, as returned by witprocess_get_form_layout.");
+  const labelParam = (what: string) => z.string().describe(`Label shown on the form for the ${what}.`);
+  const orderParam = z.coerce.number().min(0).optional().describe("Position among its siblings, starting at 0. Omit to append at the end.");
+  const visibleParam = z.boolean().optional().describe("Whether it is shown on the form.");
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.get_form_layout,
+    "Get the form layout of a work item type: its pages, each page's three sections (columns), the groups in them and the field controls in each group, plus the system controls in the header. Every other layout tool takes the IDs from here.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+    },
+    async ({ processId, witRefName }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.getFormLayout(processId, witRefName));
+      } catch (error) {
+        return failed(`fetching the form layout of '${witRefName}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.add_page,
+    "Add a page (tab) to a work item type's form. It starts empty; add groups to its sections with witprocess_add_group.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      label: labelParam("page"),
+      order: orderParam,
+      visible: visibleParam,
+    },
+    async ({ processId, witRefName, label, order, visible }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.addPage({ label, order, visible }, processId, witRefName));
+      } catch (error) {
+        return failed(`adding page '${label}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.update_page,
+    "Rename, reorder, show or hide a page of a work item type's form.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      pageId: pageIdParam,
+      label: z.string().optional().describe("New label of the page."),
+      order: orderParam,
+      visible: visibleParam,
+    },
+    async ({ processId, witRefName, pageId, label, order, visible }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.updatePage({ id: pageId, label, order, visible }, processId, witRefName));
+      } catch (error) {
+        return failed(`updating page '${pageId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.remove_page,
+    "Remove a custom page from a work item type's form, with its groups and controls. Fields and their values stay on the work items; they are just no longer shown there. Inherited pages cannot be removed — hide them with witprocess_update_page.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      pageId: pageIdParam,
+    },
+    async ({ processId, witRefName, pageId }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        await processApi.removePage(processId, witRefName, pageId);
+        return ok({ removed: pageId });
+      } catch (error) {
+        return failed(`removing page '${pageId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.add_group,
+    "Add a group (a titled box of fields) to a section of a form page. Put fields into it with witprocess_add_control.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      pageId: pageIdParam,
+      sectionId: sectionIdParam,
+      label: labelParam("group"),
+      order: orderParam,
+      visible: visibleParam,
+    },
+    async ({ processId, witRefName, pageId, sectionId, label, order, visible }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.addGroup({ label, order, visible }, processId, witRefName, pageId, sectionId));
+      } catch (error) {
+        return failed(`adding group '${label}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.update_group,
+    "Rename, reorder, show or hide a group on a form page.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      pageId: pageIdParam,
+      sectionId: sectionIdParam,
+      groupId: groupIdParam,
+      label: z.string().optional().describe("New label of the group."),
+      order: orderParam,
+      visible: visibleParam,
+    },
+    async ({ processId, witRefName, pageId, sectionId, groupId, label, order, visible }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.updateGroup({ id: groupId, label, order, visible }, processId, witRefName, pageId, sectionId, groupId));
+      } catch (error) {
+        return failed(`updating group '${groupId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.move_group,
+    "Move a group, with its controls, to another section of the same page or to a section of another page.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      pageId: z.string().describe("The page the group is on now."),
+      sectionId: z.string().describe("The section the group is in now."),
+      groupId: groupIdParam,
+      toSectionId: z.string().describe("The section to move the group into: 'Section1', 'Section2' or 'Section3'."),
+      toPageId: z.string().optional().describe("The page to move the group to. Omit to stay on the current page."),
+      order: orderParam,
+    },
+    async ({ processId, witRefName, pageId, sectionId, groupId, toSectionId, toPageId, order }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        const group = { id: groupId, order };
+        const moved =
+          toPageId && toPageId !== pageId
+            ? await processApi.moveGroupToPage(group, processId, witRefName, toPageId, toSectionId, groupId, pageId, sectionId)
+            : await processApi.moveGroupToSection(group, processId, witRefName, pageId, toSectionId, groupId, sectionId);
+        return ok(moved);
+      } catch (error) {
+        return failed(`moving group '${groupId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.remove_group,
+    "Remove a custom group from a form page. Inherited groups cannot be removed, only hidden with witprocess_update_group.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      pageId: pageIdParam,
+      sectionId: sectionIdParam,
+      groupId: groupIdParam,
+    },
+    async ({ processId, witRefName, pageId, sectionId, groupId }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        await processApi.removeGroup(processId, witRefName, pageId, sectionId, groupId);
+        return ok({ removed: groupId });
+      } catch (error) {
+        return failed(`removing group '${groupId}'`, error);
+      }
+    }
+  );
+
+  const controlIdParam = z.string().describe("The control ID, which for a field control is the field's reference name, e.g. 'Custom.Severity'.");
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.add_control,
+    "Show a field on the form by adding its control to a group. The field must already belong to the work item type — add it with witprocess_add_field_to_work_item_type first.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      groupId: groupIdParam,
+      fieldReferenceName: z.string().describe("Reference name of the field to show, e.g. 'Custom.Severity'. It becomes the control's ID."),
+      label: z.string().optional().describe("Label on the form. Omit to use the field's name."),
+      order: orderParam,
+      readOnly: z.boolean().optional().describe("Show the field without letting people edit it on the form."),
+      visible: visibleParam,
+      watermark: z.string().optional().describe("Placeholder text shown while the field is empty."),
+    },
+    async ({ processId, witRefName, groupId, fieldReferenceName, label, order, readOnly, visible, watermark }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.createControlInGroup({ id: fieldReferenceName, label, order, readOnly, visible, watermark }, processId, witRefName, groupId));
+      } catch (error) {
+        return failed(`adding control '${fieldReferenceName}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.update_control,
+    "Change how a control in a group is shown: label, position, read-only, visibility or placeholder text.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      groupId: groupIdParam,
+      controlId: controlIdParam,
+      label: z.string().optional().describe("New label on the form."),
+      order: orderParam,
+      readOnly: z.boolean().optional().describe("Whether the field is read-only on the form."),
+      visible: visibleParam,
+      watermark: z.string().optional().describe("Placeholder text shown while the field is empty."),
+    },
+    async ({ processId, witRefName, groupId, controlId, label, order, readOnly, visible, watermark }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.updateControl({ id: controlId, label, order, readOnly, visible, watermark }, processId, witRefName, groupId, controlId));
+      } catch (error) {
+        return failed(`updating control '${controlId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.move_control,
+    "Move a control from one group to another, on the same page or a different one.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      fromGroupId: z.string().describe("The group the control is in now."),
+      toGroupId: z.string().describe("The group to move the control into."),
+      controlId: controlIdParam,
+      order: orderParam,
+    },
+    async ({ processId, witRefName, fromGroupId, toGroupId, controlId, order }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.moveControlToGroup({ id: controlId, order }, processId, witRefName, toGroupId, controlId, fromGroupId));
+      } catch (error) {
+        return failed(`moving control '${controlId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.remove_control,
+    "Remove a control from a group, so the field is no longer shown on the form. The field stays on the work item type and keeps its values. Inherited controls cannot be removed, only hidden with witprocess_update_control.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      groupId: groupIdParam,
+      controlId: controlIdParam,
+    },
+    async ({ processId, witRefName, groupId, controlId }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        await processApi.removeControlFromGroup(processId, witRefName, groupId, controlId);
+        return ok({ removed: controlId, groupId });
+      } catch (error) {
+        return failed(`removing control '${controlId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.list_system_controls,
+    "List the system controls of a work item type — the fixed header fields such as Area Path, Iteration Path, Reason and State — with their current labels and visibility.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+    },
+    async ({ processId, witRefName }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.getSystemControls(processId, witRefName));
+      } catch (error) {
+        return failed(`listing system controls of '${witRefName}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.update_system_control,
+    "Relabel, show or hide a system control in the form header, e.g. hide 'System.Reason'. Undo it with witprocess_reset_system_control.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      controlId: z.string().describe("The system control ID, e.g. 'System.AreaPath', as listed by witprocess_list_system_controls."),
+      label: z.string().optional().describe("New label in the header."),
+      visible: visibleParam,
+    },
+    async ({ processId, witRefName, controlId, label, visible }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.updateSystemControl({ id: controlId, label, visible }, processId, witRefName, controlId));
+      } catch (error) {
+        return failed(`updating system control '${controlId}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    WIT_PROCESS_TOOLS.reset_system_control,
+    "Undo the changes made to a system control, restoring the label and visibility the parent process gives it.",
+    {
+      processId: processIdParam,
+      witRefName: witRefNameParam,
+      controlId: z.string().describe("The system control ID, e.g. 'System.AreaPath'."),
+    },
+    async ({ processId, witRefName, controlId }) => {
+      try {
+        const connection = await connectionProvider();
+        const processApi = await connection.getWorkItemTrackingProcessApi();
+        return ok(await processApi.deleteSystemControl(processId, witRefName, controlId));
+      } catch (error) {
+        return failed(`resetting system control '${controlId}'`, error);
       }
     }
   );
