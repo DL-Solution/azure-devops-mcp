@@ -39,6 +39,8 @@ describe("categorizeTool", () => {
   // Granting a deny bit can lock everyone out, so clients must confirm it.
   it("treats setting ACL entries as destructive despite the 'set' verb", () => {
     expect(categorizeTool("permissions_set_access_control_entries")).toBe("destructive");
+    expect(categorizeTool("artifacts_set_feed_permissions")).toBe("destructive");
+    expect(categorizeTool("artifacts_set_global_permissions")).toBe("destructive");
   });
 });
 

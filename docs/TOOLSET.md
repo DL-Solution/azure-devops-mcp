@@ -319,6 +319,36 @@
 | Artifacts          | [mcp_ado_artifacts_get_feed](#mcp_ado_artifacts_get_feed)                                                 | Get a single Azure Artifacts feed by its ID or name                                                                   |
 | Artifacts          | [mcp_ado_artifacts_create_feed](#mcp_ado_artifacts_create_feed)                                           | Create a new Azure Artifacts feed in the organization                                                                 |
 | Artifacts          | [mcp_ado_artifacts_list_packages](#mcp_ado_artifacts_list_packages)                                       | List packages in an Azure Artifacts feed, optionally filtered by protocol or name                                     |
+| Artifacts          | [mcp_ado_artifacts_update_feed](#mcp_ado_artifacts_update_feed)                                           | Change a feed's settings                                                                                              |
+| Artifacts          | [mcp_ado_artifacts_delete_feed](#mcp_ado_artifacts_delete_feed)                                           | Delete a feed with all of its packages                                                                                |
+| Artifacts          | [mcp_ado_artifacts_list_deleted_feeds](#mcp_ado_artifacts_list_deleted_feeds)                             | List the feeds in the recycle bin, with when each was deleted and when it will be erased for good                     |
+| Artifacts          | [mcp_ado_artifacts_restore_feed](#mcp_ado_artifacts_restore_feed)                                         | Restore a deleted feed and all of its packages from the recycle bin                                                   |
+| Artifacts          | [mcp_ado_artifacts_destroy_feed](#mcp_ado_artifacts_destroy_feed)                                         | Permanently erase a feed that is in the recycle bin, with every package it held                                       |
+| Artifacts          | [mcp_ado_artifacts_get_feed_permissions](#mcp_ado_artifacts_get_feed_permissions)                         | List who has which role on a feed                                                                                     |
+| Artifacts          | [mcp_ado_artifacts_set_feed_permissions](#mcp_ado_artifacts_set_feed_permissions)                         | Give identities a role on a feed, or remove their role with 'none'                                                    |
+| Artifacts          | [mcp_ado_artifacts_get_global_permissions](#mcp_ado_artifacts_get_global_permissions)                     | List who may create feeds and who administers all feeds in the organization                                           |
+| Artifacts          | [mcp_ado_artifacts_set_global_permissions](#mcp_ado_artifacts_set_global_permissions)                     | Set who may create feeds and who administers every feed in the organization                                           |
+| Artifacts          | [mcp_ado_artifacts_list_feed_views](#mcp_ado_artifacts_list_feed_views)                                   | List a feed's views, such as @Local, @Prerelease and @Release                                                         |
+| Artifacts          | [mcp_ado_artifacts_create_feed_view](#mcp_ado_artifacts_create_feed_view)                                 | Create a release view on a feed                                                                                       |
+| Artifacts          | [mcp_ado_artifacts_update_feed_view](#mcp_ado_artifacts_update_feed_view)                                 | Rename a feed view or change who may read it                                                                          |
+| Artifacts          | [mcp_ado_artifacts_delete_feed_view](#mcp_ado_artifacts_delete_feed_view)                                 | Delete a view from a feed                                                                                             |
+| Artifacts          | [mcp_ado_artifacts_get_retention_policy](#mcp_ado_artifacts_get_retention_policy)                         | Get a feed's retention policy                                                                                         |
+| Artifacts          | [mcp_ado_artifacts_set_retention_policy](#mcp_ado_artifacts_set_retention_policy)                         | Set a feed's retention policy                                                                                         |
+| Artifacts          | [mcp_ado_artifacts_delete_retention_policy](#mcp_ado_artifacts_delete_retention_policy)                   | Remove a feed's retention policy, so package versions are kept until someone deletes them                             |
+| Artifacts          | [mcp_ado_artifacts_list_package_changes](#mcp_ado_artifacts_list_package_changes)                         | List package changes in a feed                                                                                        |
+| Artifacts          | [mcp_ado_artifacts_get_package](#mcp_ado_artifacts_get_package)                                           | Get one package of a feed by its ID, with its latest version or all of them                                           |
+| Artifacts          | [mcp_ado_artifacts_list_package_versions](#mcp_ado_artifacts_list_package_versions)                       | List the versions of a package, with the views each is in, whether it is listed, and when it was published            |
+| Artifacts          | [mcp_ado_artifacts_get_package_version](#mcp_ado_artifacts_get_package_version)                           | Get one version of a package by ID                                                                                    |
+| Artifacts          | [mcp_ado_artifacts_get_package_version_provenance](#mcp_ado_artifacts_get_package_version_provenance)     | Get the provenance of a package version                                                                               |
+| Artifacts          | [mcp_ado_artifacts_get_package_metrics](#mcp_ado_artifacts_get_package_metrics)                           | Get download counts and unique users for packages, or for the versions of one package when packageId is given         |
+| Artifacts          | [mcp_ado_artifacts_list_deleted_packages](#mcp_ado_artifacts_list_deleted_packages)                       | List packages in a feed's recycle bin, or the deleted versions of one package when packageId is given                 |
+| Artifacts          | [mcp_ado_artifacts_get_package_version_by_name](#mcp_ado_artifacts_get_package_version_by_name)           | Get a package version by protocol, name and version number rather than by IDs                                         |
+| Artifacts          | [mcp_ado_artifacts_update_package_version](#mcp_ado_artifacts_update_package_version)                     | Promote a package version into a view, unlist it or deprecate it                                                      |
+| Artifacts          | [mcp_ado_artifacts_delete_package_version](#mcp_ado_artifacts_delete_package_version)                     | Delete a package version into the recycle bin                                                                         |
+| Artifacts          | [mcp_ado_artifacts_restore_package_version](#mcp_ado_artifacts_restore_package_version)                   | Restore a deleted package version from the feed's recycle bin                                                         |
+| Artifacts          | [mcp_ado_artifacts_destroy_package_version](#mcp_ado_artifacts_destroy_package_version)                   | Permanently erase a package version that is in the recycle bin                                                        |
+| Artifacts          | [mcp_ado_artifacts_get_upstreaming_behavior](#mcp_ado_artifacts_get_upstreaming_behavior)                 | Get whether a package may take versions from external upstream sources                                                |
+| Artifacts          | [mcp_ado_artifacts_set_upstreaming_behavior](#mcp_ado_artifacts_set_upstreaming_behavior)                 | Set whether a package may take versions from external upstream sources                                                |
 | Advanced Security  | [mcp_ado_advsec_get_alerts](#mcp_ado_advsec_get_alerts)                                                   | Retrieve Advanced Security alerts for a repository                                                                    |
 | Advanced Security  | [mcp_ado_advsec_get_alert_details](#mcp_ado_advsec_get_alert_details)                                     | Get detailed information about a specific security alert                                                              |
 | Process            | [mcp_ado_witprocess_list_processes](#mcp_ado_witprocess_list_processes)                                   | List processes                                                                                                        |
@@ -2655,6 +2685,216 @@ List packages in an Azure Artifacts feed, optionally filtered by protocol or nam
 
 - **Required**: `feedId`
 - **Optional**: `packageNameQuery`, `project`, `protocolType`, `top`
+
+### mcp_ado_artifacts_update_feed
+
+Change a feed's settings: rename it, change its description, turn upstream sources on or off, replace the list of upstream sources, or hide deleted package versions.
+
+- **Required**: `feedId`
+- **Optional**: `badgesEnabled`, `description`, `hideDeletedPackageVersions`, `name`, `project`, `upstreamEnabled`, `upstreamSources`
+
+### mcp_ado_artifacts_delete_feed
+
+Delete a feed with all of its packages. It stays in the feed recycle bin for 30 days and can be restored with `artifacts_restore_feed`; meanwhile every build and client that uses it fails to restore packages.
+
+- **Required**: `feedId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_list_deleted_feeds
+
+List the feeds in the recycle bin, with when each was deleted and when it will be erased for good.
+
+- **Required**: None
+- **Optional**: `project`
+
+### mcp_ado_artifacts_restore_feed
+
+Restore a deleted feed and all of its packages from the recycle bin.
+
+- **Required**: `feedId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_destroy_feed
+
+Permanently erase a feed that is in the recycle bin, with every package it held.
+
+- **Required**: `feedId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_get_feed_permissions
+
+List who has which role on a feed: reader (install), collaborator (also save packages from upstreams), contributor (also publish), administrator.
+
+- **Required**: `feedId`
+- **Optional**: `excludeInheritedPermissions`, `identityDescriptor`, `includeIds`, `project`
+
+### mcp_ado_artifacts_set_feed_permissions
+
+Give identities a role on a feed, or remove their role with 'none'.
+
+- **Required**: `feedId`, `permissions`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_get_global_permissions
+
+List who may create feeds and who administers all feeds in the organization.
+
+- **Required**: None
+- **Optional**: None
+
+### mcp_ado_artifacts_set_global_permissions
+
+Set who may create feeds ('feedCreator') and who administers every feed ('administrator') across the organization.
+
+- **Required**: `permissions`
+- **Optional**: None
+
+### mcp_ado_artifacts_list_feed_views
+
+List a feed's views, such as @Local, @Prerelease and @Release.
+
+- **Required**: `feedId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_create_feed_view
+
+Create a release view on a feed, such as Beta. Package versions are promoted into it with `artifacts_update_package_version`.
+
+- **Required**: `feedId`, `name`
+- **Optional**: `project`, `visibility` (`private` \| `collection` \| `organization` \| `aadTenant`)
+
+### mcp_ado_artifacts_update_feed_view
+
+Rename a feed view or change who may read it.
+
+- **Required**: `feedId`, `viewId`
+- **Optional**: `name`, `project`, `visibility` (`private` \| `collection` \| `organization` \| `aadTenant`)
+
+### mcp_ado_artifacts_delete_feed_view
+
+Delete a view from a feed.
+
+- **Required**: `feedId`, `viewId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_get_retention_policy
+
+Get a feed's retention policy: how many versions of each package are kept and for how long recently downloaded versions are spared.
+
+- **Required**: `feedId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_set_retention_policy
+
+Set a feed's retention policy.
+
+- **Required**: `feedId`, `countLimit`
+- **Optional**: `daysToKeepRecentlyDownloadedPackages`, `project`
+
+### mcp_ado_artifacts_delete_retention_policy
+
+Remove a feed's retention policy, so package versions are kept until someone deletes them.
+
+- **Required**: `feedId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_list_package_changes
+
+List package changes in a feed — publishes, deletions, promotions — in batches.
+
+- **Required**: `feedId`
+- **Optional**: `batchSize`, `continuationToken`, `project`
+
+### mcp_ado_artifacts_get_package
+
+Get one package of a feed by its ID, with its latest version or all of them.
+
+- **Required**: `feedId`, `packageId`
+- **Optional**: `includeAllVersions`, `includeDeleted`, `project`
+
+### mcp_ado_artifacts_list_package_versions
+
+List the versions of a package, with the views each is in, whether it is listed, and when it was published.
+
+- **Required**: `feedId`, `packageId`
+- **Optional**: `isDeleted`, `isListed`, `project`
+
+### mcp_ado_artifacts_get_package_version
+
+Get one version of a package by ID: its author, views, dependencies, files, tags and where it came from (sourceChain).
+
+- **Required**: `feedId`, `packageId`, `packageVersionId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_get_package_version_provenance
+
+Get the provenance of a package version: who or what published it (for example a pipeline run, with its details) and with which client.
+
+- **Required**: `feedId`, `packageId`, `packageVersionId`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_get_package_metrics
+
+Get download counts and unique users for packages, or for the versions of one package when packageId is given.
+
+- **Required**: `feedId`
+- **Optional**: `packageId`, `packageIds`, `packageVersionIds`, `project`
+
+### mcp_ado_artifacts_list_deleted_packages
+
+List packages in a feed's recycle bin, or the deleted versions of one package when packageId is given.
+
+- **Required**: `feedId`
+- **Optional**: `packageId`, `packageNameQuery`, `project`, `protocolType`, `top`
+
+### mcp_ado_artifacts_get_package_version_by_name
+
+Get a package version by protocol, name and version number rather than by IDs: whether it is listed or deleted, its views and publish date.
+
+- **Required**: `feedId`, `protocol` (`nuget` \| `npm` \| `pypi` \| `maven` \| `upack` \| `cargo`), `packageName`, `version`
+- **Optional**: `fromRecycleBin`, `project`
+
+### mcp_ado_artifacts_update_package_version
+
+Change a package version: promote it into a view such as Release, unlist or relist it (NuGet only), or deprecate it with a message (npm only; an empty message undeprecates).
+
+- **Required**: `feedId`, `protocol` (`nuget` \| `npm` \| `pypi` \| `maven` \| `upack` \| `cargo`), `packageName`, `version`
+- **Optional**: `deprecateMessage`, `listed`, `project`, `promoteToView`
+
+### mcp_ado_artifacts_delete_package_version
+
+Delete a package version (for npm, unpublish). It moves to the feed's recycle bin, from which `artifacts_restore_package_version` brings it back; clients cannot install it meanwhile.
+
+- **Required**: `feedId`, `protocol` (`nuget` \| `npm` \| `pypi` \| `maven` \| `upack` \| `cargo`), `packageName`, `version`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_restore_package_version
+
+Restore a deleted package version from the feed's recycle bin.
+
+- **Required**: `feedId`, `protocol` (`nuget` \| `npm` \| `pypi` \| `maven` \| `upack` \| `cargo`), `packageName`, `version`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_destroy_package_version
+
+Permanently erase a package version that is in the recycle bin. This cannot be undone, and the same version number can never be published to the feed again.
+
+- **Required**: `feedId`, `protocol` (`nuget` \| `npm` \| `pypi` \| `maven` \| `upack` \| `cargo`), `packageName`, `version`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_get_upstreaming_behavior
+
+Get whether a package may take versions from external upstream sources such as nuget.org or npmjs once the feed holds a version of its own.
+
+- **Required**: `feedId`, `protocol` (`nuget` \| `npm` \| `pypi` \| `maven` \| `cargo`), `packageName`
+- **Optional**: `project`
+
+### mcp_ado_artifacts_set_upstreaming_behavior
+
+Set whether a package may take versions from external upstream sources. `auto` blocks external versions once the feed holds a version of its own, which protects against dependency confusion; `allowExternalVersions` lifts the block.
+
+- **Required**: `feedId`, `protocol` (`nuget` \| `npm` \| `pypi` \| `maven` \| `cargo`), `packageName`, `versionsFromExternalUpstreams` (`auto` \| `allowExternalVersions`)
+- **Optional**: `project`
 
 ## Advanced Security
 

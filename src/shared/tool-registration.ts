@@ -31,6 +31,10 @@ const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   // "set" reads as an ordinary write, but a deny bit or a merge=false replace
   // can lock every user out of a resource, so clients should confirm it.
   permissions_set_access_control_entries: "destructive",
+  // Same risk for feeds: role "none" on the last administrator locks everyone out of a feed,
+  // and the global variant decides who may create or administer any feed at all.
+  artifacts_set_feed_permissions: "destructive",
+  artifacts_set_global_permissions: "destructive",
 };
 
 export function categorizeTool(name: string): ToolCategory {
