@@ -53,6 +53,7 @@ const REPO_TOOLS = {
   reply_to_comment: "repo_reply_to_comment",
   create_pull_request_thread: "repo_create_pull_request_thread",
   update_pull_request_thread: "repo_update_pull_request_thread",
+  update_pull_request_comment: "repo_update_pull_request_comment",
   search_commits: "repo_search_commits",
   list_pull_requests_by_commits: "repo_list_pull_requests_by_commits",
   vote_pull_request: "repo_vote_pull_request",
@@ -97,6 +98,7 @@ function trimPullRequestThread(thread: GitPullRequestCommentThread) {
     status: thread.status,
     comments: trimComments(thread.comments),
     threadContext: thread.threadContext,
+    pullRequestThreadContext: thread.pullRequestThreadContext,
   };
 }
 
@@ -1122,6 +1124,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
                   changedFilesSummary: {
                     changeEntries: changes?.changeEntries ?? [],
                     fileCount: changes?.changeEntries?.length ?? 0,
+                    // What repo_create_pull_request_thread needs to anchor a comment to this diff.
+                    firstComparingIteration: Math.max(0, latestIteration.id - 1),
+                    secondComparingIteration: latestIteration.id,
                     nextSkip: changes?.nextSkip,
                     nextTop: changes?.nextTop,
                   },
@@ -1545,7 +1550,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
-        const comment = await gitApi.createComment({ content }, repositoryId, pullRequestId, threadId, project);
+        const comment = await gitApi.createComment({ content, commentType: 1 }, repositoryId, pullRequestId, threadId, project);
 
         // Check if the comment was successfully created
         if (!comment) {
@@ -1601,7 +1606,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         .number()
         .optional()
         .describe(
-          "Position of first character of the thread's span in right file. The line number of a thread's position. The character offset of a thread's position inside of a line. Starts at 1. Must be set if rightFileStartLine is also specified. (optional)"
+          "Start character offset of the thread's span within the line in the right file. The character offset of a thread's position inside of a line. Starts at 1. Must be set if rightFileStartLine is also specified. (optional)"
         ),
       rightFileEndLine: z
         .number()
@@ -1613,10 +1618,32 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         .number()
         .optional()
         .describe(
-          "Position of last character of the thread's span in right file. The character offset of a thread's position inside of a line. Must be set if rightFileEndLine is also specified. (optional)"
+          "Exclusive end character offset of the thread's span within the line in the right file. This value is exclusive: to cover the entire line, set it to (length of the original line text) + 1. When posting a suggestion, always calculate this from the existing file content being replaced, not from the suggestion or replacement text. Must be set if rightFileEndLine is also specified. (optional)"
         ),
+      changeTrackingId: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe("The file's changeTrackingId from the pull request's iteration changes. Anchors the comment to that file in a specific diff; pass together with both comparing iterations."),
+      firstComparingIteration: z.coerce.number().int().min(0).optional().describe("The iteration on the left side of the diff."),
+      secondComparingIteration: z.coerce.number().int().min(1).optional().describe("The iteration on the right side of the diff."),
     },
-    async ({ repositoryId, pullRequestId, content, project, filePath, status, rightFileStartLine, rightFileStartOffset, rightFileEndLine, rightFileEndOffset }) => {
+    async ({
+      repositoryId,
+      pullRequestId,
+      content,
+      project,
+      filePath,
+      status,
+      rightFileStartLine,
+      rightFileStartOffset,
+      rightFileEndLine,
+      rightFileEndOffset,
+      changeTrackingId,
+      firstComparingIteration,
+      secondComparingIteration,
+    }) => {
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
@@ -1707,8 +1734,22 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           }
         }
 
+        // Without an iteration context the comment attaches to the file as it is
+        // now, and drifts off its line once another push changes it (upstream #1513).
+        const iterationContextValues = [changeTrackingId, firstComparingIteration, secondComparingIteration];
+        if (iterationContextValues.some((value) => value !== undefined) && iterationContextValues.some((value) => value === undefined)) {
+          return {
+            content: [{ type: "text", text: "changeTrackingId, firstComparingIteration, and secondComparingIteration must all be specified together." }],
+            isError: true,
+          };
+        }
+        const pullRequestThreadContext =
+          changeTrackingId !== undefined && firstComparingIteration !== undefined && secondComparingIteration !== undefined
+            ? { changeTrackingId, iterationContext: { firstComparingIteration, secondComparingIteration } }
+            : undefined;
+
         const thread = await gitApi.createThread(
-          { comments: [{ content: content }], threadContext: threadContext, status: CommentThreadStatus[status as keyof typeof CommentThreadStatus] },
+          { comments: [{ content: content, commentType: 1 }], threadContext: threadContext, pullRequestThreadContext, status: CommentThreadStatus[status as keyof typeof CommentThreadStatus] },
           repositoryId,
           pullRequestId,
           project
@@ -1726,6 +1767,38 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           content: [{ type: "text", text: `Error creating pull request thread: ${errorMessage}` }],
           isError: true,
         };
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.update_pull_request_comment,
+    "Edit the text of an existing comment in a pull request thread. Use repo_update_pull_request_thread to change the thread's status instead.",
+    {
+      repositoryId: z.string().describe("The ID or name of the repository. When using a name instead of a GUID, pass 'project' too."),
+      pullRequestId: z.number().describe("The ID of the pull request."),
+      threadId: z.number().describe("The ID of the thread that holds the comment."),
+      commentId: z.number().describe("The ID of the comment to edit."),
+      content: z.string().min(1).describe("The new comment text."),
+      project: z.string().optional().describe("Project ID or project name. Required when repositoryId is a repository name instead of a GUID."),
+      fullResponse: z.boolean().optional().default(false).describe("Return the full updated comment instead of a confirmation."),
+    },
+    async ({ repositoryId, pullRequestId, threadId, commentId, content, project, fullResponse }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        // Ported from upstream microsoft/azure-devops-mcp#1568.
+        const comment = await gitApi.updateComment({ content }, repositoryId, pullRequestId, threadId, commentId, project);
+        if (!comment) {
+          return { content: [{ type: "text", text: `Error: Failed to update comment ${commentId} in thread ${threadId}. The comment was not updated.` }], isError: true };
+        }
+        if (fullResponse) {
+          return { content: [{ type: "text", text: JSON.stringify(comment, null, 2) }] };
+        }
+        return { content: [{ type: "text", text: `Comment ${commentId} updated in thread ${threadId}.` }] };
+      } catch (error) {
+        return { content: [{ type: "text", text: `Error updating pull request comment: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
       }
     }
   );

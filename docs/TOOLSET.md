@@ -142,6 +142,7 @@
 | Repositories       | [mcp_ado_repo_get_pull_request_changes](#mcp_ado_repo_get_pull_request_changes)                           | Get file changes (diff) for a pull request                                                                            |
 | Repositories       | [mcp_ado_repo_reply_to_comment](#mcp_ado_repo_reply_to_comment)                                           | Reply to a pull request comment                                                                                       |
 | Repositories       | [mcp_ado_repo_create_pull_request_thread](#mcp_ado_repo_create_pull_request_thread)                       | Create a new comment thread on a pull request                                                                         |
+| Repositories       | [mcp_ado_repo_update_pull_request_comment](#mcp_ado_repo_update_pull_request_comment)                     | Edit the text of an existing comment in a pull request thread                                                         |
 | Repositories       | [mcp_ado_repo_update_pull_request_thread](#mcp_ado_repo_update_pull_request_thread)                       | Update an existing pull request comment thread                                                                        |
 | Repositories       | [mcp_ado_repo_search_commits](#mcp_ado_repo_search_commits)                                               | Search for commits with comprehensive filters                                                                         |
 | Repositories       | [mcp_ado_repo_list_pull_requests_by_commits](#mcp_ado_repo_list_pull_requests_by_commits)                 | Find pull requests containing specific commits                                                                        |
@@ -623,7 +624,7 @@ Remove one or many links from a single work item.
 Add artifact links (repository, branch, commit, builds) to work items.
 
 - **Required**: `workItemId`
-- **Optional**: `artifactUri`, `branchName`, `buildId`, `comment`, `commitId`, `linkType`, `project`, `projectId`, `pullRequestId`, `repositoryId`
+- **Optional**: `artifactUri`, `branchName`, `buildId`, `comment`, `commitId`, `linkType`, `pageId`, `pagePath`, `project`, `projectId`, `pullRequestId`, `repositoryId`, `wikiId`
 
 ### mcp_ado_wit_query_by_wiql
 
@@ -1341,7 +1342,14 @@ Replies to a specific comment on a pull request.
 Creates a new comment thread on a pull request.
 
 - **Required**: `repositoryId`, `pullRequestId`, `content`
-- **Optional**: `filePath`, `project`, `rightFileEndLine`, `rightFileEndOffset`, `rightFileStartLine`, `rightFileStartOffset`, `status`
+- **Optional**: `changeTrackingId`, `filePath`, `firstComparingIteration`, `project`, `rightFileEndLine`, `rightFileEndOffset`, `rightFileStartLine`, `rightFileStartOffset`, `secondComparingIteration`, `status`
+
+### mcp_ado_repo_update_pull_request_comment
+
+Edit the text of an existing comment in a pull request thread.
+
+- **Required**: `repositoryId`, `pullRequestId`, `threadId`, `commentId`, `content`
+- **Optional**: `fullResponse`, `project`
 
 ### mcp_ado_repo_update_pull_request_thread
 

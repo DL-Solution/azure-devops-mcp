@@ -13,6 +13,7 @@ import { z } from "zod";
 import { batchApiVersion, markdownCommentsApiVersion, getEnumKeys, safeEnumConvert, encodeFormattedValue } from "../utils.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
+import { getUserIdentityFromEmail } from "./auth.js";
 import { optionalProject, optionalTeam, optionalTeamWith, requiredProjectWith } from "../shared/common-params.js";
 
 const WORKITEM_TOOLS = {
@@ -91,6 +92,8 @@ function getLinkTypeFromName(name: string) {
       return "Microsoft.VSTS.Common.Affects-Reverse";
     case "artifact":
       return "ArtifactLink";
+    case "hyperlink":
+      return "Hyperlink";
     default:
       // Anything dotted is treated as a link type reference name, e.g.
       // "System.LinkTypes.Hierarchy-Forward" or a custom type from
@@ -102,6 +105,57 @@ function getLinkTypeFromName(name: string) {
       throw new Error(`Unknown link type: ${name}`);
   }
 }
+
+function getArtifactLinkAttributeName(linkType: string): string {
+  switch (linkType) {
+    case "Wiki":
+      return "Wiki Page";
+    default:
+      return linkType;
+  }
+}
+
+function escapeHtml(value: string): string {
+  const entities: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return value.replace(/[&<>"']/g, (character) => entities[character]);
+}
+
+const MENTION_PATTERN = /@<([^<>\s]+@[^<>\s]+)>/g;
+
+/**
+ * Turns `@<user@example.com>` in comment text into a real Azure DevOps mention,
+ * so the person is notified and the name renders as a link. Markdown comments
+ * take `@<identity-id>`; HTML comments take the `data-vss-mention` anchor. A
+ * mention whose identity cannot be resolved is left as escaped text rather than
+ * failing the whole comment. Ported from upstream microsoft/azure-devops-mcp#1495.
+ */
+async function resolveCommentMentions(
+  text: string,
+  format: "Markdown" | "Html" | undefined,
+  tokenProvider: () => Promise<string>,
+  connectionProvider: () => Promise<WebApi>,
+  userAgentProvider: () => string
+): Promise<string> {
+  const emails = new Set([...text.matchAll(MENTION_PATTERN)].map((match) => match[1]));
+  if (emails.size === 0) return text;
+
+  const identities = new Map<string, { id: string; displayName: string }>();
+  for (const email of emails) {
+    try {
+      identities.set(email, await getUserIdentityFromEmail(email, tokenProvider, connectionProvider, userAgentProvider));
+    } catch {
+      // Unresolvable: leave the mention as plain text below.
+    }
+  }
+
+  return text.replace(MENTION_PATTERN, (mention, email: string) => {
+    const identity = identities.get(email);
+    if (!identity) return escapeHtml(mention);
+    return format === "Html" ? `<a href="#" data-vss-mention="version:2.0,${identity.id}">@${escapeHtml(identity.displayName)}</a>` : `@<${identity.id}>`;
+  });
+}
+
+const MENTION_HINT = " To mention someone, write @<their email>, e.g. @<ada@contoso.com>; it becomes a real mention that notifies them.";
 
 function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
   registerTool(
@@ -401,7 +455,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       comment: z
         .string()
         .describe(
-          "The text of the comment to add to the work item. Pass non-ASCII text (e.g. Cyrillic) as raw UTF-8 characters, not as literal \\uXXXX escape sequences — escape sequences are stored verbatim and not decoded."
+          "The text of the comment to add to the work item. Pass non-ASCII text (e.g. Cyrillic) as raw UTF-8 characters, not as literal \\uXXXX escape sequences — escape sequences are stored verbatim and not decoded." +
+            MENTION_HINT
         ),
       format: z.enum(["Markdown", "Html"]).optional().default("Markdown").describe("The format of the comment text, e.g., 'Markdown', 'Html'. Optional, defaults to 'Markdown'."),
     },
@@ -420,7 +475,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const accessToken = await tokenProvider();
 
         const body = {
-          text: comment,
+          text: await resolveCommentMentions(comment, format, tokenProvider, connectionProvider, userAgentProvider),
         };
 
         const formatParameter = (format ?? "Markdown") === "Markdown" ? 0 : 1;
@@ -467,7 +522,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       text: z
         .string()
         .describe(
-          "The updated comment text. Pass non-ASCII text (e.g. Cyrillic) as raw UTF-8 characters, not as literal \\uXXXX escape sequences — escape sequences are stored verbatim and not decoded."
+          "The updated comment text. Pass non-ASCII text (e.g. Cyrillic) as raw UTF-8 characters, not as literal \\uXXXX escape sequences — escape sequences are stored verbatim and not decoded." +
+            MENTION_HINT
         ),
       format: z.enum(["Markdown", "Html"]).optional().default("Markdown").describe("The format of the comment text, e.g., 'Markdown', 'Html'. Optional, defaults to 'Markdown'."),
     },
@@ -484,7 +540,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const orgUrl = connection.serverUrl;
         const accessToken = await tokenProvider();
-        const body: Record<string, string> = { text };
+        const body: Record<string, string> = { text: await resolveCommentMentions(text, format, tokenProvider, connectionProvider, userAgentProvider) };
         const formatParameter = (format ?? "Markdown") === "Markdown" ? 0 : 1;
 
         const response = await fetch(
@@ -645,16 +701,6 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
             },
             {
               op: "add",
-              path: "/fields/System.Description",
-              value: encodedDescription,
-            },
-            {
-              op: "add",
-              path: "/fields/Microsoft.VSTS.TCM.ReproSteps",
-              value: encodedDescription,
-            },
-            {
-              op: "add",
               path: "/relations/-",
               value: {
                 rel: "System.LinkTypes.Hierarchy-Reverse",
@@ -679,18 +725,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
             });
           }
 
+          // A Bug keeps its description in Repro Steps; every other type uses
+          // Description. Writing both put the text in a field the type does not
+          // show, or failed on types that lack ReproSteps (upstream #1523).
+          const descriptionField = workItemType.toLowerCase() === "bug" ? "Microsoft.VSTS.TCM.ReproSteps" : "System.Description";
+          ops.push({ op: "add", path: `/fields/${descriptionField}`, value: encodedDescription });
           if (item.format && item.format === "Markdown") {
-            ops.push({
-              op: "add",
-              path: "/multilineFieldsFormat/System.Description",
-              value: item.format,
-            });
-
-            ops.push({
-              op: "add",
-              path: "/multilineFieldsFormat/Microsoft.VSTS.TCM.ReproSteps",
-              value: item.format,
-            });
+            ops.push({ op: "add", path: `/multilineFieldsFormat/${descriptionField}`, value: item.format });
           }
 
           return {
@@ -854,17 +895,27 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
             op: z
               .string()
               .transform((val) => val.toLowerCase())
-              .pipe(z.enum(["add", "replace", "remove"]))
+              .pipe(z.enum(["add", "replace", "remove", "test"]))
               .default("add")
-              .describe("The operation to perform on the field."),
-            path: z.string().describe("The path of the field to update, e.g., '/fields/System.Title'."),
-            value: z.string().describe("The new value for the field. This is required for 'Add' and 'Replace' operations, and should be omitted for 'Remove' operations."),
+              .describe("The operation to perform. Use 'test' with path '/rev' to enforce optimistic concurrency."),
+            path: z.string().describe("The path to operate on, e.g. '/fields/System.Title', or '/rev' for a revision test."),
+            value: z
+              .union([z.string(), z.number(), z.boolean(), z.null()])
+              .optional()
+              .describe("The value. Required for add, replace and test; omit for remove. For a test on '/rev', the numeric revision read earlier."),
           })
         )
-        .describe("An array of field updates to apply to the work item."),
+        .describe(
+          "The operations to apply. For a safe read-modify-write, put a 'test' on '/rev' with the revision returned by the preceding read first; Azure DevOps then rejects the whole update if someone changed the item in between."
+        ),
     },
     async ({ id, updates }) => {
       try {
+        const updateWithoutValue = updates.find((update) => update.op !== "remove" && update.value === undefined);
+        if (updateWithoutValue) {
+          return { content: [{ type: "text", text: `value is required for ${updateWithoutValue.op}` }], isError: true };
+        }
+
         const connection = await connectionProvider();
         const workItemApi = await connection.getWorkItemTrackingApi();
 
@@ -881,8 +932,12 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        // A failed '/rev' test comes back as 409/412; say so, so the model re-reads instead of retrying blindly (upstream #1526).
+        const statusCode = typeof error === "object" && error !== null && "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : undefined;
+        const statusText = statusCode === 409 ? " Conflict" : statusCode === 412 ? " Precondition Failed" : "";
+        const updateStatus = statusCode !== undefined ? ` [HTTP ${statusCode}${statusText}]` : "";
         return {
-          content: [{ type: "text", text: `Error updating work item: ${errorMessage}` }],
+          content: [{ type: "text", text: `Error updating work item${updateStatus}: ${errorMessage}` }],
           isError: true,
         };
       }
@@ -961,11 +1016,10 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           value: encodeFormattedValue(value, format),
         }));
 
-        // Check if any field has format === "Markdown" and add the multilineFieldsFormat operation
-        // this should only happen for large text fields, but since we dont't know by field name, lets assume if the users
-        // passes a value longer than 100 characters, then we can set the format to Markdown
-        fields.forEach(({ name, value, format }) => {
-          if (value.length > 100 && format === "Markdown") {
+        // Markdown fields need a multilineFieldsFormat operation whatever their length;
+        // a short Markdown value was previously stored as HTML (upstream #1446).
+        fields.forEach(({ name, format }) => {
+          if (format === "Markdown") {
             document.push({
               op: "add",
               path: `/multilineFieldsFormat/${name}`,
@@ -1116,8 +1170,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           }));
 
           // Add format operations for Markdown fields
-          workItemUpdates.forEach(({ path, value, format }) => {
-            if (format === "Markdown" && value && value.length > 100) {
+          workItemUpdates.forEach(({ path, format }) => {
+            if (format === "Markdown") {
               operations.push({
                 op: "Add",
                 path: `/multilineFieldsFormat${path.replace("/fields", "")}`,
@@ -1175,13 +1229,14 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         .array(
           z.object({
             id: z.coerce.number().min(1).describe("The ID of the work item to update."),
-            linkToId: z.coerce.number().min(1).describe("The ID of the work item to link to."),
+            linkToId: z.coerce.number().min(1).optional().describe("The ID of the work item to link to. Required unless type is 'hyperlink'."),
+            url: z.string().optional().describe("The URL for a 'hyperlink' link. Required when type is 'hyperlink'."),
             type: z
-              .enum(["parent", "child", "duplicate", "duplicate of", "related", "successor", "predecessor", "tested by", "tests", "affects", "affected by"])
+              .enum(["parent", "child", "duplicate", "duplicate of", "related", "successor", "predecessor", "tested by", "tests", "affects", "affected by", "hyperlink"])
               .or(z.string())
               .default("related")
               .describe(
-                "Type of link to create between the work items. Options include 'parent', 'child', 'duplicate', 'duplicate of', 'related', 'successor', 'predecessor', 'tested by', 'tests', 'affects', and 'affected by'. A link type reference name such as 'System.LinkTypes.Hierarchy-Forward' is also accepted — use wit_list_relation_types to find custom ones. Defaults to 'related'."
+                "Type of link to create between the work items. Options include 'parent', 'child', 'duplicate', 'duplicate of', 'related', 'successor', 'predecessor', 'tested by', 'tests', 'affects', 'affected by', and 'hyperlink' (a link to an external URL, given in 'url'). A link type reference name such as 'System.LinkTypes.Hierarchy-Forward' is also accepted — use wit_list_relation_types to find custom ones. Defaults to 'related'."
               ),
             comment: z.string().optional().describe("Optional comment to include with the link. This can be used to provide additional context for the link being created."),
           })
@@ -1213,17 +1268,26 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           },
           body: updates
             .filter((update) => update.id === id)
-            .map(({ linkToId, type, comment }) => ({
-              op: "add",
-              path: "/relations/-",
-              value: {
-                rel: `${getLinkTypeFromName(type)}`,
-                url: `${orgUrl}/${resolvedProject}/_apis/wit/workItems/${linkToId}`,
-                attributes: {
-                  comment: comment || "",
+            .map(({ linkToId, url: linkUrl, type, comment }) => {
+              // A hyperlink points at a URL; every other link type at another work item (upstream #1469).
+              if (type === "hyperlink" && !linkUrl) {
+                throw new Error("url is required for hyperlink links");
+              }
+              if (type !== "hyperlink" && !linkToId) {
+                throw new Error("linkToId is required for work item links");
+              }
+              return {
+                op: "add",
+                path: "/relations/-",
+                value: {
+                  rel: `${getLinkTypeFromName(type)}`,
+                  url: type === "hyperlink" ? linkUrl : `${orgUrl}/${resolvedProject}/_apis/wit/workItems/${linkToId}`,
+                  attributes: {
+                    comment: comment || "",
+                  },
                 },
-              },
-            })),
+              };
+            }),
         }));
 
         const response = await fetch(`${orgUrl}/_apis/wit/$batch?api-version=${batchApiVersion}`, {
@@ -1263,7 +1327,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       project: optionalProject,
       id: z.coerce.number().min(1).describe("The ID of the work item to remove the links from."),
       type: z
-        .enum(["parent", "child", "duplicate", "duplicate of", "related", "successor", "predecessor", "tested by", "tests", "affects", "affected by", "artifact"])
+        .enum(["parent", "child", "duplicate", "duplicate of", "related", "successor", "predecessor", "tested by", "tests", "affects", "affected by", "artifact", "hyperlink"])
         .or(z.string())
         .default("related")
         .describe(
@@ -1362,6 +1426,20 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       commitId: z.string().optional().describe("The commit SHA hash. Required when linkType is 'Fixed in Commit'."),
       pullRequestId: z.coerce.number().min(1).optional().describe("The pull request ID. Required when linkType is 'Pull Request'."),
       buildId: z.coerce.number().min(1).optional().describe("The build ID. Required when linkType is 'Build', 'Found in build', or 'Integrated in build'."),
+      wikiId: z.string().optional().describe("The wiki ID (GUID). Required when linkType is 'Wiki'."),
+      pageId: z.coerce
+        .number()
+        .min(1)
+        .optional()
+        .describe(
+          "The numeric wiki page ID from the browser URL (e.g., '98' in '.../wikis/Contoso.wiki/98/What-is-Contoso'). When provided for 'Wiki' links, the full page path is resolved automatically via the API. Takes precedence over 'pagePath'."
+        ),
+      pagePath: z
+        .string()
+        .optional()
+        .describe(
+          "The full wiki page path from the wiki root (e.g., '/Home/What-is-Contoso'). Required when linkType is 'Wiki' and 'pageId' is not provided. Must be the complete path, not just the page name from the URL."
+        ),
 
       linkType: z
         .enum([
@@ -1384,7 +1462,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         .describe("Type of artifact link, defaults to 'Branch'. This determines both the link type and how to build the VSTFS URI from individual components."),
       comment: z.string().optional().describe("Comment to include with the artifact link."),
     },
-    async ({ workItemId, project, artifactUri, projectId, repositoryId, branchName, commitId, pullRequestId, buildId, linkType, comment }) => {
+    async ({ workItemId, project, artifactUri, projectId, repositoryId, branchName, commitId, pullRequestId, buildId, wikiId, pageId, pagePath, linkType, comment }) => {
       try {
         const connection = await connectionProvider();
 
@@ -1447,6 +1525,50 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
               finalArtifactUri = `vstfs:///Build/Build/${encodeURIComponent(buildId.toString())}`;
               break;
 
+            case "Wiki": {
+              if (!projectId || !wikiId) {
+                return {
+                  content: [{ type: "text", text: "For 'Wiki' links, 'projectId', 'wikiId', and 'pagePath' are required." }],
+                  isError: true,
+                };
+              }
+
+              let resolvedPagePath = pagePath;
+
+              if (pageId !== undefined) {
+                // Look up the actual page path by page ID to get the full path
+                const orgUrl = connection.serverUrl;
+                const accessToken = await tokenProvider();
+                const pageResponse = await fetch(`${orgUrl}/${encodeURIComponent(resolvedProject)}/_apis/wiki/wikis/${encodeURIComponent(wikiId)}/pages/${pageId}?api-version=7.1`, {
+                  headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "User-Agent": userAgentProvider(),
+                  },
+                });
+                if (!pageResponse.ok) {
+                  return {
+                    content: [{ type: "text", text: `Failed to look up wiki page ID ${pageId}: ${pageResponse.statusText}` }],
+                    isError: true,
+                  };
+                }
+                const pageData = await pageResponse.json();
+                resolvedPagePath = pageData.path as string;
+              }
+
+              if (!resolvedPagePath) {
+                return {
+                  content: [{ type: "text", text: "For 'Wiki' links, 'pageId' or 'pagePath' is required." }],
+                  isError: true,
+                };
+              }
+
+              // Strip leading slash, then encode each segment joined by %2F
+              const normalizedPath = resolvedPagePath.startsWith("/") ? resolvedPagePath.slice(1) : resolvedPagePath;
+              const encodedPath = normalizedPath.split("/").map(encodeURIComponent).join("%2F");
+              finalArtifactUri = `vstfs:///Wiki/WikiPage/${encodeURIComponent(projectId)}%2F${encodeURIComponent(wikiId)}%2F${encodedPath}`;
+              break;
+            }
+
             default:
               return {
                 content: [{ type: "text", text: `URI building from components is not supported for link type '${linkType}'. Please provide the full 'artifactUri' instead.` }],
@@ -1464,7 +1586,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
               rel: "ArtifactLink",
               url: finalArtifactUri,
               attributes: {
-                name: linkType,
+                name: getArtifactLinkAttributeName(linkType),
                 ...(comment && { comment }),
               },
             },
