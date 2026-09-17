@@ -148,24 +148,25 @@ az account get-access-token \
 }
 ```
 
-Opening `https://<app-fqdn>/` in a browser shows a landing page (in Ukrainian) with
-every endpoint below, its live tool count, and step-by-step connection instructions
-for claude.ai, Claude Code and VS Code.
-
 ### Tool presets (a smaller tool list per endpoint)
 
-The full server registers 336 tools, whose schemas cost roughly **83k tokens**
+The full server registers 397 tools, whose schemas cost roughly **87k tokens**
 of the model's context on every request. Appending a preset name to the MCP path
 serves only the domains that preset covers — same deployment, same sign-in, no
 extra resources, and no state kept between requests:
 
 | URL          | Tools | ~Tokens | Covers                                                          |
 | ------------ | ----: | ------: | --------------------------------------------------------------- |
-| `/mcp`       |   336 |     83k | everything (or whatever `MCP_DOMAINS` sets)                     |
-| `/mcp/dev`   |   119 |     34k | repos, pull requests, work items, pipelines, wiki, search       |
-| `/mcp/plan`  |   158 |     41k | boards, backlogs, sprints, capacity, dashboards, test plans     |
-| `/mcp/ops`   |    95 |     22k | pipelines, releases, agents, service connections, feeds, alerts |
-| `/mcp/admin` |    98 |     20k | process customization, identity, licences, access, audit        |
+| `/mcp`       |   397 |     87k | everything (or whatever `MCP_DOMAINS` sets)                     |
+| `/mcp/dev`   |   152 |     38k | repos, pull requests, work items, pipelines, wiki, search       |
+| `/mcp/plan`  |   163 |     36k | boards, backlogs, sprints, capacity, dashboards, test plans     |
+| `/mcp/ops`   |   125 |     26k | pipelines, releases, agents, service connections, feeds, alerts |
+| `/mcp/admin` |   103 |     20k | process customization, identity, licences, access, audit        |
+
+Counts as of September 2026; tokens are the `tools/list` JSON divided by four.
+The landing page at `https://<app-fqdn>/` (in Ukrainian) always shows the live
+tool count of each endpoint, with step-by-step connection instructions for
+claude.ai, Claude Code and VS Code.
 
 Register the endpoint a client actually needs, e.g.
 `https://<app-fqdn>/mcp/dev`. An unknown preset name returns 404. The presets

@@ -7,8 +7,8 @@
 // hundred names. Clients pass this text to the model alongside that list, which
 // makes it by far the cheapest place to explain the shape of the server: what
 // each name prefix covers, which tool answers which kind of question, and which
-// writes reach beyond a single project. At roughly 1.1k tokens for the full
-// domain set it costs about 1.4% of what the tool schemas do (~83k).
+// writes reach beyond a single project. At roughly 1.4k tokens for the full
+// domain set it costs under 2% of what the tool schemas do (~87k).
 //
 // Only the enabled domains are described, so a preset endpoint (see presets.ts)
 // does not advertise tools it does not serve.
