@@ -3,6 +3,8 @@ name: Upstream watch
 # Keeps one issue listing the microsoft/azure-devops-mcp commits that
 # docs/UPSTREAM-SYNC.md has not reviewed yet, so the fork never drifts silently
 # again. The issue is refreshed weekly and closed once the marker catches up.
+# With Issues disabled for the repository, the list goes to the run summary and
+# a run with commits to review fails, so it still surfaces.
 # Logic lives in scripts/upstream-watch.sh (run it locally with DRY_RUN=1).
 
 on:

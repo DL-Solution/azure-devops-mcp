@@ -39,9 +39,17 @@ fi
 mapfile -t commits < <(git log --reverse --format='%H%x09%cs%x09%s' "${last_reviewed}..${upstream_head}")
 dependency_pattern='^\[dependencies\]|^chore\(deps\)|^Bump |^\[dependencies\]:'
 
+# Issues can be switched off for the repository. The report then goes to the
+# workflow run's summary instead, and a run with commits to review fails so that
+# it still shows up red in the Actions tab and in failure notifications.
+issues_enabled="false"
 existing_issue=""
 if [[ -z "${DRY_RUN:-}" ]]; then
-  existing_issue=$(gh issue list --state open --label "$LABEL" --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number // empty')
+  repository="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
+  issues_enabled=$(gh api "repos/${repository}" --jq '.has_issues')
+  if [[ "$issues_enabled" == "true" ]]; then
+    existing_issue=$(gh issue list --state open --label "$LABEL" --search "\"$ISSUE_TITLE\" in:title" --json number --jq '.[0].number // empty')
+  fi
 fi
 
 if [[ ${#commits[@]} -eq 0 ]]; then
@@ -83,6 +91,18 @@ EOF
 if [[ -n "${DRY_RUN:-}" ]]; then
   echo "$body"
   exit 0
+fi
+
+if [[ "$issues_enabled" != "true" ]]; then
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    printf '## %s\n\n%s\n' "$ISSUE_TITLE" "$body" >>"$GITHUB_STEP_SUMMARY"
+  else
+    echo "$body"
+  fi
+  echo "Issues are disabled for ${repository}; the list is in the run summary. ${features} commits to review." >&2
+  # Dependency bumps alone are not worth a red run.
+  [[ $features -eq 0 ]] && exit 0
+  exit 1
 fi
 
 gh label create "$LABEL" --description "Upstream commits awaiting review" --color "0E8A16" --force >/dev/null

@@ -10,7 +10,7 @@ git fetch upstream
 git log --reverse --format='%h %cs %s' <last reviewed>..upstream/main
 ```
 
-Then record a decision for each commit below and move the marker. You rarely need to run that by hand: the weekly `Upstream watch` workflow keeps an `upstream-sync` issue with exactly this list, and closes it once the marker catches up.
+Then record a decision for each commit below and move the marker. You rarely need to run that by hand: the weekly `Upstream watch` workflow keeps an `upstream-sync` issue with exactly this list, and closes it once the marker catches up. While Issues are disabled for the repository, the list lands in the workflow run's summary instead, and the run fails whenever there is something to review.
 
 ## Last reviewed
 
