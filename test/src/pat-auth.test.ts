@@ -25,7 +25,7 @@ jest.mock("@azure/msal-node", () => ({
 
 jest.mock("open", () => jest.fn());
 
-import { createAuthenticator } from "../../src/auth";
+import { createAuthenticator, installPatFetchInterceptor } from "../../src/auth";
 
 describe("PAT authentication", () => {
   const originalEnv = process.env;
@@ -116,6 +116,78 @@ describe("PAT authentication", () => {
       const decoded = Buffer.from(b64Pat, "base64").toString("utf8");
       expect(decoded).toBe(`${email}:${rawPat}`);
       expect(authHeaderValue).toBe(`Basic ${b64Pat}`);
+    });
+  });
+  describe("installPatFetchInterceptor", () => {
+    const basicValue = Buffer.from("user@example.com:myrawpat").toString("base64");
+    const originalFetch = globalThis.fetch;
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    function interceptWith() {
+      const fetchMock = jest.fn<typeof fetch>().mockResolvedValue(new Response());
+      globalThis.fetch = fetchMock;
+      installPatFetchInterceptor(basicValue);
+      return fetchMock;
+    }
+
+    // Every host the fork's tools call with the token, cloud and legacy forms.
+    it.each([
+      "https://dev.azure.com/org",
+      "https://vssps.dev.azure.com/org",
+      "https://vsaex.dev.azure.com/org",
+      "https://feeds.dev.azure.com/org",
+      "https://auditservice.dev.azure.com/org",
+      "https://almsearch.dev.azure.com/org",
+      "https://analytics.dev.azure.com/org",
+      "https://contoso.visualstudio.com/project",
+      "https://contoso.vsaex.visualstudio.com/",
+    ])("sends the PAT as Basic auth to Azure DevOps host %s", async (url) => {
+      const fetchMock = interceptWith();
+
+      await fetch(url, { headers: { Authorization: `Bearer ${basicValue}` } });
+
+      expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("Authorization")).toBe(`Basic ${basicValue}`);
+    });
+
+    it.each([
+      "https://attacker.example/path",
+      "http://dev.azure.com/org",
+      "https://dev.azure.com.attacker.example/org",
+      "https://azure.com/org",
+      "https://visualstudio.com",
+      "https://contoso.visualstudio.com.attacker.example",
+    ])("refuses to send the PAT to %s", async (url) => {
+      const fetchMock = interceptWith();
+
+      await expect(fetch(url, { headers: { Authorization: `Bearer ${basicValue}` } })).rejects.toThrow("Refusing to send a Personal Access Token to untrusted destination");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("leaves an unrelated bearer token alone, wherever it goes", async () => {
+      const fetchMock = interceptWith();
+
+      await fetch("https://attacker.example/path", { headers: { Authorization: "Bearer unrelated-token" } });
+
+      expect(fetchMock).toHaveBeenCalledWith("https://attacker.example/path", { headers: { Authorization: "Bearer unrelated-token" } });
+    });
+
+    it("passes through a request without headers", async () => {
+      const fetchMock = interceptWith();
+
+      await fetch("https://example.com/path");
+
+      expect(fetchMock).toHaveBeenCalledWith("https://example.com/path", undefined);
+    });
+
+    it("rewrites headers carried by a Request object", async () => {
+      const fetchMock = interceptWith();
+
+      await fetch(new Request("https://dev.azure.com/org", { headers: { Authorization: `Bearer ${basicValue}` } }));
+
+      expect((fetchMock.mock.calls[0][0] as Request).headers.get("Authorization")).toBe(`Basic ${basicValue}`);
     });
   });
 });

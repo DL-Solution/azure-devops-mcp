@@ -1250,7 +1250,7 @@ Create a new branch in the repository.
 Update a Pull Request by ID with specified fields.
 
 - **Required**: `repositoryId`, `pullRequestId`
-- **Optional**: `autoComplete`, `bypassReason`, `deleteSourceBranch`, `description`, `isDraft`, `labels`, `mergeCommitMessage`, `mergeStrategy` (`NoFastForward` \| `Squash` \| `Rebase` \| `RebaseMerge`), `project`, `status` (`Active` \| `Abandoned`), `targetRefName`, `title`, `transitionWorkItems`
+- **Optional**: `autoComplete`, `bypassPolicy`, `bypassReason`, `deleteSourceBranch`, `description`, `isDraft`, `labels`, `mergeCommitMessage`, `mergeStrategy` (`NoFastForward` \| `Squash` \| `Rebase` \| `RebaseMerge`), `project`, `status` (`Active` \| `Abandoned`), `targetRefName`, `title`, `transitionWorkItems`
 
 ### mcp_ado_repo_update_pull_request_reviewers
 
@@ -2429,8 +2429,8 @@ List packages in an Azure Artifacts feed, optionally filtered by protocol or nam
 
 Retrieve Advanced Security alerts for a repository.
 
-- **Required**: `project`, `repository`, `confidenceLevels` (`High` \| `Other`)
-- **Optional**: `alertType` (`Unknown` \| `Dependency` \| `Secret` \| `Code` \| `License`), `continuationToken`, `onlyDefaultBranch`, `orderBy` (`id` \| `firstSeen` \| `lastSeen` \| `fixedOn` \| `severity`), `ref`, `ruleId`, `ruleName`, `severities`, `states` (`Unknown` \| `Active` \| `Dismissed` \| `Fixed` \| `AutoDismissed`), `toolName`, `top`, `validity` (`None` \| `Unknown` \| `Active` \| `Inactive`)
+- **Required**: `project`, `repository`
+- **Optional**: `alertType` (`Unknown` \| `Dependency` \| `Secret` \| `Code` \| `License`), `confidenceLevels` (`High` \| `Other`), `continuationToken`, `onlyDefaultBranch`, `orderBy` (`id` \| `firstSeen` \| `lastSeen` \| `fixedOn` \| `severity`), `ref`, `ruleId`, `ruleName`, `severities`, `states` (`Unknown` \| `Active` \| `Dismissed` \| `Fixed` \| `AutoDismissed`), `toolName`, `top`, `validity` (`None` \| `Unknown` \| `Active` \| `Inactive`)
 
 ### mcp_ado_advsec_get_alert_details
 

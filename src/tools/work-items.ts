@@ -1693,9 +1693,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const mimeType = getMimeType(fileName);
 
         if (mimeType.startsWith("text/")) {
-          return {
-            content: [{ type: "text", text: buffer.toString("utf-8") }],
-          };
+          // A text attachment is whatever someone uploaded to the work item —
+          // untrusted input, not instructions (upstream microsoft/azure-devops-mcp#1552).
+          return createExternalContentResponse(buffer.toString("utf-8"), "work item attachment");
         }
 
         const base64Data = buffer.toString("base64");

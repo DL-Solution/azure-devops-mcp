@@ -4150,7 +4150,9 @@ describe("configureWorkItemTools", () => {
       });
 
       expect(result.content[0].type).toBe("text");
-      expect(result.content[0].text).toBe(markdownContent);
+      // Uploaded text is untrusted, so it comes back spotlighted rather than raw.
+      expect(result.content[0].text).toContain(markdownContent);
+      expect(result.content[0].text).toContain("UNTRUSTED WORK ITEM ATTACHMENT CONTENT");
     });
 
     it("should return text content for plain text files when savePath is not provided", async () => {
@@ -4171,7 +4173,9 @@ describe("configureWorkItemTools", () => {
       });
 
       expect(result.content[0].type).toBe("text");
-      expect(result.content[0].text).toBe(textContent);
+      // Uploaded text is untrusted, so it comes back spotlighted rather than raw.
+      expect(result.content[0].text).toContain(textContent);
+      expect(result.content[0].text).toContain("UNTRUSTED WORK ITEM ATTACHMENT CONTENT");
     });
 
     it("should reject savePath with a Unix absolute path", async () => {

@@ -8,6 +8,52 @@ import { logger } from "./logger.js";
 
 const scopes = ["499b84ac-1321-427f-aa17-267ca6975798/.default"];
 
+/**
+ * Whether a Personal Access Token may be sent to this host.
+ *
+ * Azure DevOps itself plus its sibling service hosts: the fork calls vssps,
+ * vsaex, feeds, auditservice, almsearch and analytics on `*.dev.azure.com`,
+ * and their legacy forms on `*.visualstudio.com`. Anything else — including
+ * look-alikes such as `dev.azure.com.attacker.example` — is refused.
+ */
+function isPatAllowedHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === "dev.azure.com" || host.endsWith(".dev.azure.com") || host.endsWith(".visualstudio.com");
+}
+
+/**
+ * Rewrites `Authorization: Bearer <pat>` to `Basic <pat>` on outgoing fetches.
+ *
+ * Tools build `Bearer ${token}` headers regardless of auth mode, and in PAT
+ * mode that token is the base64 `user:pat` pair. Only a header carrying exactly
+ * that value is touched, and only for an https request to an Azure DevOps
+ * host — the previous inline interceptor rewrote any bearer header for any
+ * destination, which would have sent the PAT wherever a request went.
+ * Ported from upstream microsoft/azure-devops-mcp#1557.
+ */
+function installPatFetchInterceptor(basicValue: string): void {
+  const originalFetch = globalThis.fetch;
+  const patBearerValue = `Bearer ${basicValue}`;
+
+  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    if (headers.get("Authorization") !== patBearerValue) {
+      return originalFetch(input, init);
+    }
+
+    const requestUrl = new URL(input instanceof Request ? input.url : input.toString());
+    if (requestUrl.protocol !== "https:" || !isPatAllowedHost(requestUrl.hostname)) {
+      throw new Error(`Refusing to send a Personal Access Token to untrusted destination '${requestUrl.origin}'`);
+    }
+
+    headers.set("Authorization", `Basic ${basicValue}`);
+    if (input instanceof Request) {
+      return originalFetch(new Request(input, { ...init, headers }));
+    }
+    return originalFetch(input, { ...init, headers });
+  };
+}
+
 class OAuthAuthenticator {
   static clientId = "0d50963b-7bb9-4fe7-94c7-a99af00b5136";
   static defaultAuthority = "https://login.microsoftonline.com/common";
@@ -136,4 +182,4 @@ function createAuthenticator(type: string, tenantId?: string): () => Promise<str
       };
   }
 }
-export { createAuthenticator };
+export { createAuthenticator, installPatFetchInterceptor };
