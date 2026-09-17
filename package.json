@@ -36,6 +36,7 @@
     "format-check": "prettier --check .",
     "toolset": "node scripts/generate-toolset.mjs",
     "toolset-check": "node scripts/generate-toolset.mjs --check",
+    "api-coverage": "node scripts/api-coverage.mjs",
     "clean": "shx rm -rf dist",
     "test": "jest"
   },
