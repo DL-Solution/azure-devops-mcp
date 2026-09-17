@@ -30,6 +30,8 @@ const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   mcp_apps_ping: "read",
   // "compare" names no verb the heuristics know, but the tool only reads a diff.
   repo_compare_commits: "read",
+  // "lookup" only resolves descriptors to subjects.
+  graph_lookup_subjects: "read",
   // "set" reads as an ordinary write, but a deny bit or a merge=false replace
   // can lock every user out of a resource, so clients should confirm it.
   permissions_set_access_control_entries: "destructive",
@@ -40,6 +42,8 @@ const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   // Opening a protected resource (a production environment, a service connection) to every
   // pipeline removes a security boundary just as surely as deleting a check does.
   approvals_set_pipeline_permissions: "destructive",
+  // Sharing a service connection hands its credentials to every pipeline of another project.
+  serviceendpoint_share_service_endpoint: "destructive",
 };
 
 export function categorizeTool(name: string): ToolCategory {

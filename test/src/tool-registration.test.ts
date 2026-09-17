@@ -35,6 +35,7 @@ describe("categorizeTool", () => {
   it("honors explicit overrides (mcp_apps_ping is read)", () => {
     expect(categorizeTool("mcp_apps_ping")).toBe("read");
     expect(categorizeTool("repo_compare_commits")).toBe("read");
+    expect(categorizeTool("graph_lookup_subjects")).toBe("read");
   });
 
   // Granting a deny bit can lock everyone out, so clients must confirm it.
@@ -43,6 +44,7 @@ describe("categorizeTool", () => {
     expect(categorizeTool("artifacts_set_feed_permissions")).toBe("destructive");
     expect(categorizeTool("artifacts_set_global_permissions")).toBe("destructive");
     expect(categorizeTool("approvals_set_pipeline_permissions")).toBe("destructive");
+    expect(categorizeTool("serviceendpoint_share_service_endpoint")).toBe("destructive");
   });
 });
 
