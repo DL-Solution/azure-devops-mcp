@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// Build definition writes, retention leases and pipeline folders. Kept apart
+// Build and definition management, retention leases and settings, pipeline folders. Kept apart
 // from pipelines.test.ts, which mocks fs and fetch for its artifact and stage cases.
 
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
@@ -32,6 +32,27 @@ describe("pipeline admin tools", () => {
       createFolder: jest.fn(),
       updateFolder: jest.fn(),
       deleteFolder: jest.fn(),
+      getRetentionLeasesForBuild: jest.fn(),
+      deleteBuild: jest.fn(),
+      getLatestBuild: jest.fn(),
+      getBuildWorkItemsRefs: jest.fn(),
+      getWorkItemsBetweenBuilds: jest.fn(),
+      getChangesBetweenBuilds: jest.fn(),
+      getTags: jest.fn(),
+      deleteDefinition: jest.fn(),
+      restoreDefinition: jest.fn(),
+      getDefinitionYaml: jest.fn(),
+      getDefinitionTags: jest.fn(),
+      addDefinitionTags: jest.fn(),
+      deleteDefinitionTag: jest.fn(),
+      getDefinitionMetrics: jest.fn(),
+      getProjectMetrics: jest.fn(),
+      getDefinitionResources: jest.fn(),
+      authorizeDefinitionResources: jest.fn(),
+      getRetentionSettings: jest.fn(),
+      updateRetentionSettings: jest.fn(),
+      getBuildGeneralSettings: jest.fn(),
+      updateBuildGeneralSettings: jest.fn(),
     };
     connectionProvider = jest.fn().mockResolvedValue({
       getBuildApi: jest.fn().mockResolvedValue(buildApi),
@@ -288,5 +309,200 @@ describe("pipeline admin tools", () => {
 
       expect(result.isError).toBe(true);
     });
+  });
+
+  it("lists every lease on one build, ignoring the other filters", async () => {
+    buildApi.getRetentionLeasesForBuild.mockResolvedValue([{ leaseId: 33 }]);
+
+    await handlerFor(PIPELINE_TOOLS.pipelines_list_retention_leases)({ project: "Contoso", buildId: 56, ownerId: "ignored" });
+
+    expect(buildApi.getRetentionLeasesForBuild).toHaveBeenCalledWith("Contoso", 56);
+    expect(buildApi.getRetentionLeasesByOwnerId).not.toHaveBeenCalled();
+  });
+
+  describe("builds", () => {
+    const P = { project: "Contoso" };
+
+    it("deletes a build", async () => {
+      buildApi.deleteBuild.mockResolvedValue(undefined);
+
+      const result = await handlerFor(PIPELINE_TOOLS.pipelines_delete_build)({ ...P, buildId: 56 });
+
+      expect(buildApi.deleteBuild).toHaveBeenCalledWith("Contoso", 56);
+      expect(parsed(result)).toEqual({ deleted: 56 });
+    });
+
+    it("gets the latest build on a branch, or says there is none", async () => {
+      buildApi.getLatestBuild.mockResolvedValue({ id: 56, result: 2 });
+      await handlerFor(PIPELINE_TOOLS.pipelines_get_latest_build)({ ...P, definition: "api-ci", branchName: "refs/heads/main" });
+      expect(buildApi.getLatestBuild).toHaveBeenCalledWith("Contoso", "api-ci", "refs/heads/main");
+
+      buildApi.getLatestBuild.mockResolvedValue(null);
+      expect((await handlerFor(PIPELINE_TOOLS.pipelines_get_latest_build)({ ...P, definition: "ghost", branchName: "refs/heads/dev" })).content[0].text).toBe(
+        "No build found for pipeline 'ghost' on refs/heads/dev"
+      );
+      expect((await handlerFor(PIPELINE_TOOLS.pipelines_get_latest_build)({ ...P, definition: "ghost" })).content[0].text).toBe("No build found for pipeline 'ghost'");
+    });
+
+    it("lists work items of one build or between two", async () => {
+      buildApi.getBuildWorkItemsRefs.mockResolvedValue([{ id: "116", url: "u", extra: 1 }]);
+      expect(parsed(await handlerFor(PIPELINE_TOOLS.pipelines_get_build_work_items)({ ...P, buildId: 56, top: 5 }))).toEqual([{ id: "116", url: "u" }]);
+      expect(buildApi.getBuildWorkItemsRefs).toHaveBeenCalledWith("Contoso", 56, 5);
+
+      buildApi.getWorkItemsBetweenBuilds.mockResolvedValue(null);
+      expect(parsed(await handlerFor(PIPELINE_TOOLS.pipelines_get_build_work_items)({ ...P, buildId: 56, fromBuildId: 51 }))).toEqual([]);
+      expect(buildApi.getWorkItemsBetweenBuilds).toHaveBeenCalledWith("Contoso", 51, 56, undefined);
+    });
+
+    it("lists changes between builds and project build tags", async () => {
+      buildApi.getChangesBetweenBuilds.mockResolvedValue([{ id: "abc" }]);
+      await handlerFor(PIPELINE_TOOLS.pipelines_get_changes_between_builds)({ ...P, fromBuildId: 51, toBuildId: 56, top: 2 });
+      expect(buildApi.getChangesBetweenBuilds).toHaveBeenCalledWith("Contoso", 51, 56, 2);
+
+      buildApi.getTags.mockResolvedValue(null);
+      expect(parsed(await handlerFor(PIPELINE_TOOLS.pipelines_list_project_build_tags)(P))).toEqual([]);
+    });
+  });
+
+  describe("definitions", () => {
+    const D = { project: "Contoso", definitionId: 3 };
+
+    it("deletes and restores a definition", async () => {
+      buildApi.deleteDefinition.mockResolvedValue(undefined);
+      expect(parsed(await handlerFor(PIPELINE_TOOLS.pipelines_delete_build_definition)(D))).toEqual({ deleted: 3 });
+      expect(buildApi.deleteDefinition).toHaveBeenCalledWith("Contoso", 3);
+
+      buildApi.restoreDefinition.mockResolvedValue({ id: 3 });
+      await handlerFor(PIPELINE_TOOLS.pipelines_restore_build_definition)(D);
+      expect(buildApi.restoreDefinition).toHaveBeenCalledWith("Contoso", 3, false);
+    });
+
+    it("exports a classic definition as plain YAML", async () => {
+      buildApi.getDefinitionYaml.mockResolvedValue({ yaml: "steps:\n- script: echo hi\n" });
+
+      const result = await handlerFor(PIPELINE_TOOLS.pipelines_get_build_definition_yaml)({ ...D, revision: 4 });
+
+      expect(buildApi.getDefinitionYaml).toHaveBeenCalledWith("Contoso", 3, 4);
+      expect(result.content[0].text).toBe("steps:\n- script: echo hi\n");
+    });
+
+    // Checked against dl-sol: a YAML pipeline answers with an empty body, not an error.
+    it("explains that a YAML pipeline has nothing to export", async () => {
+      buildApi.getDefinitionYaml.mockResolvedValue(null);
+
+      const result = await handlerFor(PIPELINE_TOOLS.pipelines_get_build_definition_yaml)(D);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("has no YAML to export");
+    });
+
+    it("lists, adds and removes definition tags", async () => {
+      buildApi.getDefinitionTags.mockResolvedValue(null);
+      expect(parsed(await handlerFor(PIPELINE_TOOLS.pipelines_get_definition_tags)({ ...D, revision: 2 }))).toEqual([]);
+      expect(buildApi.getDefinitionTags).toHaveBeenCalledWith("Contoso", 3, 2);
+
+      buildApi.addDefinitionTags.mockResolvedValue(["docker", "nightly"]);
+      await handlerFor(PIPELINE_TOOLS.pipelines_add_definition_tags)({ ...D, tags: ["docker", "nightly"] });
+      expect(buildApi.addDefinitionTags).toHaveBeenCalledWith(["docker", "nightly"], "Contoso", 3);
+
+      buildApi.deleteDefinitionTag.mockResolvedValue(["docker"]);
+      expect(parsed(await handlerFor(PIPELINE_TOOLS.pipelines_delete_definition_tag)({ ...D, tag: "nightly" }))).toEqual(["docker"]);
+      expect(buildApi.deleteDefinitionTag).toHaveBeenCalledWith("Contoso", 3, "nightly");
+    });
+
+    it("gets metrics of one definition or of the project", async () => {
+      const since = new Date("2026-09-01T00:00:00Z");
+      buildApi.getDefinitionMetrics.mockResolvedValue([]);
+      await handlerFor(PIPELINE_TOOLS.pipelines_get_build_metrics)({ ...D, aggregation: "daily", minMetricsTime: since });
+      expect(buildApi.getDefinitionMetrics).toHaveBeenCalledWith("Contoso", 3, since);
+
+      buildApi.getProjectMetrics.mockResolvedValue([]);
+      await handlerFor(PIPELINE_TOOLS.pipelines_get_build_metrics)({ project: "Contoso", aggregation: "hourly" });
+      expect(buildApi.getProjectMetrics).toHaveBeenCalledWith("Contoso", "hourly", undefined);
+    });
+
+    it("lists and authorizes pipeline resources", async () => {
+      buildApi.getDefinitionResources.mockResolvedValue([{ type: "queue", id: "80", authorized: true }]);
+      await handlerFor(PIPELINE_TOOLS.pipelines_list_definition_resources)(D);
+      expect(buildApi.getDefinitionResources).toHaveBeenCalledWith("Contoso", 3);
+
+      const resources = [{ type: "endpoint", id: "se-1", authorized: true }];
+      buildApi.authorizeDefinitionResources.mockResolvedValue(resources);
+      await handlerFor(PIPELINE_TOOLS.pipelines_authorize_definition_resources)({ ...D, resources });
+      expect(buildApi.authorizeDefinitionResources).toHaveBeenCalledWith(resources, "Contoso", 3);
+    });
+  });
+
+  describe("settings", () => {
+    const P = { project: "Contoso" };
+
+    it("reads retention settings and updates only the given values", async () => {
+      buildApi.getRetentionSettings.mockResolvedValue({ purgeRuns: { value: 30 } });
+      await handlerFor(PIPELINE_TOOLS.pipelines_get_retention_settings)(P);
+      expect(buildApi.getRetentionSettings).toHaveBeenCalledWith("Contoso");
+
+      buildApi.updateRetentionSettings.mockResolvedValue({});
+      await handlerFor(PIPELINE_TOOLS.pipelines_update_retention_settings)({ ...P, runRetentionDays: 60, retainRunsPerProtectedBranch: 5 });
+      expect(buildApi.updateRetentionSettings).toHaveBeenCalledWith(
+        { runRetention: { value: 60 }, artifactsRetention: undefined, pullRequestRunRetention: undefined, retainRunsPerProtectedBranch: { value: 5 } },
+        "Contoso"
+      );
+    });
+
+    it("refuses a retention update with nothing in it", async () => {
+      const result = await handlerFor(PIPELINE_TOOLS.pipelines_update_retention_settings)(P);
+
+      expect(result.isError).toBe(true);
+      expect(buildApi.updateRetentionSettings).not.toHaveBeenCalled();
+    });
+
+    it("reads and updates general settings", async () => {
+      buildApi.getBuildGeneralSettings.mockResolvedValue({ enforceJobAuthScope: false });
+      await handlerFor(PIPELINE_TOOLS.pipelines_get_general_settings)(P);
+      expect(buildApi.getBuildGeneralSettings).toHaveBeenCalledWith("Contoso");
+
+      buildApi.updateBuildGeneralSettings.mockResolvedValue({ enforceJobAuthScope: true });
+      await handlerFor(PIPELINE_TOOLS.pipelines_update_general_settings)({ ...P, settings: { enforceJobAuthScope: true } });
+      expect(buildApi.updateBuildGeneralSettings).toHaveBeenCalledWith({ enforceJobAuthScope: true }, "Contoso");
+    });
+
+    it("refuses a general settings update with nothing in it", async () => {
+      const result = await handlerFor(PIPELINE_TOOLS.pipelines_update_general_settings)({ ...P, settings: {} });
+
+      expect(result.isError).toBe(true);
+      expect(buildApi.updateBuildGeneralSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  it.each([
+    [PIPELINE_TOOLS.pipelines_delete_build, "deleteBuild", { buildId: 1 }, "deleting build 1"],
+    [PIPELINE_TOOLS.pipelines_get_latest_build, "getLatestBuild", { definition: "x" }, "getting the latest build of 'x'"],
+    [PIPELINE_TOOLS.pipelines_get_build_work_items, "getBuildWorkItemsRefs", { buildId: 1 }, "listing work items of build 1"],
+    [PIPELINE_TOOLS.pipelines_get_changes_between_builds, "getChangesBetweenBuilds", { fromBuildId: 1, toBuildId: 2 }, "listing changes between builds 1 and 2"],
+    [PIPELINE_TOOLS.pipelines_list_project_build_tags, "getTags", {}, "listing build tags"],
+    [PIPELINE_TOOLS.pipelines_delete_build_definition, "deleteDefinition", { definitionId: 3 }, "deleting build definition 3"],
+    [PIPELINE_TOOLS.pipelines_restore_build_definition, "restoreDefinition", { definitionId: 3 }, "restoring build definition 3"],
+    [PIPELINE_TOOLS.pipelines_get_build_definition_yaml, "getDefinitionYaml", { definitionId: 3 }, "exporting build definition 3 as YAML"],
+    [PIPELINE_TOOLS.pipelines_get_definition_tags, "getDefinitionTags", { definitionId: 3 }, "listing tags of build definition 3"],
+    [PIPELINE_TOOLS.pipelines_add_definition_tags, "addDefinitionTags", { definitionId: 3, tags: ["a"] }, "tagging build definition 3"],
+    [PIPELINE_TOOLS.pipelines_delete_definition_tag, "deleteDefinitionTag", { definitionId: 3, tag: "a" }, "removing tag 'a' from build definition 3"],
+    [PIPELINE_TOOLS.pipelines_get_build_metrics, "getProjectMetrics", { aggregation: "daily" }, "getting build metrics"],
+    [PIPELINE_TOOLS.pipelines_list_definition_resources, "getDefinitionResources", { definitionId: 3 }, "listing resources of build definition 3"],
+    [
+      PIPELINE_TOOLS.pipelines_authorize_definition_resources,
+      "authorizeDefinitionResources",
+      { definitionId: 3, resources: [{ type: "queue", id: "1", authorized: true }] },
+      "authorizing resources for build definition 3",
+    ],
+    [PIPELINE_TOOLS.pipelines_get_retention_settings, "getRetentionSettings", {}, "getting retention settings"],
+    [PIPELINE_TOOLS.pipelines_update_retention_settings, "updateRetentionSettings", { runRetentionDays: 30 }, "updating retention settings"],
+    [PIPELINE_TOOLS.pipelines_get_general_settings, "getBuildGeneralSettings", {}, "getting pipeline general settings"],
+    [PIPELINE_TOOLS.pipelines_update_general_settings, "updateBuildGeneralSettings", { settings: { a: true } }, "updating pipeline general settings"],
+  ])("%s surfaces an API failure", async (tool, method, args, action) => {
+    buildApi[method].mockRejectedValue(new Error("TF215106"));
+
+    const result = await handlerFor(tool)({ project: "Contoso", ...args });
+
+    expect(result).toEqual({ content: [{ type: "text", text: `Error ${action}: TF215106` }], isError: true });
   });
 });

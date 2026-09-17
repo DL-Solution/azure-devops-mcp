@@ -47,6 +47,24 @@ const PIPELINE_TOOLS = {
   pipelines_create_folder: "pipelines_create_folder",
   pipelines_update_folder: "pipelines_update_folder",
   pipelines_delete_folder: "pipelines_delete_folder",
+  pipelines_delete_build: "pipelines_delete_build",
+  pipelines_get_latest_build: "pipelines_get_latest_build",
+  pipelines_get_build_work_items: "pipelines_get_build_work_items",
+  pipelines_get_changes_between_builds: "pipelines_get_changes_between_builds",
+  pipelines_list_project_build_tags: "pipelines_list_project_build_tags",
+  pipelines_delete_build_definition: "pipelines_delete_build_definition",
+  pipelines_restore_build_definition: "pipelines_restore_build_definition",
+  pipelines_get_build_definition_yaml: "pipelines_get_build_definition_yaml",
+  pipelines_get_definition_tags: "pipelines_get_definition_tags",
+  pipelines_add_definition_tags: "pipelines_add_definition_tags",
+  pipelines_delete_definition_tag: "pipelines_delete_definition_tag",
+  pipelines_get_build_metrics: "pipelines_get_build_metrics",
+  pipelines_list_definition_resources: "pipelines_list_definition_resources",
+  pipelines_authorize_definition_resources: "pipelines_authorize_definition_resources",
+  pipelines_get_retention_settings: "pipelines_get_retention_settings",
+  pipelines_update_retention_settings: "pipelines_update_retention_settings",
+  pipelines_get_general_settings: "pipelines_get_general_settings",
+  pipelines_update_general_settings: "pipelines_update_general_settings",
 };
 
 /** Pipeline folders are backslash paths rooted at '\\'; accept 'infra/docker' and '/infra/docker' too. */
@@ -948,12 +966,13 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       definitionId: z.coerce.number().min(1).optional().describe("Only leases on runs of this pipeline (build definition)."),
       runId: z.coerce.number().min(1).optional().describe("Only leases on this run (build ID)."),
       ownerId: z.string().optional().describe("Only leases with exactly this owner, e.g. 'User:<identity GUID>' or 'Pipeline:12'."),
+      buildId: z.coerce.number().min(1).optional().describe("Every lease that applies to this build, whoever owns it. The other filters are ignored when this is given."),
     },
-    async ({ project, definitionId, runId, ownerId }) => {
+    async ({ project, definitionId, runId, ownerId, buildId }) => {
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        const leases = await buildApi.getRetentionLeasesByOwnerId(project, ownerId, definitionId, runId);
+        const leases = buildId !== undefined ? await buildApi.getRetentionLeasesForBuild(project, buildId) : await buildApi.getRetentionLeasesByOwnerId(project, ownerId, definitionId, runId);
         return ok(leases);
       } catch (error) {
         return failed("listing retention leases", error);
@@ -1121,6 +1140,380 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         return ok({ deleted: fullPath });
       } catch (error) {
         return failed(`deleting pipeline folder '${fullPath}'`, error);
+      }
+    }
+  );
+
+  // --------------------------------------------------------- builds, definitions ---
+
+  const buildIdParam = z.coerce.number().min(1).describe("The ID of the build (run).");
+  const definitionIdParam = z.coerce.number().min(1).describe("The ID of the build definition (pipeline).");
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_delete_build,
+    "Delete a build with its logs, artifacts and test results. A build held by a retention lease cannot be deleted until the lease is removed.",
+    { project: requiredProject, buildId: buildIdParam },
+    async ({ project, buildId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        await buildApi.deleteBuild(project, buildId);
+        return ok({ deleted: buildId });
+      } catch (error) {
+        return failed(`deleting build ${buildId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_latest_build,
+    "Get the most recent build of a pipeline, optionally on one branch — the quickest way to answer 'is main green?'.",
+    {
+      project: requiredProject,
+      definition: z.string().describe("The pipeline's ID or name."),
+      branchName: z.string().optional().describe("Only builds of this branch, e.g. 'refs/heads/main'."),
+    },
+    async ({ project, definition, branchName }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const build = await buildApi.getLatestBuild(project, definition, branchName);
+        if (!build) {
+          return { content: [{ type: "text", text: `No build found for pipeline '${definition}'${branchName ? ` on ${branchName}` : ""}` }], isError: true };
+        }
+        return ok(build);
+      } catch (error) {
+        return failed(`getting the latest build of '${definition}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_build_work_items,
+    "List the work items associated with a build, or — with fromBuildId — every work item associated with the builds between two builds of a pipeline, which is what went into a release. Fetch their fields with wit_get_work_items_batch_by_ids.",
+    {
+      project: requiredProject,
+      buildId: z.coerce.number().min(1).describe("The build to report on; with fromBuildId, the later of the two."),
+      fromBuildId: z.coerce.number().min(1).optional().describe("The earlier build. Omit for the work items of buildId alone."),
+      top: z.coerce.number().min(1).optional().describe("Maximum number of work items to return."),
+    },
+    async ({ project, buildId, fromBuildId, top }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const refs = fromBuildId !== undefined ? await buildApi.getWorkItemsBetweenBuilds(project, fromBuildId, buildId, top) : await buildApi.getBuildWorkItemsRefs(project, buildId, top);
+        return ok((refs ?? []).map((ref) => ({ id: ref.id, url: ref.url })));
+      } catch (error) {
+        return failed(`listing work items of build ${buildId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_changes_between_builds,
+    "List the source changes (commits) between two builds of the same pipeline — what changed from one run to the next.",
+    {
+      project: requiredProject,
+      fromBuildId: z.coerce.number().min(1).describe("The earlier build."),
+      toBuildId: z.coerce.number().min(1).describe("The later build."),
+      top: z.coerce.number().min(1).optional().describe("Maximum number of changes to return."),
+    },
+    async ({ project, fromBuildId, toBuildId, top }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.getChangesBetweenBuilds(project, fromBuildId, toBuildId, top));
+      } catch (error) {
+        return failed(`listing changes between builds ${fromBuildId} and ${toBuildId}`, error);
+      }
+    }
+  );
+
+  registerTool(server, PIPELINE_TOOLS.pipelines_list_project_build_tags, "List every tag used on builds in a project.", { project: requiredProject }, async ({ project }) => {
+    try {
+      const connection = await connectionProvider();
+      const buildApi = await connection.getBuildApi();
+      return ok((await buildApi.getTags(project)) ?? []);
+    } catch (error) {
+      return failed("listing build tags", error);
+    }
+  });
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_delete_build_definition,
+    "Delete a pipeline (build definition) together with all of its builds. It can be restored with pipelines_restore_build_definition for a while afterwards.",
+    { project: requiredProject, definitionId: definitionIdParam },
+    async ({ project, definitionId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        await buildApi.deleteDefinition(project, definitionId);
+        return ok({ deleted: definitionId });
+      } catch (error) {
+        return failed(`deleting build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_restore_build_definition,
+    "Restore a deleted pipeline (build definition).",
+    { project: requiredProject, definitionId: definitionIdParam },
+    async ({ project, definitionId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.restoreDefinition(project, definitionId, false));
+      } catch (error) {
+        return failed(`restoring build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_build_definition_yaml,
+    "Export a classic (designer) build definition as YAML, as a starting point for converting it to a YAML pipeline. A pipeline that is already YAML has nothing to export — read its file with repo_get_file_content.",
+    {
+      project: requiredProject,
+      definitionId: definitionIdParam,
+      revision: z.coerce.number().min(1).optional().describe("Export this revision instead of the latest."),
+    },
+    async ({ project, definitionId, revision }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const exported = await buildApi.getDefinitionYaml(project, definitionId, revision);
+        if (!exported?.yaml) {
+          return { content: [{ type: "text", text: `Build definition ${definitionId} has no YAML to export; a YAML pipeline keeps its definition in a file of the repository.` }], isError: true };
+        }
+        return { content: [{ type: "text", text: exported.yaml }] };
+      } catch (error) {
+        return failed(`exporting build definition ${definitionId} as YAML`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_definition_tags,
+    "List the tags on a pipeline (build definition), which help group pipelines; they are separate from the tags on individual builds.",
+    {
+      project: requiredProject,
+      definitionId: definitionIdParam,
+      revision: z.coerce.number().min(1).optional().describe("The tags as of this revision."),
+    },
+    async ({ project, definitionId, revision }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok((await buildApi.getDefinitionTags(project, definitionId, revision)) ?? []);
+      } catch (error) {
+        return failed(`listing tags of build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_add_definition_tags,
+    "Add tags to a pipeline (build definition). Returns its full tag list.",
+    {
+      project: requiredProject,
+      definitionId: definitionIdParam,
+      tags: z.array(z.string()).min(1).describe("The tags to add."),
+    },
+    async ({ project, definitionId, tags }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.addDefinitionTags(tags, project, definitionId));
+      } catch (error) {
+        return failed(`tagging build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_delete_definition_tag,
+    "Remove a tag from a pipeline (build definition). Returns its remaining tags.",
+    {
+      project: requiredProject,
+      definitionId: definitionIdParam,
+      tag: z.string().describe("The tag to remove."),
+    },
+    async ({ project, definitionId, tag }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.deleteDefinitionTag(project, definitionId, tag));
+      } catch (error) {
+        return failed(`removing tag '${tag}' from build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_build_metrics,
+    "Get build counts for a pipeline or a whole project: builds queued and running now, and succeeded, failed, partially succeeded and canceled builds per period. For trends and pass rates over time, analytics_query is more flexible.",
+    {
+      project: requiredProject,
+      definitionId: z.coerce.number().min(1).optional().describe("One pipeline. Omit for the whole project."),
+      aggregation: z.enum(["hourly", "daily"]).default("daily").describe("Project metrics only: the period the counts are grouped by."),
+      minMetricsTime: z.coerce.date().optional().describe("Only metrics from this date on."),
+    },
+    async ({ project, definitionId, aggregation, minMetricsTime }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const metrics =
+          definitionId !== undefined ? await buildApi.getDefinitionMetrics(project, definitionId, minMetricsTime) : await buildApi.getProjectMetrics(project, aggregation, minMetricsTime);
+        return ok(metrics);
+      } catch (error) {
+        return failed("getting build metrics", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_list_definition_resources,
+    "List the protected resources a pipeline is authorized to use — service connections ('endpoint'), agent queues ('queue'), variable groups ('variablegroup'), secure files ('securefile') — and whether each is authorized. A run that waits for 'permission needed' is missing one of these.",
+    { project: requiredProject, definitionId: definitionIdParam },
+    async ({ project, definitionId }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.getDefinitionResources(project, definitionId));
+      } catch (error) {
+        return failed(`listing resources of build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_authorize_definition_resources,
+    "Authorize a pipeline to use protected resources, or withdraw the authorization. The caller needs administrative rights on each resource.",
+    {
+      project: requiredProject,
+      definitionId: definitionIdParam,
+      resources: z
+        .array(
+          z.object({
+            type: z.enum(["endpoint", "queue", "variablegroup", "securefile", "environment", "repository"]).describe("The kind of resource."),
+            id: z.string().describe("The resource ID, e.g. the service connection GUID or the queue ID."),
+            authorized: z.boolean().default(true).describe("true to authorize, false to withdraw."),
+          })
+        )
+        .min(1)
+        .describe("The resources to change."),
+    },
+    async ({ project, definitionId, resources }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.authorizeDefinitionResources(resources, project, definitionId));
+      } catch (error) {
+        return failed(`authorizing resources for build definition ${definitionId}`, error);
+      }
+    }
+  );
+
+  // ---------------------------------------------------------------- settings ---
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_retention_settings,
+    "Get a project's pipeline retention settings: how many days runs, artifacts and pull request runs are kept, and how many recent runs per protected branch are always kept — each with its allowed minimum and maximum.",
+    { project: requiredProject },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.getRetentionSettings(project));
+      } catch (error) {
+        return failed("getting retention settings", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_update_retention_settings,
+    "Change a project's pipeline retention settings. Only the values you pass change; each must lie within the minimum and maximum pipelines_get_retention_settings reports. Shorter retention deletes older runs at the next cleanup.",
+    {
+      project: requiredProject,
+      runRetentionDays: z.coerce.number().min(1).optional().describe("Days to keep runs."),
+      artifactsRetentionDays: z.coerce.number().min(1).optional().describe("Days to keep artifacts, symbols and attachments."),
+      pullRequestRunRetentionDays: z.coerce.number().min(1).optional().describe("Days to keep pull request runs."),
+      retainRunsPerProtectedBranch: z.coerce.number().min(0).optional().describe("Number of recent runs always kept per protected branch."),
+    },
+    async ({ project, runRetentionDays, artifactsRetentionDays, pullRequestRunRetentionDays, retainRunsPerProtectedBranch }) => {
+      const value = (n: number | undefined) => (n === undefined ? undefined : { value: n });
+      const update = {
+        runRetention: value(runRetentionDays),
+        artifactsRetention: value(artifactsRetentionDays),
+        pullRequestRunRetention: value(pullRequestRunRetentionDays),
+        retainRunsPerProtectedBranch: value(retainRunsPerProtectedBranch),
+      };
+      if (Object.values(update).every((entry) => entry === undefined)) {
+        return { content: [{ type: "text", text: "Nothing to update: give at least one retention value." }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.updateRetentionSettings(update, project));
+      } catch (error) {
+        return failed("updating retention settings", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_get_general_settings,
+    "Get a project's pipeline security settings: whether classic pipelines may be created, job authorization scope limits, fork build protections, settable-variable enforcement and shell argument sanitizing.",
+    { project: requiredProject },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.getBuildGeneralSettings(project));
+      } catch (error) {
+        return failed("getting pipeline general settings", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    PIPELINE_TOOLS.pipelines_update_general_settings,
+    "Change a project's pipeline security settings. Only the settings you pass change. Several of them tighten what running pipelines may do, so builds that relied on the looser setting can start failing.",
+    {
+      project: requiredProject,
+      settings: z
+        .record(z.string(), z.boolean())
+        .describe('Settings to change, by the names pipelines_get_general_settings returns, e.g. { "enforceJobAuthScope": true, "disableClassicBuildPipelineCreation": true }.'),
+    },
+    async ({ project, settings }) => {
+      if (Object.keys(settings).length === 0) {
+        return { content: [{ type: "text", text: "Nothing to update: give at least one setting." }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        return ok(await buildApi.updateBuildGeneralSettings(settings, project));
+      } catch (error) {
+        return failed("updating pipeline general settings", error);
       }
     }
   );

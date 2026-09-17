@@ -246,6 +246,24 @@
 | Pipelines          | [mcp_ado_pipelines_create_folder](#mcp_ado_pipelines_create_folder)                                       | Create a pipeline folder                                                                                                |
 | Pipelines          | [mcp_ado_pipelines_update_folder](#mcp_ado_pipelines_update_folder)                                       | Rename or move a pipeline folder, or change its description                                                             |
 | Pipelines          | [mcp_ado_pipelines_delete_folder](#mcp_ado_pipelines_delete_folder)                                       | Delete a pipeline folder together with everything in it                                                                 |
+| Pipelines          | [mcp_ado_pipelines_delete_build](#mcp_ado_pipelines_delete_build)                                         | Delete a build with its logs, artifacts and test results                                                                |
+| Pipelines          | [mcp_ado_pipelines_get_latest_build](#mcp_ado_pipelines_get_latest_build)                                 | Get the most recent build of a pipeline, optionally on one branch                                                       |
+| Pipelines          | [mcp_ado_pipelines_get_build_work_items](#mcp_ado_pipelines_get_build_work_items)                         | List the work items of a build, or of all builds between two builds                                                     |
+| Pipelines          | [mcp_ado_pipelines_get_changes_between_builds](#mcp_ado_pipelines_get_changes_between_builds)             | List the commits between two builds of the same pipeline                                                                |
+| Pipelines          | [mcp_ado_pipelines_list_project_build_tags](#mcp_ado_pipelines_list_project_build_tags)                   | List every tag used on builds in a project                                                                              |
+| Pipelines          | [mcp_ado_pipelines_delete_build_definition](#mcp_ado_pipelines_delete_build_definition)                   | Delete a pipeline together with all of its builds                                                                       |
+| Pipelines          | [mcp_ado_pipelines_restore_build_definition](#mcp_ado_pipelines_restore_build_definition)                 | Restore a deleted pipeline                                                                                              |
+| Pipelines          | [mcp_ado_pipelines_get_build_definition_yaml](#mcp_ado_pipelines_get_build_definition_yaml)               | Export a classic build definition as YAML                                                                               |
+| Pipelines          | [mcp_ado_pipelines_get_definition_tags](#mcp_ado_pipelines_get_definition_tags)                           | List the tags on a pipeline                                                                                             |
+| Pipelines          | [mcp_ado_pipelines_add_definition_tags](#mcp_ado_pipelines_add_definition_tags)                           | Add tags to a pipeline                                                                                                  |
+| Pipelines          | [mcp_ado_pipelines_delete_definition_tag](#mcp_ado_pipelines_delete_definition_tag)                       | Remove a tag from a pipeline                                                                                            |
+| Pipelines          | [mcp_ado_pipelines_get_build_metrics](#mcp_ado_pipelines_get_build_metrics)                               | Get build counts for a pipeline or a whole project                                                                      |
+| Pipelines          | [mcp_ado_pipelines_list_definition_resources](#mcp_ado_pipelines_list_definition_resources)               | List the protected resources a pipeline is authorized to use                                                            |
+| Pipelines          | [mcp_ado_pipelines_authorize_definition_resources](#mcp_ado_pipelines_authorize_definition_resources)     | Authorize a pipeline to use protected resources, or withdraw the authorization                                          |
+| Pipelines          | [mcp_ado_pipelines_get_retention_settings](#mcp_ado_pipelines_get_retention_settings)                     | Get a project's pipeline retention settings                                                                             |
+| Pipelines          | [mcp_ado_pipelines_update_retention_settings](#mcp_ado_pipelines_update_retention_settings)               | Change a project's pipeline retention settings                                                                          |
+| Pipelines          | [mcp_ado_pipelines_get_general_settings](#mcp_ado_pipelines_get_general_settings)                         | Get a project's pipeline security settings                                                                              |
+| Pipelines          | [mcp_ado_pipelines_update_general_settings](#mcp_ado_pipelines_update_general_settings)                   | Change a project's pipeline security settings                                                                           |
 | Release            | [mcp_ado_release_list_definitions](#mcp_ado_release_list_definitions)                                     | List release definitions                                                                                                |
 | Release            | [mcp_ado_release_get_definition](#mcp_ado_release_get_definition)                                         | Get a release definition                                                                                                |
 | Release            | [mcp_ado_release_list_releases](#mcp_ado_release_list_releases)                                           | List releases                                                                                                           |
@@ -2133,7 +2151,7 @@ Replace a build definition — rename it, move it to another folder, change its 
 List the retention leases that keep runs from being deleted by retention policies, filtered by pipeline, run or owner. Azure DevOps adds its own leases, owned by `Pipeline:<id>`, `Branch:…` or `Build:…`.
 
 - **Required**: `project`
-- **Optional**: `definitionId`, `ownerId`, `runId`
+- **Optional**: `buildId`, `definitionId`, `ownerId`, `runId`
 
 ### mcp_ado_pipelines_add_retention_lease
 
@@ -2182,6 +2200,132 @@ Rename or move a pipeline folder, or change its description.
 Delete a pipeline folder together with everything in it: its subfolders, every pipeline definition inside and all their runs.
 
 - **Required**: `project`, `path`
+- **Optional**: None
+
+### mcp_ado_pipelines_delete_build
+
+Delete a build with its logs, artifacts and test results. A build held by a retention lease cannot be deleted until the lease is removed.
+
+- **Required**: `project`, `buildId`
+- **Optional**: None
+
+### mcp_ado_pipelines_get_latest_build
+
+Get the most recent build of a pipeline, optionally on one branch — the quickest way to answer 'is main green?'.
+
+- **Required**: `project`, `definition`
+- **Optional**: `branchName`
+
+### mcp_ado_pipelines_get_build_work_items
+
+List the work items associated with a build, or — with fromBuildId — every work item associated with the builds between two builds of a pipeline, which is what went into a release.
+
+- **Required**: `project`, `buildId`
+- **Optional**: `fromBuildId`, `top`
+
+### mcp_ado_pipelines_get_changes_between_builds
+
+List the source changes (commits) between two builds of the same pipeline — what changed from one run to the next.
+
+- **Required**: `project`, `fromBuildId`, `toBuildId`
+- **Optional**: `top`
+
+### mcp_ado_pipelines_list_project_build_tags
+
+List every tag used on builds in a project.
+
+- **Required**: `project`
+- **Optional**: None
+
+### mcp_ado_pipelines_delete_build_definition
+
+Delete a pipeline (build definition) together with all of its builds. It can be brought back with `pipelines_restore_build_definition`.
+
+- **Required**: `project`, `definitionId`
+- **Optional**: None
+
+### mcp_ado_pipelines_restore_build_definition
+
+Restore a deleted pipeline (build definition).
+
+- **Required**: `project`, `definitionId`
+- **Optional**: None
+
+### mcp_ado_pipelines_get_build_definition_yaml
+
+Export a classic (designer) build definition as YAML, as a starting point for converting it to a YAML pipeline. A YAML pipeline has nothing to export; its definition is a file in the repository.
+
+- **Required**: `project`, `definitionId`
+- **Optional**: `revision`
+
+### mcp_ado_pipelines_get_definition_tags
+
+List the tags on a pipeline (build definition), which help group pipelines; they are separate from the tags on individual builds.
+
+- **Required**: `project`, `definitionId`
+- **Optional**: `revision`
+
+### mcp_ado_pipelines_add_definition_tags
+
+Add tags to a pipeline (build definition).
+
+- **Required**: `project`, `definitionId`, `tags`
+- **Optional**: None
+
+### mcp_ado_pipelines_delete_definition_tag
+
+Remove a tag from a pipeline (build definition).
+
+- **Required**: `project`, `definitionId`, `tag`
+- **Optional**: None
+
+### mcp_ado_pipelines_get_build_metrics
+
+Get build counts for a pipeline or a whole project: builds queued and running now, and succeeded, failed, partially succeeded and canceled builds per period.
+
+- **Required**: `project`
+- **Optional**: `aggregation` (`hourly` \| `daily`), `definitionId`, `minMetricsTime`
+
+### mcp_ado_pipelines_list_definition_resources
+
+List the protected resources a pipeline is authorized to use — service connections ('endpoint'), agent queues ('queue'), variable groups ('variablegroup'), secure files ('securefile') — and whether each is authorized.
+
+- **Required**: `project`, `definitionId`
+- **Optional**: None
+
+### mcp_ado_pipelines_authorize_definition_resources
+
+Authorize a pipeline to use protected resources such as service connections, agent queues, variable groups and secure files, or withdraw the authorization. The caller needs administrative rights on each resource.
+
+- **Required**: `project`, `definitionId`, `resources`
+- **Optional**: None
+
+### mcp_ado_pipelines_get_retention_settings
+
+Get a project's pipeline retention settings: how many days runs, artifacts and pull request runs are kept, and how many recent runs per protected branch are always kept — each with its allowed minimum and maximum.
+
+- **Required**: `project`
+- **Optional**: None
+
+### mcp_ado_pipelines_update_retention_settings
+
+Change a project's pipeline retention settings. Only the values passed change, each within the range `pipelines_get_retention_settings` reports; shorter retention deletes older runs at the next cleanup.
+
+- **Required**: `project`
+- **Optional**: `artifactsRetentionDays`, `pullRequestRunRetentionDays`, `retainRunsPerProtectedBranch`, `runRetentionDays`
+
+### mcp_ado_pipelines_get_general_settings
+
+Get a project's pipeline security settings: whether classic pipelines may be created, job authorization scope limits, fork build protections, settable-variable enforcement and shell argument sanitizing.
+
+- **Required**: `project`
+- **Optional**: None
+
+### mcp_ado_pipelines_update_general_settings
+
+Change a project's pipeline security settings. Only the settings passed change; tightening one can make pipelines that relied on the looser setting fail.
+
+- **Required**: `project`, `settings`
 - **Optional**: None
 
 ## Release
