@@ -131,4 +131,151 @@ describe("configureApprovalsTools", () => {
       expect(result.content[0].text).toContain("Failed to update approval (401)");
     });
   });
+
+  describe("checks and pipeline permissions", () => {
+    const BASE = "https://dev.azure.com/contoso/Contoso/_apis/pipelines";
+    const V = "api-version=7.1-preview.1";
+    const sent = () => {
+      const [url, init] = mockFetch.mock.calls[0] as [string, { method: string; body?: string }];
+      return { url, method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) };
+    };
+
+    it("lists the checks of one resource with a GET", async () => {
+      mockFetch.mockResolvedValue(ok('{"count":1}'));
+
+      const result = await getHandler(APPROVALS_TOOLS.list_check_configurations)({ project: "Contoso", resources: [{ type: "environment", id: "4" }], includeSettings: true });
+
+      expect(sent()).toEqual({ url: `${BASE}/checks/configurations?resourceType=environment&resourceId=4&$expand=settings&${V}`, method: "GET", body: undefined });
+      expect(result.content[0].text).toBe('{"count":1}');
+    });
+
+    it("lists the checks of several resources with one query, without settings", async () => {
+      mockFetch.mockResolvedValue(ok("{}"));
+      const resources = [
+        { type: "queue", id: "80" },
+        { type: "endpoint", id: "se-1" },
+      ];
+
+      await getHandler(APPROVALS_TOOLS.list_check_configurations)({ project: "Contoso", resources, includeSettings: false });
+
+      expect(sent()).toEqual({ url: `${BASE}/checks/queryconfigurations?${V}`, method: "POST", body: resources });
+    });
+
+    it("gets a check with its settings", async () => {
+      mockFetch.mockResolvedValue(ok('{"id":12}'));
+
+      await getHandler(APPROVALS_TOOLS.get_check_configuration)({ project: "Contoso", checkId: 12 });
+
+      expect(sent().url).toBe(`${BASE}/checks/configurations/12?$expand=settings&${V}`);
+    });
+
+    it("adds an approval check to an environment", async () => {
+      mockFetch.mockResolvedValue(ok('{"id":13}'));
+      const settings = { approvers: [{ id: "u1" }], minRequiredApprovers: 1 };
+
+      await getHandler(APPROVALS_TOOLS.add_check_configuration)({
+        project: "Contoso",
+        resourceType: "environment",
+        resourceId: "4",
+        checkTypeId: "8C6F20A7-A545-4486-9777-F762FAFE0D4D",
+        settings,
+        timeoutMinutes: 1440,
+      });
+
+      expect(sent()).toEqual({
+        url: `${BASE}/checks/configurations?${V}`,
+        method: "POST",
+        body: { type: { id: "8C6F20A7-A545-4486-9777-F762FAFE0D4D" }, settings, resource: { type: "environment", id: "4" }, timeout: 1440 },
+      });
+    });
+
+    it("replaces a check's settings", async () => {
+      mockFetch.mockResolvedValue(ok('{"id":13}'));
+
+      await getHandler(APPROVALS_TOOLS.update_check_configuration)({ project: "Contoso", checkId: 13, resourceType: "environment", resourceId: "4", checkTypeId: "t", settings: { a: 1 } });
+
+      expect(sent()).toEqual({
+        url: `${BASE}/checks/configurations/13?${V}`,
+        method: "PATCH",
+        body: { id: 13, type: { id: "t" }, settings: { a: 1 }, resource: { type: "environment", id: "4" } },
+      });
+    });
+
+    it("deletes a check, confirming an empty response", async () => {
+      mockFetch.mockResolvedValue(ok("", 204));
+
+      const result = await getHandler(APPROVALS_TOOLS.delete_check_configuration)({ project: "Contoso", checkId: 13 });
+
+      expect(sent()).toMatchObject({ url: `${BASE}/checks/configurations/13?${V}`, method: "DELETE" });
+      expect(result.content[0].text).toBe("Done.");
+    });
+
+    it("gets a check run, optionally with its resources", async () => {
+      mockFetch.mockResolvedValue(ok("{}"));
+      await getHandler(APPROVALS_TOOLS.get_check_run)({ project: "Contoso", checkSuiteId: "cs-1", includeResources: true });
+      expect(sent().url).toBe(`${BASE}/checks/runs/cs-1?$expand=resources&${V}`);
+
+      mockFetch.mockClear();
+      mockFetch.mockResolvedValue(ok("{}"));
+      await getHandler(APPROVALS_TOOLS.get_check_run)({ project: "Contoso", checkSuiteId: "cs-1", includeResources: false });
+      expect(sent().url).toBe(`${BASE}/checks/runs/cs-1?${V}`);
+    });
+
+    it("reads pipeline permissions of a resource", async () => {
+      mockFetch.mockResolvedValue(ok('{"pipelines":[]}'));
+
+      await getHandler(APPROVALS_TOOLS.get_pipeline_permissions)({ project: "Contoso", resourceType: "endpoint", resourceId: "se-1" });
+
+      expect(sent()).toMatchObject({ url: `${BASE}/pipelinepermissions/endpoint/se-1?${V}`, method: "GET" });
+    });
+
+    it("authorizes pipelines individually and for all", async () => {
+      mockFetch.mockResolvedValue(ok("{}"));
+
+      await getHandler(APPROVALS_TOOLS.set_pipeline_permissions)({
+        project: "Contoso",
+        resourceType: "queue",
+        resourceId: "80",
+        pipelines: [{ id: 3, authorized: true }],
+        allPipelinesAuthorized: false,
+      });
+
+      expect(sent()).toEqual({
+        url: `${BASE}/pipelinepermissions/queue/80?${V}`,
+        method: "PATCH",
+        body: { resource: { type: "queue", id: "80" }, pipelines: [{ id: 3, authorized: true }], allPipelines: { authorized: false } },
+      });
+    });
+
+    it("leaves allPipelines out when only individual pipelines change", async () => {
+      mockFetch.mockResolvedValue(ok("{}"));
+
+      await getHandler(APPROVALS_TOOLS.set_pipeline_permissions)({ project: "Contoso", resourceType: "queue", resourceId: "80", pipelines: [{ id: 3, authorized: false }] });
+
+      expect(sent().body).toEqual({ resource: { type: "queue", id: "80" }, pipelines: [{ id: 3, authorized: false }] });
+    });
+
+    it("refuses a permission change with nothing in it", async () => {
+      const result = await getHandler(APPROVALS_TOOLS.set_pipeline_permissions)({ project: "Contoso", resourceType: "queue", resourceId: "80", pipelines: [] });
+
+      expect(result.isError).toBe(true);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("surfaces an API error with its status and body", async () => {
+      mockFetch.mockResolvedValue(ok('{"message":"does not exist"}', 404));
+
+      const result = await getHandler(APPROVALS_TOOLS.get_check_configuration)({ project: "Contoso", checkId: 99 });
+
+      expect(result).toEqual({ content: [{ type: "text", text: 'Error getting check configuration 99: 404: {"message":"does not exist"}' }], isError: true });
+    });
+
+    it("surfaces a network failure", async () => {
+      mockFetch.mockRejectedValue("socket hang up");
+
+      const result = await getHandler(APPROVALS_TOOLS.delete_check_configuration)({ project: "Contoso", checkId: 1 });
+
+      expect(result.content[0].text).toBe("Error deleting check configuration 1: socket hang up");
+    });
+  });
 });

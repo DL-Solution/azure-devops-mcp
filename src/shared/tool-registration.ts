@@ -37,6 +37,9 @@ const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   // and the global variant decides who may create or administer any feed at all.
   artifacts_set_feed_permissions: "destructive",
   artifacts_set_global_permissions: "destructive",
+  // Opening a protected resource (a production environment, a service connection) to every
+  // pipeline removes a security boundary just as surely as deleting a check does.
+  approvals_set_pipeline_permissions: "destructive",
 };
 
 export function categorizeTool(name: string): ToolCategory {
