@@ -86,6 +86,30 @@ const REPO_TOOLS = {
   restore_repository: "repo_restore_repository",
   lock_branch: "repo_lock_branch",
   unlock_branch: "repo_unlock_branch",
+  get_commit: "repo_get_commit",
+  list_commit_changes: "repo_list_commit_changes",
+  compare_commits: "repo_compare_commits",
+  get_merge_bases: "repo_get_merge_bases",
+  list_pushes: "repo_list_pushes",
+  get_push: "repo_get_push",
+  get_branch_stats: "repo_get_branch_stats",
+  get_pull_request_suggestions: "repo_get_pull_request_suggestions",
+  list_pull_request_commits: "repo_list_pull_request_commits",
+  list_pull_request_work_items: "repo_list_pull_request_work_items",
+  delete_pull_request_comment: "repo_delete_pull_request_comment",
+  list_pull_request_comment_likes: "repo_list_pull_request_comment_likes",
+  like_pull_request_comment: "repo_like_pull_request_comment",
+  unlike_pull_request_comment: "repo_unlike_pull_request_comment",
+  update_repository: "repo_update_repository",
+  destroy_repository: "repo_destroy_repository",
+  create_import_request: "repo_create_import_request",
+  list_import_requests: "repo_list_import_requests",
+  get_import_request: "repo_get_import_request",
+  update_import_request: "repo_update_import_request",
+  list_forks: "repo_list_forks",
+  create_fork_sync_request: "repo_create_fork_sync_request",
+  list_fork_sync_requests: "repo_list_fork_sync_requests",
+  get_fork_sync_request: "repo_get_fork_sync_request",
 };
 
 /** A ref update to the all-zero object id deletes the ref. */
@@ -3025,6 +3049,578 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         return await setBranchLock(repositoryId, project, branch, false);
       } catch (error) {
         return failed(`unlocking branch '${branch}'`, error);
+      }
+    }
+  );
+
+  // ---------------------------------------------------------- commits, pushes ---
+
+  const commitIdParam = z.string().describe("The full SHA of the commit.");
+  const versionTypeParam = z.enum(["branch", "tag", "commit"]).default("branch");
+  const VERSION_TYPES = { branch: GitVersionType.Branch, tag: GitVersionType.Tag, commit: GitVersionType.Commit };
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_commit,
+    "Get one commit: author, committer, message, parents, and optionally the first files it changed.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      commitId: commitIdParam,
+      changeCount: z.coerce.number().min(0).optional().describe("Also return up to this many changed files. Use repo_list_commit_changes to page through all of them."),
+    },
+    async ({ repositoryId, project, commitId, changeCount }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const commit = await gitApi.getCommit(commitId, repositoryId, project, changeCount);
+        if (!commit) {
+          return { content: [{ type: "text", text: `Commit ${commitId} not found in repository ${repositoryId}` }], isError: true };
+        }
+        return ok(commit);
+      } catch (error) {
+        return failed(`getting commit ${commitId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_commit_changes,
+    "List the files a commit added, edited, renamed or deleted, with counts per change type.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      commitId: commitIdParam,
+      top: z.coerce.number().min(1).optional().describe("Maximum number of changes to return."),
+      skip: z.coerce.number().min(0).optional().describe("Number of changes to skip."),
+    },
+    async ({ repositoryId, project, commitId, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        return ok(await gitApi.getChanges(commitId, repositoryId, project, top, skip));
+      } catch (error) {
+        return failed(`listing changes of commit ${commitId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.compare_commits,
+    "Compare two branches, tags or commits: the files that differ, how many commits the target is ahead of and behind the base, and their common commit. By default it diffs from the common commit, which is what a pull request from target into base would show.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      baseVersion: z.string().describe("The base branch name (without 'refs/heads/'), tag or commit SHA, e.g. 'main'."),
+      baseVersionType: versionTypeParam.describe("What baseVersion is."),
+      targetVersion: z.string().describe("The target branch name, tag or commit SHA, e.g. 'feature/login'."),
+      targetVersionType: versionTypeParam.describe("What targetVersion is."),
+      diffCommonCommit: z.boolean().default(true).describe("Diff the target against the common commit rather than against the base itself."),
+      top: z.coerce.number().min(1).optional().describe("Maximum number of changed files to return."),
+      skip: z.coerce.number().min(0).optional().describe("Number of changed files to skip."),
+    },
+    async ({ repositoryId, project, baseVersion, baseVersionType, targetVersion, targetVersionType, diffCommonCommit, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        // The client reads version and versionType off each descriptor, not the base…/target… fields.
+        const diffs = await gitApi.getCommitDiffs(
+          repositoryId,
+          project,
+          diffCommonCommit,
+          top,
+          skip,
+          { version: baseVersion, versionType: VERSION_TYPES[baseVersionType] },
+          { version: targetVersion, versionType: VERSION_TYPES[targetVersionType] }
+        );
+        // changeCounts arrives keyed by the numeric change type; name the keys ("Edit", "Add", …).
+        const changeCounts = diffs?.changeCounts && Object.fromEntries(Object.entries(diffs.changeCounts).map(([type, count]) => [VersionControlChangeType[Number(type)] ?? type, count]));
+        return ok({ ...diffs, changeCounts });
+      } catch (error) {
+        return failed(`comparing ${baseVersion} with ${targetVersion}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_merge_bases,
+    "Find the merge base of two commits — the most recent commit both descend from.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      commitId: commitIdParam,
+      otherCommitId: z.string().describe("The full SHA of the other commit."),
+      otherRepositoryId: z.string().optional().describe("The repository of the other commit when it lives in a fork. Omit for the same repository."),
+    },
+    async ({ repositoryId, project, commitId, otherCommitId, otherRepositoryId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        return ok(await gitApi.getMergeBases(repositoryId, commitId, otherCommitId, project, undefined, otherRepositoryId));
+      } catch (error) {
+        return failed(`finding the merge base of ${commitId} and ${otherCommitId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_pushes,
+    "List pushes to a repository: who pushed to which branch and when, with the commits each ref moved from and to. Useful to see what landed on a branch, including force-pushes.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      refName: z.string().optional().describe("Only pushes to this ref, e.g. 'refs/heads/main'."),
+      pusherId: z.string().optional().describe("Only pushes by this identity ID."),
+      fromDate: z.coerce.date().optional().describe("Only pushes on or after this date."),
+      toDate: z.coerce.date().optional().describe("Only pushes on or before this date."),
+      includeRefUpdates: z.boolean().default(true).describe("Include the old and new commit of each updated ref."),
+      top: z.coerce.number().min(1).default(20).describe("Maximum number of pushes to return."),
+      skip: z.coerce.number().min(0).optional().describe("Number of pushes to skip."),
+    },
+    async ({ repositoryId, project, refName, pusherId, fromDate, toDate, includeRefUpdates, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        return ok(await gitApi.getPushes(repositoryId, project, skip, top, { refName, pusherId, fromDate, toDate, includeRefUpdates }));
+      } catch (error) {
+        return failed("listing pushes", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_push,
+    "Get one push with the commits it brought and the refs it moved.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      pushId: z.coerce.number().min(1).describe("The push ID, as repo_list_pushes returns it."),
+      includeCommits: z.coerce.number().min(0).default(100).describe("Return up to this many of the pushed commits; 0 for none."),
+    },
+    async ({ repositoryId, project, pushId, includeCommits }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const push = await gitApi.getPush(repositoryId, pushId, project, includeCommits, true);
+        if (!push) {
+          return { content: [{ type: "text", text: `Push ${pushId} not found in repository ${repositoryId}` }], isError: true };
+        }
+        return ok(push);
+      } catch (error) {
+        return failed(`getting push ${pushId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_branch_stats,
+    "Get how far branches are ahead of and behind a base branch (the default branch unless given), with each branch's latest commit. Pass a branch name for one branch, or omit it for all.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      branch: z.string().optional().describe("One branch name without 'refs/heads/', e.g. 'feature/login'. Omit for every branch."),
+      baseBranch: z.string().optional().describe("The branch to compare against. Omit for the repository's default branch."),
+    },
+    async ({ repositoryId, project, branch, baseBranch }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const base = baseBranch ? { version: baseBranch, versionType: GitVersionType.Branch } : undefined;
+        return ok(branch ? await gitApi.getBranch(repositoryId, branch, project, base) : await gitApi.getBranches(repositoryId, project, base));
+      } catch (error) {
+        return failed("getting branch statistics", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_pull_request_suggestions,
+    "Get the branches you pushed to recently that have no pull request yet — the 'Create a pull request' suggestions the web UI shows.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+    },
+    async ({ repositoryId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        return ok(await gitApi.getSuggestions(repositoryId, project));
+      } catch (error) {
+        return failed("getting pull request suggestions", error);
+      }
+    }
+  );
+
+  // ----------------------------------------------------------- pull requests ---
+
+  const pullRequestIdParam = z.coerce.number().min(1).describe("The ID of the pull request.");
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_pull_request_commits,
+    "List the commits of a pull request, or of one iteration (push) of it.",
+    {
+      repositoryId: repositoryIdParam,
+      pullRequestId: pullRequestIdParam,
+      project: requiredProject,
+      iterationId: z.coerce.number().min(1).optional().describe("Only the commits of this iteration. Omit for the whole pull request."),
+      top: z.coerce.number().min(1).optional().describe("With iterationId: maximum number of commits to return."),
+      skip: z.coerce.number().min(0).optional().describe("With iterationId: number of commits to skip."),
+    },
+    async ({ repositoryId, pullRequestId, project, iterationId, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const commits =
+          iterationId !== undefined
+            ? await gitApi.getPullRequestIterationCommits(repositoryId, pullRequestId, iterationId, project, top, skip)
+            : await gitApi.getPullRequestCommits(repositoryId, pullRequestId, project);
+        return ok(commits);
+      } catch (error) {
+        return failed(`listing commits of pull request ${pullRequestId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_pull_request_work_items,
+    "List the work items linked to a pull request. Fetch their fields with wit_get_work_items_batch_by_ids.",
+    {
+      repositoryId: repositoryIdParam,
+      pullRequestId: pullRequestIdParam,
+      project: requiredProject,
+    },
+    async ({ repositoryId, pullRequestId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const refs = await gitApi.getPullRequestWorkItemRefs(repositoryId, pullRequestId, project);
+        return ok((refs ?? []).map((ref) => ({ id: ref.id, url: ref.url })));
+      } catch (error) {
+        return failed(`listing work items of pull request ${pullRequestId}`, error);
+      }
+    }
+  );
+
+  const threadCommentParams = {
+    repositoryId: repositoryIdParam,
+    pullRequestId: pullRequestIdParam,
+    threadId: z.coerce.number().min(1).describe("The ID of the comment thread."),
+    commentId: z.coerce.number().min(1).describe("The ID of the comment within the thread."),
+    project: requiredProject,
+  };
+
+  registerTool(
+    server,
+    REPO_TOOLS.delete_pull_request_comment,
+    "Delete a comment from a pull request thread. The thread and its other comments stay.",
+    threadCommentParams,
+    async ({ repositoryId, pullRequestId, threadId, commentId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        await gitApi.deleteComment(repositoryId, pullRequestId, threadId, commentId, project);
+        return ok({ deleted: commentId, threadId, pullRequestId });
+      } catch (error) {
+        return failed(`deleting comment ${commentId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_pull_request_comment_likes,
+    "List who liked a pull request comment.",
+    threadCommentParams,
+    async ({ repositoryId, pullRequestId, threadId, commentId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const likes = await gitApi.getLikes(repositoryId, pullRequestId, threadId, commentId, project);
+        return ok((likes ?? []).map((identity) => ({ id: identity.id, displayName: identity.displayName, uniqueName: identity.uniqueName })));
+      } catch (error) {
+        return failed(`listing likes of comment ${commentId}`, error);
+      }
+    }
+  );
+
+  registerTool(server, REPO_TOOLS.like_pull_request_comment, "Like a pull request comment as yourself.", threadCommentParams, async ({ repositoryId, pullRequestId, threadId, commentId, project }) => {
+    try {
+      const connection = await connectionProvider();
+      const gitApi = await connection.getGitApi();
+      await gitApi.createLike(repositoryId, pullRequestId, threadId, commentId, project);
+      return ok({ liked: commentId, threadId, pullRequestId });
+    } catch (error) {
+      return failed(`liking comment ${commentId}`, error);
+    }
+  });
+
+  registerTool(
+    server,
+    REPO_TOOLS.unlike_pull_request_comment,
+    "Withdraw your like from a pull request comment.",
+    threadCommentParams,
+    async ({ repositoryId, pullRequestId, threadId, commentId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        await gitApi.deleteLike(repositoryId, pullRequestId, threadId, commentId, project);
+        return ok({ unliked: commentId, threadId, pullRequestId });
+      } catch (error) {
+        return failed(`unliking comment ${commentId}`, error);
+      }
+    }
+  );
+
+  // ------------------------------------------------------------- repositories ---
+
+  registerTool(
+    server,
+    REPO_TOOLS.update_repository,
+    "Rename a repository or change its default branch. Renaming changes its clone URL; existing clones must update their remote.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      name: z.string().optional().describe("New repository name."),
+      defaultBranch: z.string().optional().describe("New default branch, e.g. 'main' or 'refs/heads/main'. The branch must exist."),
+    },
+    async ({ repositoryId, project, name, defaultBranch }) => {
+      if (name === undefined && defaultBranch === undefined) {
+        return { content: [{ type: "text", text: "Nothing to update: give name, defaultBranch or both." }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const update = { name, defaultBranch: defaultBranch === undefined ? undefined : branchRef(defaultBranch) };
+        return ok(await gitApi.updateRepository(update, repositoryId, project));
+      } catch (error) {
+        return failed(`updating repository ${repositoryId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.destroy_repository,
+    "Permanently erase a deleted repository from the project's recycle bin, with all its history, branches and pull requests. This cannot be undone.",
+    {
+      repositoryId: z.string().describe("The GUID of the deleted repository, as listed by repo_list_deleted_repositories."),
+      project: requiredProject,
+    },
+    async ({ repositoryId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        await gitApi.deleteRepositoryFromRecycleBin(project, repositoryId);
+        return ok({ destroyed: repositoryId });
+      } catch (error) {
+        return failed(`erasing repository ${repositoryId}`, error);
+      }
+    }
+  );
+
+  const describeImport = (request: { importRequestId?: number; status?: GitAsyncOperationStatus; detailedStatus?: unknown; parameters?: unknown; repository?: { id?: string; name?: string } }) => ({
+    importRequestId: request.importRequestId,
+    status: request.status !== undefined ? GitAsyncOperationStatus[request.status] : undefined,
+    detailedStatus: request.detailedStatus,
+    parameters: request.parameters,
+    repository: request.repository && { id: request.repository.id, name: request.repository.name },
+  });
+
+  registerTool(
+    server,
+    REPO_TOOLS.create_import_request,
+    "Import a Git repository from another host (GitHub, GitLab, another Azure DevOps organization) into an existing, empty repository. Runs asynchronously; follow it with repo_get_import_request. A private source needs a service connection holding its credentials.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      sourceUrl: z.string().describe("The clone URL of the source repository, e.g. 'https://github.com/contoso/app.git'."),
+      serviceEndpointId: z.string().optional().describe("ID of a service connection (Generic or GitHub) with credentials for a private source."),
+      deleteServiceEndpointAfterImportIsDone: z.boolean().optional().describe("Delete that service connection once the import finishes."),
+    },
+    async ({ repositoryId, project, sourceUrl, serviceEndpointId, deleteServiceEndpointAfterImportIsDone }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const request = await gitApi.createImportRequest({ parameters: { gitSource: { url: sourceUrl }, serviceEndpointId, deleteServiceEndpointAfterImportIsDone } }, project, repositoryId);
+        return ok(describeImport(request));
+      } catch (error) {
+        return failed(`importing ${sourceUrl}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_import_requests,
+    "List the import requests of a repository with their status.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      includeAbandoned: z.boolean().optional().describe("Also return abandoned imports."),
+    },
+    async ({ repositoryId, project, includeAbandoned }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const requests = await gitApi.queryImportRequests(project, repositoryId, includeAbandoned);
+        return ok((requests ?? []).map(describeImport));
+      } catch (error) {
+        return failed("listing import requests", error);
+      }
+    }
+  );
+
+  const importRequestIdParam = z.coerce.number().min(1).describe("The import request ID, as returned when the import was created.");
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_import_request,
+    "Get the state of a repository import: Queued, InProgress, Completed, Failed or Abandoned, with the current step and any error.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      importRequestId: importRequestIdParam,
+    },
+    async ({ repositoryId, project, importRequestId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const request = await gitApi.getImportRequest(project, repositoryId, importRequestId);
+        if (!request) {
+          return { content: [{ type: "text", text: `Import request ${importRequestId} not found in repository ${repositoryId}` }], isError: true };
+        }
+        return ok(describeImport(request));
+      } catch (error) {
+        return failed(`getting import request ${importRequestId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.update_import_request,
+    "Retry a failed repository import, or abandon it.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      importRequestId: importRequestIdParam,
+      action: z.enum(["retry", "abandon"]).describe("'retry' queues the import again; 'abandon' gives up on it."),
+    },
+    async ({ repositoryId, project, importRequestId, action }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        // The REST API documents the status by name ("queued" retries, "abandoned" gives up).
+        const status = (action === "retry" ? "queued" : "abandoned") as unknown as GitAsyncOperationStatus;
+        const request = await gitApi.updateImportRequest({ status }, project, repositoryId, importRequestId);
+        return ok(describeImport(request));
+      } catch (error) {
+        return failed(`updating import request ${importRequestId}`, error);
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------- forks ---
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_forks,
+    "List the forks of a repository within the organization.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+    },
+    async ({ repositoryId, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        // Forks are looked up per collection; in Azure DevOps Services the organization is the only one.
+        const coreApi = await connection.getCoreApi();
+        const [collection] = await coreApi.getProjectCollections(1);
+        if (!collection?.id) {
+          return { content: [{ type: "text", text: "Could not determine the organization's collection ID." }], isError: true };
+        }
+        return ok(await gitApi.getForks(repositoryId, collection.id, project));
+      } catch (error) {
+        return failed(`listing forks of repository ${repositoryId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.create_fork_sync_request,
+    "Fetch refs from another repository of the same fork network into this one — typically to bring a fork up to date with its parent. Runs asynchronously; follow it with repo_get_fork_sync_request.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      sourceRepositoryId: z.string().describe("The GUID of the repository to fetch from, e.g. the fork's parent."),
+      sourceProjectId: z.string().describe("The GUID of that repository's project."),
+      refs: z
+        .array(z.object({ sourceRef: z.string().describe("Ref in the source, e.g. 'refs/heads/main'."), targetRef: z.string().describe("Ref to update here, e.g. 'refs/heads/main'.") }))
+        .optional()
+        .describe("Which refs to bring over and where. Omit to sync every ref."),
+    },
+    async ({ repositoryId, project, sourceRepositoryId, sourceProjectId, refs }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        return ok(await gitApi.createForkSyncRequest({ source: { repositoryId: sourceRepositoryId, projectId: sourceProjectId }, sourceToTargetRefs: refs }, repositoryId, project));
+      } catch (error) {
+        return failed(`syncing repository ${repositoryId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.list_fork_sync_requests,
+    "List the fork sync operations requested on a repository with their status.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      includeAbandoned: z.boolean().optional().describe("Also return abandoned operations."),
+    },
+    async ({ repositoryId, project, includeAbandoned }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        return ok(await gitApi.getForkSyncRequests(repositoryId, project, includeAbandoned));
+      } catch (error) {
+        return failed("listing fork sync requests", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.get_fork_sync_request,
+    "Get the state of one fork sync operation.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      forkSyncOperationId: z.coerce.number().min(1).describe("The operation ID, as repo_create_fork_sync_request returns it."),
+    },
+    async ({ repositoryId, project, forkSyncOperationId }) => {
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const request = await gitApi.getForkSyncRequest(repositoryId, forkSyncOperationId, project);
+        if (!request) {
+          return { content: [{ type: "text", text: `Fork sync operation ${forkSyncOperationId} not found` }], isError: true };
+        }
+        return ok(request);
+      } catch (error) {
+        return failed(`getting fork sync operation ${forkSyncOperationId}`, error);
       }
     }
   );

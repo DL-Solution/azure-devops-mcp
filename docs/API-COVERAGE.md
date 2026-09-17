@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     469 | 46% |
+| Потрібні області      |     1024 |     495 | 48% |
 | Свідомо не покриваємо |      167 |      23 |   — |
 
 ## Прогрес
@@ -21,6 +21,7 @@
 | ---------- | -----------: | ---------------: | ---: | --: | ------------------------------ |
 | 2026-09-17 |          420 |              398 | 1024 | 39% | перший замір, після PR #71–#79 |
 | 2026-09-17 |          450 |              469 | 1024 | 46% | Artifacts, PR #81              |
+| 2026-09-17 |          474 |              495 | 1024 | 48% | Git, PR #82                    |
 
 <!-- history:end -->
 
@@ -33,7 +34,7 @@
 Порядок — за домовленістю; «Операцій» — скільки непокритих операцій закриває пункт приблизно.
 
 - [x] **Artifacts** (~40 з 110) — PR #81: +68 операцій; лишилися пакетні (batch) операції, завантаження вмісту, scoped npm у кошику й відстеження змін фідів: фіди — зміна, видалення, кошик, права, views, retention; пакети й версії, provenance; просування версії у view, unlist, видалення й відновлення версій (один інструмент на всі протоколи)
-- [ ] **Git** (~25 з 66): порівняння комітів, окремий коміт, пуші; конфлікти й коміти PR; зміна репозиторію, імпорт, форки
+- [x] **Git** (~25 з 66) — PR #82: +26 операцій; лишилися blobs і trees, батч-операції, вкладення й властивості PR, merges, обрані refs, окремі get-и: порівняння комітів, окремий коміт, пуші; конфлікти й коміти PR; зміна репозиторію, імпорт, форки
 - [ ] **Робочі елементи** (~10 з 39): видалення коментаря й версії коментарів, зміна й видалення поля, історія змін
 - [ ] **Збірки** (~15 з 65): видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
 - [ ] **Агенти й середовища** (~20 з 67): пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
@@ -53,9 +54,9 @@
 | Область                                                    | Операцій | Покрито |    % | Непокрито | Примітка                                                     |
 | ---------------------------------------------------------- | -------: | ------: | ---: | --------: | ------------------------------------------------------------ |
 | Результати тестів (`testResults`)                          |       97 |      12 |  12% |        85 |                                                              |
-| Git (`git`)                                                |      112 |      46 |  41% |        66 |                                                              |
 | Збірки (`build`)                                           |       93 |      28 |  30% |        65 |                                                              |
 | Агенти, змінні, task groups (`distributedTask`)            |       72 |      17 |  24% |        55 |                                                              |
+| Git (`git`)                                                |      112 |      72 |  64% |        40 |                                                              |
 | Робочі елементи (`wit`)                                    |       89 |      49 |  55% |        40 |                                                              |
 | Тест-плани (`testPlan`)                                    |       44 |      12 |  27% |        32 |                                                              |
 | Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
@@ -197,80 +198,6 @@
 </details>
 
 <details>
-<summary>Git — 66 з 112</summary>
-
-| Група                           | Метод  | Шлях                                                                                                         | Що робить                                                                                                      |
-| ------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Blobs                           | POST   | `git/repositories/{repositoryId}/blobs`                                                                      | Gets one or more blobs in a zip file download.                                                                 |
-| Blobs                           | GET    | `git/repositories/{repositoryId}/blobs/{sha1}`                                                               | Get a single blob.                                                                                             |
-| Cherry Picks                    | GET    | `git/repositories/{repositoryId}/cherryPicks`                                                                | Retrieve information about a cherry pick operation for a specific branch. This operation is expensive due to…  |
-| Commits                         | GET    | `git/repositories/{repositoryId}/commits`                                                                    | Retrieve a list of commits associated with a particular push.                                                  |
-| Commits                         | GET    | `git/repositories/{repositoryId}/commits/{commitId}`                                                         | Retrieve a particular commit.                                                                                  |
-| Commits                         | GET    | `git/repositories/{repositoryId}/commits/{commitId}/changes`                                                 | Retrieve changes for a particular commit.                                                                      |
-| Commits                         | POST   | `git/repositories/{repositoryId}/commitsbatch`                                                               | Retrieve git commits for a project matching the search criteria                                                |
-| Diffs                           | GET    | `git/repositories/{repositoryId}/diffs/commits`                                                              | Find the closest common commit (the merge base) between base and target commits, and get the diff between eit… |
-| Forks                           | GET    | `git/repositories/{repositoryNameOrId}/forks/{collectionId}`                                                 | Retrieve all forks of a repository in the collection.                                                          |
-| Forks                           | GET    | `git/repositories/{repositoryNameOrId}/forkSyncRequests`                                                     | Retrieve all requested fork sync operations on this repository.                                                |
-| Forks                           | POST   | `git/repositories/{repositoryNameOrId}/forkSyncRequests`                                                     | Request that another repository's refs be fetched into this one. It syncs two existing forks. To create a for… |
-| Forks                           | GET    | `git/repositories/{repositoryNameOrId}/forkSyncRequests/{forkSyncOperationId}`                               | Get a specific fork sync operation's details.                                                                  |
-| Import Requests                 | GET    | `git/repositories/{repositoryId}/importRequests`                                                             | Retrieve import requests for a repository.                                                                     |
-| Import Requests                 | POST   | `git/repositories/{repositoryId}/importRequests`                                                             | Create an import request.                                                                                      |
-| Import Requests                 | GET    | `git/repositories/{repositoryId}/importRequests/{importRequestId}`                                           | Retrieve a particular import request.                                                                          |
-| Import Requests                 | PATCH  | `git/repositories/{repositoryId}/importRequests/{importRequestId}`                                           | Retry or abandon a failed import request.                                                                      |
-| Items                           | POST   | `git/repositories/{repositoryId}/itemsbatch`                                                                 | Retrieves a batch of items in a repo / project for a given list of paths or a long path                        |
-| Merge Bases                     | GET    | `git/repositories/{repositoryNameOrId}/commits/{commitId}/mergebases`                                        | Find the merge bases of two commits, optionally across forks. If otherRepositoryId is not specified, the merg… |
-| Merges                          | POST   | `git/repositories/{repositoryNameOrId}/merges`                                                               | Request a git merge operation. Currently we support merging only 2 commits.                                    |
-| Merges                          | GET    | `git/repositories/{repositoryNameOrId}/merges/{mergeOperationId}`                                            | Get a specific merge operation's details.                                                                      |
-| Policy Configurations           | GET    | `git/policy/configurations`                                                                                  | Retrieve a list of policy configurations by a given set of scope/filtering criteria.                           |
-| Pull Request Attachments        | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments`                                   | Get a list of files attached to a given pull request.                                                          |
-| Pull Request Attachments        | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments/{fileName}`                        | Get the file content of a pull request attachment.                                                             |
-| Pull Request Attachments        | POST   | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments/{fileName}`                        | Attach a new file to a pull request.                                                                           |
-| Pull Request Attachments        | DELETE | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments/{fileName}`                        | Delete a pull request attachment.                                                                              |
-| Pull Request Comment Likes      | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}/comments/{commentId}/likes` | Get likes for a comment.                                                                                       |
-| Pull Request Comment Likes      | POST   | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}/comments/{commentId}/likes` | Add a like on a comment.                                                                                       |
-| Pull Request Comment Likes      | DELETE | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}/comments/{commentId}/likes` | Delete a like on a comment.                                                                                    |
-| Pull Request Commits            | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/commits`                                       | Get the commits for the specified pull request.                                                                |
-| Pull Request Commits            | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/commits`              | Get the commits for the specified iteration of a pull request.                                                 |
-| Pull Request Iteration Statuses | POST   | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses`             | Create a pull request status on the iteration. This operation will have the same result as Create status on p… |
-| Pull Request Iteration Statuses | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses`             | Update pull request iteration statuses collection. The only supported operation type is `remove`.              |
-| Pull Request Iteration Statuses | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses/{statusId}`  | Get the specific pull request iteration status by ID. The status ID is unique within the pull request across…  |
-| Pull Request Iteration Statuses | DELETE | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses/{statusId}`  | Delete pull request iteration status.                                                                          |
-| Pull Request Labels             | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/labels/{labelIdOrName}`                        | Retrieves a single label (tag) that has been assigned to a pull request.                                       |
-| Pull Request Properties         | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/properties`                                    | Get external properties of the pull request.                                                                   |
-| Pull Request Properties         | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/properties`                                    | Create or update pull request external properties. The patch operation can be `add`, `replace` or `remove`. F… |
-| Pull Request Reviewers          | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers`                                     | Retrieve the reviewers for a pull request                                                                      |
-| Pull Request Reviewers          | PUT    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers`                                     | Add an unmaterialized identity to the reviewers of a pull request.                                             |
-| Pull Request Reviewers          | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers`                                     | Reset the votes of multiple reviewers on a pull request. NOTE: This endpoint only supports updating votes, b…  |
-| Pull Request Reviewers          | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers/{reviewerId}`                        | Edit a reviewer entry. These fields are patchable: isFlagged, hasDeclined                                      |
-| Pull Request Share              | POST   | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/share`                                         | Sends an e-mail notification about a specific pull request to a set of recipients                              |
-| Pull Request Statuses           | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/statuses`                                      | Update pull request statuses collection. The only supported operation type is `remove`.                        |
-| Pull Request Statuses           | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/statuses/{statusId}`                           | Get the specific pull request status by ID. The status ID is unique within the pull request across all iterat… |
-| Pull Request Thread Comments    | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}/comments/{commentId}`       | Retrieve a comment associated with a specific thread in a pull request.                                        |
-| Pull Request Thread Comments    | DELETE | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}/comments/{commentId}`       | Delete a comment associated with a specific thread in a pull request.                                          |
-| Pull Request Threads            | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}`                            | Retrieve a thread in a pull request.                                                                           |
-| Pull Request Work Items         | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/workitems`                                     | Retrieve a list of work items associated with a pull request.                                                  |
-| Pull Requests                   | GET    | `git/pullrequests/{pullRequestId}`                                                                           | Retrieve a pull request.                                                                                       |
-| Pushes                          | GET    | `git/repositories/{repositoryId}/pushes`                                                                     | Retrieves pushes associated with the specified repository.                                                     |
-| Pushes                          | GET    | `git/repositories/{repositoryId}/pushes/{pushId}`                                                            | Retrieves a particular push.                                                                                   |
-| Refs Favorites                  | GET    | `git/favorites/refs`                                                                                         | Gets the refs favorites for a repo and an identity.                                                            |
-| Refs Favorites                  | POST   | `git/favorites/refs`                                                                                         | Creates a ref favorite                                                                                         |
-| Refs Favorites                  | GET    | `git/favorites/refs/{favoriteId}`                                                                            | Gets the refs favorite for a favorite Id.                                                                      |
-| Refs Favorites                  | DELETE | `git/favorites/refs/{favoriteId}`                                                                            | Deletes the refs favorite specified                                                                            |
-| Refs Favorites For Project      | GET    | `git/favorites/refsForProject`                                                                               |                                                                                                                |
-| Repositories                    | GET    | `git/deletedrepositories`                                                                                    | Retrieve deleted git repositories.                                                                             |
-| Repositories                    | DELETE | `git/recycleBin/repositories/{repositoryId}`                                                                 | Destroy (hard delete) a soft-deleted Git repository.                                                           |
-| Repositories                    | GET    | `git/repositories/{repositoryId}`                                                                            | Retrieve a git repository.                                                                                     |
-| Repositories                    | PATCH  | `git/repositories/{repositoryId}`                                                                            | Updates the Git repository with either a new repo name or a new default branch.                                |
-| Repositories                    | GET    | `git/repositories/{repositoryId}`                                                                            | Retrieve a git repository.                                                                                     |
-| Reverts                         | GET    | `git/repositories/{repositoryId}/reverts`                                                                    | Retrieve information about a revert operation for a specific branch.                                           |
-| Stats                           | GET    | `git/repositories/{repositoryId}/stats/branches`                                                             | Retrieve statistics about all branches within a repository.                                                    |
-| Stats                           | GET    | `git/repositories/{repositoryId}/stats/branches`                                                             | Retrieve statistics about a single branch.                                                                     |
-| Suggestions                     | GET    | `git/repositories/{repositoryId}/suggestions`                                                                | Retrieve a pull request suggestion for a particular repository or team project.                                |
-| Trees                           | GET    | `git/repositories/{repositoryId}/trees/{sha1}`                                                               | The Tree endpoint returns the collection of objects underneath the specified tree. Trees are folders in a Git… |
-
-</details>
-
-<details>
 <summary>Збірки — 65 з 93</summary>
 
 | Група               | Метод  | Шлях                                                                       | Що робить                                                                                                      |
@@ -403,6 +330,54 @@
 | Variablegroups   | GET    | `distributedtask/variablegroups`                                               | Get variable groups by ids.                                                                                    |
 | Webhooks         | POST   | `public/distributedtask/webhooks/{webHookId}`                                  | Triggers a pipeline run of pipelines which have a webhook resource defined with specified WebHook Name proper… |
 | Yamlschema       | GET    | `distributedtask/yamlschema`                                                   | GET the Yaml schema used for Yaml file validation.                                                             |
+
+</details>
+
+<details>
+<summary>Git — 40 з 112</summary>
+
+| Група                           | Метод  | Шлях                                                                                                        | Що робить                                                                                                      |
+| ------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Blobs                           | POST   | `git/repositories/{repositoryId}/blobs`                                                                     | Gets one or more blobs in a zip file download.                                                                 |
+| Blobs                           | GET    | `git/repositories/{repositoryId}/blobs/{sha1}`                                                              | Get a single blob.                                                                                             |
+| Cherry Picks                    | GET    | `git/repositories/{repositoryId}/cherryPicks`                                                               | Retrieve information about a cherry pick operation for a specific branch. This operation is expensive due to…  |
+| Commits                         | GET    | `git/repositories/{repositoryId}/commits`                                                                   | Retrieve a list of commits associated with a particular push.                                                  |
+| Commits                         | POST   | `git/repositories/{repositoryId}/commitsbatch`                                                              | Retrieve git commits for a project matching the search criteria                                                |
+| Items                           | POST   | `git/repositories/{repositoryId}/itemsbatch`                                                                | Retrieves a batch of items in a repo / project for a given list of paths or a long path                        |
+| Merges                          | POST   | `git/repositories/{repositoryNameOrId}/merges`                                                              | Request a git merge operation. Currently we support merging only 2 commits.                                    |
+| Merges                          | GET    | `git/repositories/{repositoryNameOrId}/merges/{mergeOperationId}`                                           | Get a specific merge operation's details.                                                                      |
+| Policy Configurations           | GET    | `git/policy/configurations`                                                                                 | Retrieve a list of policy configurations by a given set of scope/filtering criteria.                           |
+| Pull Request Attachments        | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments`                                  | Get a list of files attached to a given pull request.                                                          |
+| Pull Request Attachments        | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments/{fileName}`                       | Get the file content of a pull request attachment.                                                             |
+| Pull Request Attachments        | POST   | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments/{fileName}`                       | Attach a new file to a pull request.                                                                           |
+| Pull Request Attachments        | DELETE | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/attachments/{fileName}`                       | Delete a pull request attachment.                                                                              |
+| Pull Request Iteration Statuses | POST   | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses`            | Create a pull request status on the iteration. This operation will have the same result as Create status on p… |
+| Pull Request Iteration Statuses | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses`            | Update pull request iteration statuses collection. The only supported operation type is `remove`.              |
+| Pull Request Iteration Statuses | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses/{statusId}` | Get the specific pull request iteration status by ID. The status ID is unique within the pull request across…  |
+| Pull Request Iteration Statuses | DELETE | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/iterations/{iterationId}/statuses/{statusId}` | Delete pull request iteration status.                                                                          |
+| Pull Request Labels             | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/labels/{labelIdOrName}`                       | Retrieves a single label (tag) that has been assigned to a pull request.                                       |
+| Pull Request Properties         | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/properties`                                   | Get external properties of the pull request.                                                                   |
+| Pull Request Properties         | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/properties`                                   | Create or update pull request external properties. The patch operation can be `add`, `replace` or `remove`. F… |
+| Pull Request Reviewers          | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers`                                    | Retrieve the reviewers for a pull request                                                                      |
+| Pull Request Reviewers          | PUT    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers`                                    | Add an unmaterialized identity to the reviewers of a pull request.                                             |
+| Pull Request Reviewers          | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers`                                    | Reset the votes of multiple reviewers on a pull request. NOTE: This endpoint only supports updating votes, b…  |
+| Pull Request Reviewers          | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/reviewers/{reviewerId}`                       | Edit a reviewer entry. These fields are patchable: isFlagged, hasDeclined                                      |
+| Pull Request Share              | POST   | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/share`                                        | Sends an e-mail notification about a specific pull request to a set of recipients                              |
+| Pull Request Statuses           | PATCH  | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/statuses`                                     | Update pull request statuses collection. The only supported operation type is `remove`.                        |
+| Pull Request Statuses           | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/statuses/{statusId}`                          | Get the specific pull request status by ID. The status ID is unique within the pull request across all iterat… |
+| Pull Request Thread Comments    | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}/comments/{commentId}`      | Retrieve a comment associated with a specific thread in a pull request.                                        |
+| Pull Request Threads            | GET    | `git/repositories/{repositoryId}/pullRequests/{pullRequestId}/threads/{threadId}`                           | Retrieve a thread in a pull request.                                                                           |
+| Pull Requests                   | GET    | `git/pullrequests/{pullRequestId}`                                                                          | Retrieve a pull request.                                                                                       |
+| Refs Favorites                  | GET    | `git/favorites/refs`                                                                                        | Gets the refs favorites for a repo and an identity.                                                            |
+| Refs Favorites                  | POST   | `git/favorites/refs`                                                                                        | Creates a ref favorite                                                                                         |
+| Refs Favorites                  | GET    | `git/favorites/refs/{favoriteId}`                                                                           | Gets the refs favorite for a favorite Id.                                                                      |
+| Refs Favorites                  | DELETE | `git/favorites/refs/{favoriteId}`                                                                           | Deletes the refs favorite specified                                                                            |
+| Refs Favorites For Project      | GET    | `git/favorites/refsForProject`                                                                              |                                                                                                                |
+| Repositories                    | GET    | `git/deletedrepositories`                                                                                   | Retrieve deleted git repositories.                                                                             |
+| Repositories                    | GET    | `git/repositories/{repositoryId}`                                                                           | Retrieve a git repository.                                                                                     |
+| Repositories                    | GET    | `git/repositories/{repositoryId}`                                                                           | Retrieve a git repository.                                                                                     |
+| Reverts                         | GET    | `git/repositories/{repositoryId}/reverts`                                                                   | Retrieve information about a revert operation for a specific branch.                                           |
+| Trees                           | GET    | `git/repositories/{repositoryId}/trees/{sha1}`                                                              | The Tree endpoint returns the collection of objects underneath the specified tree. Trees are folders in a Git… |
 
 </details>
 
@@ -915,4 +890,4 @@
 - `featuremanagement/featurestatesforscope/{}/{}/{}/{}` (feature-management.ts)
 - `wit/$batch` (work-items.ts)
 
-- Методи `azure-devops-node-api` без відповідної операції: `getAgentRequestsForAgent`, `getFileDiffs`, `getGitRepositoriesActivityMetrics`, `getProjectActivityMetrics`, `getProjectLanguageAnalytics`, `getRepositoryActivityMetrics`, `undeleteTaskGroup`, `updateAutomationRule`.
+- Методи `azure-devops-node-api` без відповідної операції: `getAgentRequestsForAgent`, `getFileDiffs`, `getGitRepositoriesActivityMetrics`, `getProjectActivityMetrics`, `getProjectCollections`, `getProjectLanguageAnalytics`, `getRepositoryActivityMetrics`, `undeleteTaskGroup`, `updateAutomationRule`.
