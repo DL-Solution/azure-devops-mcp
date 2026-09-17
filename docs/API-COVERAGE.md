@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     509 | 50% |
+| Потрібні області      |     1024 |     530 | 52% |
 | Свідомо не покриваємо |      167 |      23 |   — |
 
 ## Прогрес
@@ -23,6 +23,7 @@
 | 2026-09-17 |          450 |              469 | 1024 | 46% | Artifacts, PR #81              |
 | 2026-09-17 |          474 |              495 | 1024 | 48% | Git, PR #82                    |
 | 2026-09-17 |          487 |              509 | 1024 | 50% | Робочі елементи, PR #83        |
+| 2026-09-17 |          505 |              530 | 1024 | 52% | Збірки, PR #84                 |
 
 <!-- history:end -->
 
@@ -37,7 +38,7 @@
 - [x] **Artifacts** (~40 з 110) — PR #81: +68 операцій; лишилися пакетні (batch) операції, завантаження вмісту, scoped npm у кошику й відстеження змін фідів: фіди — зміна, видалення, кошик, права, views, retention; пакети й версії, provenance; просування версії у view, unlist, видалення й відновлення версій (один інструмент на всі протоколи)
 - [x] **Git** (~25 з 66) — PR #82: +26 операцій; лишилися blobs і trees, батч-операції, вкладення й властивості PR, merges, обрані refs, окремі get-и: порівняння комітів, окремий коміт, пуші; конфлікти й коміти PR; зміна репозиторію, імпорт, форки
 - [x] **Робочі елементи** (~10 з 39) — PR #83: +13 операцій; лишилися reporting-API (його перекриває Analytics), іконки, тимчасові запити, розсилка пошти, GitHub connections: видалення коментаря й версії коментарів, зміна й видалення поля, історія змін
-- [ ] **Збірки** (~15 з 65): видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
+- [x] **Збірки** (~15 з 65) — PR #84: +21 операція; лишилися source providers (GitHub/Bitbucket), шаблони визначень, властивості, бейджі, контролери XAML, вкладення, пакетні оновлення: видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
 - [ ] **Агенти й середовища** (~20 з 67): пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
 - [ ] **Тест-плани** (~20 з 31): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
 - [ ] **Погодження й перевірки** (~10 з 12): конфігурації перевірок, дозволи пайплайнів на ресурси
@@ -55,8 +56,8 @@
 | Область                                                    | Операцій | Покрито |    % | Непокрито | Примітка                                                     |
 | ---------------------------------------------------------- | -------: | ------: | ---: | --------: | ------------------------------------------------------------ |
 | Результати тестів (`testResults`)                          |       97 |      12 |  12% |        85 |                                                              |
-| Збірки (`build`)                                           |       93 |      28 |  30% |        65 |                                                              |
 | Агенти, змінні, task groups (`distributedTask`)            |       72 |      17 |  24% |        55 |                                                              |
+| Збірки (`build`)                                           |       93 |      49 |  53% |        44 |                                                              |
 | Git (`git`)                                                |      112 |      72 |  64% |        40 |                                                              |
 | Тест-плани (`testPlan`)                                    |       44 |      12 |  27% |        32 |                                                              |
 | Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
@@ -199,79 +200,6 @@
 </details>
 
 <details>
-<summary>Збірки — 65 з 93</summary>
-
-| Група               | Метод  | Шлях                                                                       | Що робить                                                                                                      |
-| ------------------- | ------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Artifacts           | POST   | `build/builds/{buildId}/artifacts`                                         | Associates an artifact with a build.                                                                           |
-| Artifacts           | GET    | `build/builds/{buildId}/artifacts`                                         | Gets a file from the build.                                                                                    |
-| Attachments         | GET    | `build/builds/{buildId}/{timelineId}/{recordId}/attachments/{type}/{name}` | Gets a specific attachment.                                                                                    |
-| Attachments         | GET    | `build/builds/{buildId}/attachments/{type}`                                | Gets the list of attachments of a specific type that are associated with a build.                              |
-| Authorizedresources | GET    | `build/authorizedresources`                                                |                                                                                                                |
-| Authorizedresources | PATCH  | `build/authorizedresources`                                                |                                                                                                                |
-| Badge               | GET    | `build/repos/{repoType}/badge`                                             | Gets a badge that indicates the status of the most recent build for the specified branch.                      |
-| Badge               | GET    | `public/build/definitions/{project}/{definitionId}/badge`                  | This endpoint is deprecated. Please see the Build Status REST endpoint.                                        |
-| Builds              | PATCH  | `build/builds`                                                             | Updates multiple builds.                                                                                       |
-| Builds              | DELETE | `build/builds/{buildId}`                                                   | Deletes a build.                                                                                               |
-| Builds              | GET    | `build/builds/{buildId}/leases`                                            | Gets all retention leases that apply to a specific build.                                                      |
-| Builds              | GET    | `build/builds/{buildId}/workitems`                                         | Gets the work items associated with a build. Only work items in the same project are returned.                 |
-| Builds              | POST   | `build/builds/{buildId}/workitems`                                         | Gets the work items associated with a build, filtered to specific commits.                                     |
-| Builds              | GET    | `build/changes`                                                            | Gets the changes made to the repository between two given builds.                                              |
-| Builds              | GET    | `build/workitems`                                                          | Gets all the work items between two builds.                                                                    |
-| Controllers         | GET    | `build/controllers`                                                        | Gets controller, optionally filtered by name                                                                   |
-| Controllers         | GET    | `build/controllers/{controllerId}`                                         | Gets a controller                                                                                              |
-| Definitions         | PATCH  | `build/definitions/{definitionId}`                                         | Restores a deleted definition                                                                                  |
-| Definitions         | DELETE | `build/definitions/{definitionId}`                                         | Deletes a definition and all associated builds.                                                                |
-| General Settings    | GET    | `build/generalsettings`                                                    | Gets pipeline general settings.                                                                                |
-| General Settings    | PATCH  | `build/generalsettings`                                                    | Updates pipeline general settings.                                                                             |
-| History             | GET    | `build/retention/history`                                                  | Returns the retention history for the project collection. This includes pipelines that have custom retention…  |
-| Latest              | GET    | `build/latest/{definition}`                                                | Gets the latest build for a definition, optionally scoped to a specific branch.                                |
-| Leases              | GET    | `build/retention/leases`                                                   | Returns any leases matching the specified MinimalRetentionLeases                                               |
-| Leases              | GET    | `build/retention/leases`                                                   | Returns any leases owned by the specified user, optionally scoped to a single pipeline definition and run.     |
-| Leases              | GET    | `build/retention/leases/{leaseId}`                                         | Returns the details of the retention lease given a lease id.                                                   |
-| Metrics             | GET    | `build/definitions/{definitionId}/metrics`                                 | Gets build metrics for a definition.                                                                           |
-| Metrics             | GET    | `build/metrics/{metricAggregationType}`                                    | Gets build metrics for a project.                                                                              |
-| Options             | GET    | `build/options`                                                            | Gets all build definition options supported by the system.                                                     |
-| Properties          | GET    | `build/builds/{buildId}/properties`                                        | Gets properties for a build.                                                                                   |
-| Properties          | PATCH  | `build/builds/{buildId}/properties`                                        | Updates properties for a build.                                                                                |
-| Properties          | GET    | `build/definitions/{definitionId}/properties`                              | Gets properties for a definition.                                                                              |
-| Properties          | PATCH  | `build/definitions/{definitionId}/properties`                              | Updates properties for a definition.                                                                           |
-| Resource Usage      | GET    | `build/resourceusage`                                                      | Gets information about build resources in the system.                                                          |
-| Resources           | GET    | `build/definitions/{definitionId}/resources`                               |                                                                                                                |
-| Resources           | PATCH  | `build/definitions/{definitionId}/resources`                               |                                                                                                                |
-| Retention           | GET    | `build/retention`                                                          | Gets the project's retention settings.                                                                         |
-| Retention           | PATCH  | `build/retention`                                                          | Updates the project's retention settings.                                                                      |
-| Settings            | GET    | `build/settings`                                                           | Gets the build settings.                                                                                       |
-| Settings            | PATCH  | `build/settings`                                                           | Updates the build settings.                                                                                    |
-| Source Providers    | GET    | `sourceproviders`                                                          | Get a list of source providers and their capabilities.                                                         |
-| Source Providers    | GET    | `sourceProviders/{providerName}/branches`                                  | Gets a list of branches for the given source code repository.                                                  |
-| Source Providers    | GET    | `sourceProviders/{providerName}/filecontents`                              | Gets the contents of a file in the given source code repository.                                               |
-| Source Providers    | GET    | `sourceProviders/{providerName}/pathcontents`                              | Gets the contents of a directory in the given source code repository.                                          |
-| Source Providers    | GET    | `sourceProviders/{providerName}/pullrequests/{pullRequestId}`              | Gets a pull request object from source provider.                                                               |
-| Source Providers    | GET    | `sourceProviders/{providerName}/repositories`                              | Gets a list of source code repositories.                                                                       |
-| Source Providers    | GET    | `sourceProviders/{providerName}/webhooks`                                  | Gets a list of webhooks installed in the given source code repository.                                         |
-| Source Providers    | POST   | `sourceProviders/{providerName}/webhooks`                                  | Recreates the webhooks for the specified triggers in the given source code repository.                         |
-| Stage Timeline      | GET    | `build/builds/{buildId}/Timeline/{timelineId}/stages/{stageName}`          | Gets the timeline for a build filtered to a specific stage.                                                    |
-| Stage Timeline      | GET    | `build/builds/{buildId}/Timeline/stages/{stageName}`                       | Gets the latest timeline for a build filtered to a specific stage.                                             |
-| Status              | GET    | `build/status/{definition}`                                                | <p>Gets the build status for a definition, optionally scoped to a specific branch, stage, job, and configurat… |
-| Tags                | POST   | `build/builds/{buildId}/tags`                                              | Adds tags to a build.                                                                                          |
-| Tags                | PATCH  | `build/builds/{buildId}/tags`                                              | Adds/Removes tags from a build.                                                                                |
-| Tags                | GET    | `build/definitions/{DefinitionId}/tags`                                    | Gets the tags for a definition.                                                                                |
-| Tags                | POST   | `build/definitions/{DefinitionId}/tags`                                    | Adds multiple tags to a definition.                                                                            |
-| Tags                | PATCH  | `build/definitions/{DefinitionId}/tags`                                    | Adds/Removes tags from a definition.                                                                           |
-| Tags                | PUT    | `build/definitions/{DefinitionId}/tags/{tag}`                              | Adds a tag to a definition                                                                                     |
-| Tags                | DELETE | `build/definitions/{DefinitionId}/tags/{tag}`                              | Removes a tag from a definition. NOTE: This API will not work for tags with special characters. To remove tag… |
-| Tags                | GET    | `build/tags`                                                               | Gets a list of all build tags in the project.                                                                  |
-| Tags                | DELETE | `build/tags/{tag}`                                                         | Removes a tag from builds, definitions, and from the tag store                                                 |
-| Templates           | GET    | `build/definitions/templates`                                              | Gets all definition templates.                                                                                 |
-| Templates           | GET    | `build/definitions/templates/{templateId}`                                 | Gets a specific build definition template.                                                                     |
-| Templates           | PUT    | `build/definitions/templates/{templateId}`                                 | Updates an existing build definition template.                                                                 |
-| Templates           | DELETE | `build/definitions/templates/{templateId}`                                 | Deletes a build definition template.                                                                           |
-| Yaml                | GET    | `build/definitions/{definitionId}/yaml`                                    | Converts a definition to YAML, optionally at a specific revision.                                              |
-
-</details>
-
-<details>
 <summary>Агенти, змінні, task groups — 55 з 72</summary>
 
 | Група            | Метод  | Шлях                                                                           | Що робить                                                                                                      |
@@ -331,6 +259,58 @@
 | Variablegroups   | GET    | `distributedtask/variablegroups`                                               | Get variable groups by ids.                                                                                    |
 | Webhooks         | POST   | `public/distributedtask/webhooks/{webHookId}`                                  | Triggers a pipeline run of pipelines which have a webhook resource defined with specified WebHook Name proper… |
 | Yamlschema       | GET    | `distributedtask/yamlschema`                                                   | GET the Yaml schema used for Yaml file validation.                                                             |
+
+</details>
+
+<details>
+<summary>Збірки — 44 з 93</summary>
+
+| Група               | Метод  | Шлях                                                                       | Що робить                                                                                                      |
+| ------------------- | ------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Artifacts           | POST   | `build/builds/{buildId}/artifacts`                                         | Associates an artifact with a build.                                                                           |
+| Artifacts           | GET    | `build/builds/{buildId}/artifacts`                                         | Gets a file from the build.                                                                                    |
+| Attachments         | GET    | `build/builds/{buildId}/{timelineId}/{recordId}/attachments/{type}/{name}` | Gets a specific attachment.                                                                                    |
+| Attachments         | GET    | `build/builds/{buildId}/attachments/{type}`                                | Gets the list of attachments of a specific type that are associated with a build.                              |
+| Authorizedresources | GET    | `build/authorizedresources`                                                |                                                                                                                |
+| Authorizedresources | PATCH  | `build/authorizedresources`                                                |                                                                                                                |
+| Badge               | GET    | `build/repos/{repoType}/badge`                                             | Gets a badge that indicates the status of the most recent build for the specified branch.                      |
+| Badge               | GET    | `public/build/definitions/{project}/{definitionId}/badge`                  | This endpoint is deprecated. Please see the Build Status REST endpoint.                                        |
+| Builds              | PATCH  | `build/builds`                                                             | Updates multiple builds.                                                                                       |
+| Builds              | POST   | `build/builds/{buildId}/workitems`                                         | Gets the work items associated with a build, filtered to specific commits.                                     |
+| Controllers         | GET    | `build/controllers`                                                        | Gets controller, optionally filtered by name                                                                   |
+| Controllers         | GET    | `build/controllers/{controllerId}`                                         | Gets a controller                                                                                              |
+| History             | GET    | `build/retention/history`                                                  | Returns the retention history for the project collection. This includes pipelines that have custom retention…  |
+| Leases              | GET    | `build/retention/leases`                                                   | Returns any leases matching the specified MinimalRetentionLeases                                               |
+| Leases              | GET    | `build/retention/leases`                                                   | Returns any leases owned by the specified user, optionally scoped to a single pipeline definition and run.     |
+| Leases              | GET    | `build/retention/leases/{leaseId}`                                         | Returns the details of the retention lease given a lease id.                                                   |
+| Options             | GET    | `build/options`                                                            | Gets all build definition options supported by the system.                                                     |
+| Properties          | GET    | `build/builds/{buildId}/properties`                                        | Gets properties for a build.                                                                                   |
+| Properties          | PATCH  | `build/builds/{buildId}/properties`                                        | Updates properties for a build.                                                                                |
+| Properties          | GET    | `build/definitions/{definitionId}/properties`                              | Gets properties for a definition.                                                                              |
+| Properties          | PATCH  | `build/definitions/{definitionId}/properties`                              | Updates properties for a definition.                                                                           |
+| Resource Usage      | GET    | `build/resourceusage`                                                      | Gets information about build resources in the system.                                                          |
+| Settings            | GET    | `build/settings`                                                           | Gets the build settings.                                                                                       |
+| Settings            | PATCH  | `build/settings`                                                           | Updates the build settings.                                                                                    |
+| Source Providers    | GET    | `sourceproviders`                                                          | Get a list of source providers and their capabilities.                                                         |
+| Source Providers    | GET    | `sourceProviders/{providerName}/branches`                                  | Gets a list of branches for the given source code repository.                                                  |
+| Source Providers    | GET    | `sourceProviders/{providerName}/filecontents`                              | Gets the contents of a file in the given source code repository.                                               |
+| Source Providers    | GET    | `sourceProviders/{providerName}/pathcontents`                              | Gets the contents of a directory in the given source code repository.                                          |
+| Source Providers    | GET    | `sourceProviders/{providerName}/pullrequests/{pullRequestId}`              | Gets a pull request object from source provider.                                                               |
+| Source Providers    | GET    | `sourceProviders/{providerName}/repositories`                              | Gets a list of source code repositories.                                                                       |
+| Source Providers    | GET    | `sourceProviders/{providerName}/webhooks`                                  | Gets a list of webhooks installed in the given source code repository.                                         |
+| Source Providers    | POST   | `sourceProviders/{providerName}/webhooks`                                  | Recreates the webhooks for the specified triggers in the given source code repository.                         |
+| Stage Timeline      | GET    | `build/builds/{buildId}/Timeline/{timelineId}/stages/{stageName}`          | Gets the timeline for a build filtered to a specific stage.                                                    |
+| Stage Timeline      | GET    | `build/builds/{buildId}/Timeline/stages/{stageName}`                       | Gets the latest timeline for a build filtered to a specific stage.                                             |
+| Status              | GET    | `build/status/{definition}`                                                | <p>Gets the build status for a definition, optionally scoped to a specific branch, stage, job, and configurat… |
+| Tags                | POST   | `build/builds/{buildId}/tags`                                              | Adds tags to a build.                                                                                          |
+| Tags                | PATCH  | `build/builds/{buildId}/tags`                                              | Adds/Removes tags from a build.                                                                                |
+| Tags                | PATCH  | `build/definitions/{DefinitionId}/tags`                                    | Adds/Removes tags from a definition.                                                                           |
+| Tags                | PUT    | `build/definitions/{DefinitionId}/tags/{tag}`                              | Adds a tag to a definition                                                                                     |
+| Tags                | DELETE | `build/tags/{tag}`                                                         | Removes a tag from builds, definitions, and from the tag store                                                 |
+| Templates           | GET    | `build/definitions/templates`                                              | Gets all definition templates.                                                                                 |
+| Templates           | GET    | `build/definitions/templates/{templateId}`                                 | Gets a specific build definition template.                                                                     |
+| Templates           | PUT    | `build/definitions/templates/{templateId}`                                 | Updates an existing build definition template.                                                                 |
+| Templates           | DELETE | `build/definitions/templates/{templateId}`                                 | Deletes a build definition template.                                                                           |
 
 </details>
 
