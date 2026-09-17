@@ -5,9 +5,19 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { VariableGroupParameters, VariableGroupProjectReference, EnvironmentCreateParameter, EnvironmentUpdateParameter } from "azure-devops-node-api/interfaces/TaskAgentInterfaces.js";
+import {
+  VariableGroupParameters,
+  VariableGroupProjectReference,
+  EnvironmentCreateParameter,
+  EnvironmentUpdateParameter,
+  TaskGroupCreateParameter,
+  TaskGroupUpdateParameter,
+  KubernetesResourceCreateParametersExistingEndpoint,
+} from "azure-devops-node-api/interfaces/TaskAgentInterfaces.js";
 import { elicitProject } from "../shared/elicitations.js";
 import { optionalProject } from "../shared/common-params.js";
+import { adoFetch } from "../shared/ado-rest.js";
+import { Readable } from "stream";
 
 const TASKAGENT_TOOLS = {
   list_variable_groups: "taskagent_list_variable_groups",
@@ -35,9 +45,39 @@ const TASKAGENT_TOOLS = {
   get_secure_file: "taskagent_get_secure_file",
   update_secure_file: "taskagent_update_secure_file",
   delete_secure_file: "taskagent_delete_secure_file",
+  upload_secure_file: "taskagent_upload_secure_file",
+  get_agent_pool: "taskagent_get_agent_pool",
+  add_agent_pool: "taskagent_add_agent_pool",
+  update_agent_pool: "taskagent_update_agent_pool",
+  delete_agent_pool: "taskagent_delete_agent_pool",
+  get_agent_queue: "taskagent_get_agent_queue",
+  add_agent_queue: "taskagent_add_agent_queue",
+  delete_agent_queue: "taskagent_delete_agent_queue",
+  update_agent: "taskagent_update_agent",
+  add_task_group: "taskagent_add_task_group",
+  update_task_group: "taskagent_update_task_group",
+  list_deployment_groups: "taskagent_list_deployment_groups",
+  get_deployment_group: "taskagent_get_deployment_group",
+  add_deployment_group: "taskagent_add_deployment_group",
+  update_deployment_group: "taskagent_update_deployment_group",
+  delete_deployment_group: "taskagent_delete_deployment_group",
+  list_deployment_targets: "taskagent_list_deployment_targets",
+  update_deployment_target_tags: "taskagent_update_deployment_target_tags",
+  delete_deployment_target: "taskagent_delete_deployment_target",
+  list_elastic_pools: "taskagent_list_elastic_pools",
+  get_elastic_pool: "taskagent_get_elastic_pool",
+  update_elastic_pool: "taskagent_update_elastic_pool",
+  list_elastic_pool_nodes: "taskagent_list_elastic_pool_nodes",
+  get_elastic_pool_logs: "taskagent_get_elastic_pool_logs",
+  list_environment_deployments: "taskagent_list_environment_deployments",
+  list_environment_virtual_machines: "taskagent_list_environment_virtual_machines",
+  delete_environment_virtual_machine: "taskagent_delete_environment_virtual_machine",
+  get_kubernetes_resource: "taskagent_get_kubernetes_resource",
+  add_kubernetes_resource: "taskagent_add_kubernetes_resource",
+  delete_kubernetes_resource: "taskagent_delete_kubernetes_resource",
 };
 
-function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
+function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string = () => "") {
   // Resolve the project (eliciting if not supplied).
   const resolveProject = async (connection: WebApi, project: string | undefined) => {
     if (project) return { project };
@@ -668,6 +708,655 @@ function configureTaskAgentTools(server: McpServer, _: () => Promise<string>, co
         return ok({ deleted: secureFileId, note: "Permanent — secure files have no recycle bin." });
       } catch (error) {
         return failed(`deleting secure file ${secureFileId}`, error);
+      }
+    }
+  );
+
+  // The typed client lacks elastic pools and environment virtual machine resources; these go through REST.
+  async function rest(action: string, method: string, path: string, body?: unknown) {
+    try {
+      const connection = await connectionProvider();
+      const response = await adoFetch({ url: `${connection.serverUrl}/${path}`, method, token: await tokenProvider(), userAgent: userAgentProvider(), body });
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`${response.status}: ${text}`);
+      }
+      return { content: [{ type: "text" as const, text: text || "Done." }] };
+    } catch (error) {
+      return failed(action, error);
+    }
+  }
+
+  // ---- Secure files ----
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.upload_secure_file,
+    "Upload a secure file — a certificate, provisioning profile, keystore or SSH key that pipelines download with the DownloadSecureFile task. The content is stored encrypted and can never be read back through the API.",
+    {
+      project: projectField,
+      name: z.string().describe("The file name, e.g. 'signing.pfx'. Must be unique in the project."),
+      contentBase64: z.string().describe("The file content, base64-encoded."),
+      authorizePipelines: z.boolean().default(false).describe("Let every pipeline in the project use the file without asking for permission."),
+    },
+    async ({ project, name, contentBase64, authorizePipelines }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        const content = Readable.from([Buffer.from(contentBase64, "base64")]);
+        const file = await taskAgentApi.uploadSecureFile({ "Content-Type": "application/octet-stream" }, content, ctx.project, name, authorizePipelines);
+        return ok(file);
+      } catch (error) {
+        return failed(`uploading secure file '${name}'`, error);
+      }
+    }
+  );
+
+  // ---- Agent pools and queues ----
+
+  const poolIdParam = z.coerce.number().min(1).describe("The ID of the agent pool, as taskagent_list_agent_pools returns it.");
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.get_agent_pool,
+    "Get one agent pool: whether it is hosted, its size, auto-provisioning and auto-update settings, and who created it.",
+    { poolId: poolIdParam },
+    async ({ poolId }) => {
+      try {
+        const connection = await connectionProvider();
+        const taskAgentApi = await connection.getTaskAgentApi();
+        const pool = await taskAgentApi.getAgentPool(poolId);
+        if (!pool) {
+          return { content: [{ type: "text", text: `Agent pool ${poolId} not found` }], isError: true };
+        }
+        return ok(pool);
+      } catch (error) {
+        return failed(`getting agent pool ${poolId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.add_agent_pool,
+    "Create a self-hosted agent pool in the organization. With autoProvision it is added as a queue to every project; otherwise connect projects with taskagent_add_agent_queue.",
+    {
+      name: z.string().describe("The pool name."),
+      autoProvision: z.boolean().default(false).describe("Make the pool available to every project."),
+      autoUpdate: z.boolean().default(true).describe("Keep the agents in the pool on the latest version automatically."),
+    },
+    async ({ name, autoProvision, autoUpdate }) => {
+      try {
+        const connection = await connectionProvider();
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.addAgentPool({ name, autoProvision, autoUpdate }));
+      } catch (error) {
+        return failed(`creating agent pool '${name}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.update_agent_pool,
+    "Rename an agent pool or change its auto-provisioning and auto-update settings. Only the values you pass change.",
+    {
+      poolId: poolIdParam,
+      name: z.string().optional().describe("New pool name."),
+      autoProvision: z.boolean().optional().describe("Make the pool available to every project."),
+      autoUpdate: z.boolean().optional().describe("Keep the agents on the latest version automatically."),
+    },
+    async ({ poolId, name, autoProvision, autoUpdate }) => {
+      if (name === undefined && autoProvision === undefined && autoUpdate === undefined) {
+        return { content: [{ type: "text", text: "Nothing to update: give name, autoProvision or autoUpdate." }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.updateAgentPool({ name, autoProvision, autoUpdate }, poolId));
+      } catch (error) {
+        return failed(`updating agent pool ${poolId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.delete_agent_pool,
+    "Delete an agent pool from the organization, with its queues in every project. Its agents are unregistered and pipelines that target the pool fail to find agents.",
+    { poolId: poolIdParam },
+    async ({ poolId }) => {
+      try {
+        const connection = await connectionProvider();
+        const taskAgentApi = await connection.getTaskAgentApi();
+        await taskAgentApi.deleteAgentPool(poolId);
+        return ok({ deleted: poolId });
+      } catch (error) {
+        return failed(`deleting agent pool ${poolId}`, error);
+      }
+    }
+  );
+
+  const queueIdParam = z.coerce.number().min(1).describe("The ID of the agent queue, as taskagent_list_agent_queues returns it.");
+
+  registerTool(server, TASKAGENT_TOOLS.get_agent_queue, "Get one agent queue of a project and the pool behind it.", { project: projectField, queueId: queueIdParam }, async ({ project, queueId }) => {
+    try {
+      const connection = await connectionProvider();
+      const ctx = await resolveProject(connection, project);
+      if ("response" in ctx) return ctx.response;
+
+      const taskAgentApi = await connection.getTaskAgentApi();
+      const queue = await taskAgentApi.getAgentQueue(queueId, ctx.project);
+      if (!queue) {
+        return { content: [{ type: "text", text: `Agent queue ${queueId} not found` }], isError: true };
+      }
+      return ok(queue);
+    } catch (error) {
+      return failed(`getting agent queue ${queueId}`, error);
+    }
+  });
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.add_agent_queue,
+    "Connect an agent pool to a project by adding a queue for it, so the project's pipelines can target the pool.",
+    {
+      project: projectField,
+      poolId: poolIdParam,
+      name: z.string().optional().describe("Queue name. Omit to use the pool's name."),
+      authorizePipelines: z.boolean().default(false).describe("Let every pipeline in the project use the queue without asking for permission."),
+    },
+    async ({ project, poolId, name, authorizePipelines }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.addAgentQueue({ name, pool: { id: poolId } }, ctx.project, authorizePipelines));
+      } catch (error) {
+        return failed(`adding a queue for agent pool ${poolId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.delete_agent_queue,
+    "Disconnect an agent pool from a project by removing its queue. The pool and its agents stay; the project's pipelines can no longer target it.",
+    { project: projectField, queueId: queueIdParam },
+    async ({ project, queueId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        await taskAgentApi.deleteAgentQueue(queueId, ctx.project);
+        return ok({ deleted: queueId });
+      } catch (error) {
+        return failed(`removing agent queue ${queueId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.update_agent,
+    "Enable or disable an agent. A disabled agent finishes its current job and then takes no new ones — use it to drain a machine before maintenance.",
+    {
+      poolId: poolIdParam,
+      agentId: z.coerce.number().min(1).describe("The ID of the agent, as taskagent_list_agents returns it."),
+      enabled: z.boolean().describe("true to let the agent take jobs, false to stop it."),
+    },
+    async ({ poolId, agentId, enabled }) => {
+      try {
+        const connection = await connectionProvider();
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.updateAgent({ id: agentId, enabled }, poolId, agentId));
+      } catch (error) {
+        return failed(`updating agent ${agentId}`, error);
+      }
+    }
+  );
+
+  // ---- Task groups ----
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.add_task_group,
+    "Create a task group — a reusable sequence of steps for classic pipelines — from a complete definition (name, category, tasks, inputs). Copying an existing one with taskagent_get_task_group is the easiest start.",
+    {
+      project: projectField,
+      taskGroup: z.record(z.string(), z.unknown()).describe("The task group: { name, category, description, tasks: [...], inputs: [...] }, in the shape taskagent_get_task_group returns."),
+    },
+    async ({ project, taskGroup }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.addTaskGroup(taskGroup as TaskGroupCreateParameter, ctx.project));
+      } catch (error) {
+        return failed("creating task group", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.update_task_group,
+    "Replace a task group with an edited copy of its whole definition, including its current revision. Every pipeline using the group picks up the change.",
+    {
+      project: projectField,
+      taskGroupId: z.string().describe("The GUID of the task group."),
+      taskGroup: z.record(z.string(), z.unknown()).describe("The complete task group as taskagent_get_task_group returns it, with your changes and its current revision."),
+    },
+    async ({ project, taskGroupId, taskGroup }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.updateTaskGroup({ ...(taskGroup as TaskGroupUpdateParameter), id: taskGroupId }, ctx.project, taskGroupId));
+      } catch (error) {
+        return failed(`updating task group ${taskGroupId}`, error);
+      }
+    }
+  );
+
+  // ---- Deployment groups (classic release pipelines) ----
+
+  const deploymentGroupIdParam = z.coerce.number().min(1).describe("The ID of the deployment group.");
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.list_deployment_groups,
+    "List the deployment groups of a project — the sets of target machines classic release pipelines deploy to.",
+    {
+      project: projectField,
+      name: z.string().optional().describe("Only the group with this name."),
+      top: z.coerce.number().min(1).optional().describe("Maximum number of groups to return."),
+    },
+    async ({ project, name, top }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok((await taskAgentApi.getDeploymentGroups(ctx.project, name, undefined, undefined, undefined, top)) ?? []);
+      } catch (error) {
+        return failed("listing deployment groups", error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.get_deployment_group,
+    "Get one deployment group with its machine count and the pool behind it.",
+    { project: projectField, deploymentGroupId: deploymentGroupIdParam },
+    async ({ project, deploymentGroupId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        const group = await taskAgentApi.getDeploymentGroup(ctx.project, deploymentGroupId);
+        if (!group) {
+          return { content: [{ type: "text", text: `Deployment group ${deploymentGroupId} not found` }], isError: true };
+        }
+        return ok(group);
+      } catch (error) {
+        return failed(`getting deployment group ${deploymentGroupId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.add_deployment_group,
+    "Create a deployment group in a project. Machines join it by running the registration script shown in the web UI.",
+    {
+      project: projectField,
+      name: z.string().describe("The group name."),
+      description: z.string().optional().describe("The group description."),
+    },
+    async ({ project, name, description }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.addDeploymentGroup({ name, description }, ctx.project));
+      } catch (error) {
+        return failed(`creating deployment group '${name}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.update_deployment_group,
+    "Rename a deployment group or change its description.",
+    {
+      project: projectField,
+      deploymentGroupId: deploymentGroupIdParam,
+      name: z.string().optional().describe("New group name."),
+      description: z.string().optional().describe("New description."),
+    },
+    async ({ project, deploymentGroupId, name, description }) => {
+      if (name === undefined && description === undefined) {
+        return { content: [{ type: "text", text: "Nothing to update: give name, description or both." }], isError: true };
+      }
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.updateDeploymentGroup({ name, description }, ctx.project, deploymentGroupId));
+      } catch (error) {
+        return failed(`updating deployment group ${deploymentGroupId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.delete_deployment_group,
+    "Delete a deployment group with its targets. Release pipelines that deploy to it fail until they are pointed elsewhere.",
+    { project: projectField, deploymentGroupId: deploymentGroupIdParam },
+    async ({ project, deploymentGroupId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        await taskAgentApi.deleteDeploymentGroup(ctx.project, deploymentGroupId);
+        return ok({ deleted: deploymentGroupId });
+      } catch (error) {
+        return failed(`deleting deployment group ${deploymentGroupId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.list_deployment_targets,
+    "List the machines in a deployment group with their tags, optionally filtered by tags or name.",
+    {
+      project: projectField,
+      deploymentGroupId: deploymentGroupIdParam,
+      tags: z.array(z.string()).optional().describe("Only machines carrying all of these tags."),
+      name: z.string().optional().describe("Only machines whose name contains this text."),
+      top: z.coerce.number().min(1).optional().describe("Maximum number of machines to return."),
+    },
+    async ({ project, deploymentGroupId, tags, name, top }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        const targets = await taskAgentApi.getDeploymentTargets(ctx.project, deploymentGroupId, tags, name, name !== undefined, undefined, undefined, undefined, undefined, top);
+        return ok(targets ?? []);
+      } catch (error) {
+        return failed(`listing targets of deployment group ${deploymentGroupId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.update_deployment_target_tags,
+    "Replace the tags of machines in a deployment group. Release stages choose machines by tag, so this changes where deployments land.",
+    {
+      project: projectField,
+      deploymentGroupId: deploymentGroupIdParam,
+      targets: z
+        .array(z.object({ id: z.coerce.number().min(1).describe("The target (machine) ID."), tags: z.array(z.string()).describe("The complete new tag list.") }))
+        .min(1)
+        .describe("The machines and their new tags."),
+    },
+    async ({ project, deploymentGroupId, targets }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(await taskAgentApi.updateDeploymentTargets(targets, ctx.project, deploymentGroupId));
+      } catch (error) {
+        return failed(`updating tags in deployment group ${deploymentGroupId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.delete_deployment_target,
+    "Remove a machine from a deployment group, unregistering its agent there.",
+    {
+      project: projectField,
+      deploymentGroupId: deploymentGroupIdParam,
+      targetId: z.coerce.number().min(1).describe("The target (machine) ID."),
+    },
+    async ({ project, deploymentGroupId, targetId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        await taskAgentApi.deleteDeploymentTarget(ctx.project, deploymentGroupId, targetId);
+        return ok({ deleted: targetId, deploymentGroupId });
+      } catch (error) {
+        return failed(`removing target ${targetId}`, error);
+      }
+    }
+  );
+
+  // ---- Elastic (scale set) agent pools ----
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.list_elastic_pools,
+    "List the scale set agent pools of the organization — pools whose agents run on an Azure virtual machine scale set that Azure DevOps grows and shrinks.",
+    {},
+    async () => rest("listing elastic pools", "GET", "_apis/distributedtask/elasticpools?api-version=7.1")
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.get_elastic_pool,
+    "Get a scale set agent pool's settings: maximum and standby capacity, idle time before scale-in, whether agents are recycled after each job, and its current state.",
+    { poolId: poolIdParam },
+    async ({ poolId }) => rest(`getting elastic pool ${poolId}`, "GET", `_apis/distributedtask/elasticpools/${poolId}?api-version=7.1`)
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.update_elastic_pool,
+    "Change a scale set agent pool's settings. Only the values you pass change.",
+    {
+      poolId: poolIdParam,
+      maxCapacity: z.coerce.number().min(1).optional().describe("Maximum number of machines."),
+      desiredIdle: z.coerce.number().min(0).optional().describe("Machines kept on standby, ready for jobs."),
+      timeToLiveMinutes: z.coerce.number().min(0).optional().describe("Minutes an idle machine is kept before it is removed."),
+      recycleAfterEachUse: z.boolean().optional().describe("Replace a machine after every job, for a clean environment each time."),
+      maxSavedNodeCount: z.coerce.number().min(0).optional().describe("How many unhealthy machines to keep for diagnosis instead of deleting them."),
+    },
+    async ({ poolId, ...settings }) => {
+      const changes = Object.fromEntries(Object.entries(settings).filter(([, value]) => value !== undefined));
+      if (Object.keys(changes).length === 0) {
+        return { content: [{ type: "text", text: "Nothing to update: give at least one setting." }], isError: true };
+      }
+      return rest(`updating elastic pool ${poolId}`, "PATCH", `_apis/distributedtask/elasticpools/${poolId}?api-version=7.1`, changes);
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.list_elastic_pool_nodes,
+    "List the machines of a scale set agent pool with their state (idle, busy, being deleted, failed) — to see why jobs wait or machines pile up.",
+    { poolId: poolIdParam },
+    async ({ poolId }) => rest(`listing nodes of elastic pool ${poolId}`, "GET", `_apis/distributedtask/elasticpools/${poolId}/nodes?api-version=7.1`)
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.get_elastic_pool_logs,
+    "Get the diagnostic log of a scale set agent pool: scaling decisions and errors from the Azure scale set.",
+    { poolId: poolIdParam },
+    async ({ poolId }) => rest(`getting logs of elastic pool ${poolId}`, "GET", `_apis/distributedtask/elasticpools/${poolId}/logs?api-version=7.1`)
+  );
+
+  // ---- Environments: deployments and resources ----
+
+  const environmentIdParam = z.coerce.number().min(1).describe("The ID of the environment, as taskagent_list_environments returns it.");
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.list_environment_deployments,
+    "List the deployment history of an environment: which pipeline run deployed what, to which resource, when, and with what result.",
+    {
+      project: projectField,
+      environmentId: environmentIdParam,
+      top: z.coerce.number().min(1).optional().describe("Maximum number of deployments to return."),
+      continuationToken: z.string().optional().describe("Token from a previous page."),
+    },
+    async ({ project, environmentId, top, continuationToken }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok((await taskAgentApi.getEnvironmentDeploymentExecutionRecords(ctx.project, environmentId, continuationToken, top)) ?? []);
+      } catch (error) {
+        return failed(`listing deployments of environment ${environmentId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.list_environment_virtual_machines,
+    "List the virtual machine resources registered in an environment, with their tags and agent.",
+    { project: projectField, environmentId: environmentIdParam },
+    async ({ project, environmentId }) => {
+      const connection = await connectionProvider();
+      const ctx = await resolveProject(connection, project);
+      if ("response" in ctx) return ctx.response;
+      return rest(
+        `listing virtual machines of environment ${environmentId}`,
+        "GET",
+        `${encodeURIComponent(ctx.project)}/_apis/pipelines/environments/${environmentId}/providers/virtualmachines?api-version=7.1`
+      );
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.delete_environment_virtual_machine,
+    "Remove a virtual machine resource from an environment. Deployments stop targeting it; the agent on the machine must be removed separately.",
+    {
+      project: projectField,
+      environmentId: environmentIdParam,
+      resourceId: z.coerce.number().min(1).describe("The ID of the virtual machine resource."),
+    },
+    async ({ project, environmentId, resourceId }) => {
+      const connection = await connectionProvider();
+      const ctx = await resolveProject(connection, project);
+      if ("response" in ctx) return ctx.response;
+      return rest(
+        `removing virtual machine ${resourceId}`,
+        "DELETE",
+        `${encodeURIComponent(ctx.project)}/_apis/pipelines/environments/${environmentId}/providers/virtualmachines/${resourceId}?api-version=7.1`
+      );
+    }
+  );
+
+  const kubernetesResourceIdParam = z.coerce.number().min(1).describe("The ID of the Kubernetes resource in the environment.");
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.get_kubernetes_resource,
+    "Get a Kubernetes resource of an environment: its cluster, namespace and the service connection used to reach it.",
+    { project: projectField, environmentId: environmentIdParam, resourceId: kubernetesResourceIdParam },
+    async ({ project, environmentId, resourceId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        const resource = await taskAgentApi.getKubernetesResource(ctx.project, environmentId, resourceId);
+        if (!resource) {
+          return { content: [{ type: "text", text: `Kubernetes resource ${resourceId} not found in environment ${environmentId}` }], isError: true };
+        }
+        return ok(resource);
+      } catch (error) {
+        return failed(`getting Kubernetes resource ${resourceId}`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.add_kubernetes_resource,
+    "Add a Kubernetes namespace to an environment as a deployment resource, reached through an existing Kubernetes service connection.",
+    {
+      project: projectField,
+      environmentId: environmentIdParam,
+      name: z.string().describe("The resource name shown in the environment, usually the namespace."),
+      namespace: z.string().describe("The Kubernetes namespace to deploy to."),
+      clusterName: z.string().optional().describe("The cluster name, for display."),
+      serviceEndpointId: z.string().describe("The GUID of the Kubernetes service connection that can reach the cluster."),
+      tags: z.array(z.string()).optional().describe("Tags for selecting the resource in deployment jobs."),
+    },
+    async ({ project, environmentId, name, namespace, clusterName, serviceEndpointId, tags }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        return ok(
+          await taskAgentApi.addKubernetesResource({ name, namespace, clusterName, serviceEndpointId, tags } as KubernetesResourceCreateParametersExistingEndpoint, ctx.project, environmentId)
+        );
+      } catch (error) {
+        return failed(`adding Kubernetes resource '${name}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    TASKAGENT_TOOLS.delete_kubernetes_resource,
+    "Remove a Kubernetes resource from an environment. The namespace in the cluster is not touched; deployments just stop targeting it.",
+    { project: projectField, environmentId: environmentIdParam, resourceId: kubernetesResourceIdParam },
+    async ({ project, environmentId, resourceId }) => {
+      try {
+        const connection = await connectionProvider();
+        const ctx = await resolveProject(connection, project);
+        if ("response" in ctx) return ctx.response;
+
+        const taskAgentApi = await connection.getTaskAgentApi();
+        await taskAgentApi.deleteKubernetesResource(ctx.project, environmentId, resourceId);
+        return ok({ deleted: resourceId, environmentId });
+      } catch (error) {
+        return failed(`removing Kubernetes resource ${resourceId}`, error);
       }
     }
   );

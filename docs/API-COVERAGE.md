@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     530 | 52% |
+| Потрібні області      |     1024 |     560 | 55% |
 | Свідомо не покриваємо |      167 |      23 |   — |
 
 ## Прогрес
@@ -24,6 +24,7 @@
 | 2026-09-17 |          474 |              495 | 1024 | 48% | Git, PR #82                    |
 | 2026-09-17 |          487 |              509 | 1024 | 50% | Робочі елементи, PR #83        |
 | 2026-09-17 |          505 |              530 | 1024 | 52% | Збірки, PR #84                 |
+| 2026-09-17 |          535 |              560 | 1024 | 55% | Агенти й середовища, PR #85    |
 
 <!-- history:end -->
 
@@ -39,7 +40,7 @@
 - [x] **Git** (~25 з 66) — PR #82: +26 операцій; лишилися blobs і trees, батч-операції, вкладення й властивості PR, merges, обрані refs, окремі get-и: порівняння комітів, окремий коміт, пуші; конфлікти й коміти PR; зміна репозиторію, імпорт, форки
 - [x] **Робочі елементи** (~10 з 39) — PR #83: +13 операцій; лишилися reporting-API (його перекриває Analytics), іконки, тимчасові запити, розсилка пошти, GitHub connections: видалення коментаря й версії коментарів, зміна й видалення поля, історія змін
 - [x] **Збірки** (~15 з 65) — PR #84: +21 операція; лишилися source providers (GitHub/Bitbucket), шаблони визначень, властивості, бейджі, контролери XAML, вкладення, пакетні оновлення: видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
-- [ ] **Агенти й середовища** (~20 з 67): пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
+- [x] **Агенти й середовища** (~20 з 67) — PR #85: +30 операцій; лишилися agent clouds, службові операції execution plan (логи, події, OIDC-токени агентів), YAML-схема, вебхуки, пакетні запити secure files: пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
 - [ ] **Тест-плани** (~20 з 31): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
 - [ ] **Погодження й перевірки** (~10 з 12): конфігурації перевірок, дозволи пайплайнів на ресурси
 - [ ] **Service hooks, service connections, graph** (~25): решта операцій підписок і підключень, service principals
@@ -56,17 +57,16 @@
 | Область                                                    | Операцій | Покрито |    % | Непокрито | Примітка                                                     |
 | ---------------------------------------------------------- | -------: | ------: | ---: | --------: | ------------------------------------------------------------ |
 | Результати тестів (`testResults`)                          |       97 |      12 |  12% |        85 |                                                              |
-| Агенти, змінні, task groups (`distributedTask`)            |       72 |      17 |  24% |        55 |                                                              |
 | Збірки (`build`)                                           |       93 |      49 |  53% |        44 |                                                              |
 | Git (`git`)                                                |      112 |      72 |  64% |        40 |                                                              |
 | Тест-плани (`testPlan`)                                    |       44 |      12 |  27% |        32 |                                                              |
+| Агенти, змінні, task groups (`distributedTask`)            |       72 |      41 |  57% |        31 |                                                              |
 | Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
 | Artifacts: пакети за протоколами (`artifactsPackageTypes`) |       73 |      46 |  63% |        27 |                                                              |
 | Робочі елементи (`wit`)                                    |       89 |      63 |  71% |        26 |                                                              |
 | Користувачі й групи (`graph`)                              |       28 |       7 |  25% |        21 |                                                              |
 | Service hooks (`hooks`)                                    |       22 |       4 |  18% |        18 |                                                              |
 | Погодження й перевірки (`approvalsAndChecks`)              |       15 |       3 |  20% |        12 |                                                              |
-| Середовища (`environments`)                                |       17 |       5 |  29% |        12 |                                                              |
 | Обране (`favorite`)                                        |        9 |       0 |   0% |         9 |                                                              |
 | Сповіщення (`notification`)                                |       17 |       8 |  47% |         9 |                                                              |
 | Artifacts: фіди (`artifacts`)                              |       37 |      29 |  78% |         8 |                                                              |
@@ -75,6 +75,7 @@
 | Ліцензії (`memberEntitlementManagement`)                   |       21 |      14 |  67% |         7 |                                                              |
 | Дошки й спринти (`work`)                                   |       59 |      52 |  88% |         7 |                                                              |
 | Проєкти й команди (`core`)                                 |       19 |      13 |  68% |         6 |                                                              |
+| Середовища (`environments`)                                |       17 |      11 |  65% |         6 |                                                              |
 | Дашборди (`dashboard`)                                     |       16 |      11 |  69% |         5 |                                                              |
 | Імпорт/експорт процесів (`processadmin`)                   |        5 |       0 |   0% |         5 |                                                              |
 | Wiki (`wiki`)                                              |       15 |      10 |  67% |         5 |                                                              |
@@ -196,69 +197,6 @@
 | Workitems                  | POST   | `testresults/testmethods/workitems`                                              |                                                                                                                |
 | Workitems                  | DELETE | `testresults/testmethods/workitems`                                              |                                                                                                                |
 | Workitems                  | POST   | `testresults/testmethods/workitems`                                              |                                                                                                                |
-
-</details>
-
-<details>
-<summary>Агенти, змінні, task groups — 55 з 72</summary>
-
-| Група            | Метод  | Шлях                                                                           | Що робить                                                                                                      |
-| ---------------- | ------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Agentclouds      | GET    | `distributedtask/agentclouds`                                                  |                                                                                                                |
-| Agentclouds      | POST   | `distributedtask/agentclouds`                                                  |                                                                                                                |
-| Agentclouds      | GET    | `distributedtask/agentclouds/{agentCloudId}`                                   |                                                                                                                |
-| Agentclouds      | PATCH  | `distributedtask/agentclouds/{agentCloudId}`                                   |                                                                                                                |
-| Agentclouds      | DELETE | `distributedtask/agentclouds/{agentCloudId}`                                   |                                                                                                                |
-| Agentcloudtypes  | GET    | `distributedtask/agentcloudtypes`                                              | Get agent cloud types.                                                                                         |
-| Agents           | POST   | `distributedtask/pools/{poolId}/agents`                                        | Adds an agent to a pool. You probably don't want to call this endpoint directly. Instead, [configure an agen…  |
-| Agents           | PUT    | `distributedtask/pools/{poolId}/agents/{agentId}`                              | Replace an agent. You probably don't want to call this endpoint directly. Instead, [use the agent configurat…  |
-| Agents           | PATCH  | `distributedtask/pools/{poolId}/agents/{agentId}`                              | Update agent details.                                                                                          |
-| Deploymentgroups | GET    | `distributedtask/deploymentgroups`                                             | Get a list of deployment groups by name or IDs.                                                                |
-| Deploymentgroups | POST   | `distributedtask/deploymentgroups`                                             | Create a deployment group.                                                                                     |
-| Deploymentgroups | GET    | `distributedtask/deploymentgroups/{deploymentGroupId}`                         | Get a deployment group by its ID.                                                                              |
-| Deploymentgroups | PATCH  | `distributedtask/deploymentgroups/{deploymentGroupId}`                         | Update a deployment group.                                                                                     |
-| Deploymentgroups | DELETE | `distributedtask/deploymentgroups/{deploymentGroupId}`                         | Delete a deployment group.                                                                                     |
-| Elasticpoollogs  | GET    | `distributedtask/elasticpools/{poolId}/logs`                                   | Get elastic pool diagnostics logs for a specified Elastic Pool.                                                |
-| Elasticpools     | GET    | `distributedtask/elasticpools`                                                 | Get a list of all Elastic Pools.                                                                               |
-| Elasticpools     | POST   | `distributedtask/elasticpools`                                                 | Create a new elastic pool. This will create a new TaskAgentPool at the organization level. If a project id is… |
-| Elasticpools     | GET    | `distributedtask/elasticpools/{poolId}`                                        | Returns the Elastic Pool with the specified Pool Id.                                                           |
-| Elasticpools     | PATCH  | `distributedtask/elasticpools/{poolId}`                                        | Update settings on a specified Elastic Pool.                                                                   |
-| Events           | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/events`                         | Send a pipeline job event to be processed by the execution plan.                                               |
-| Logs             | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/logs`                           | Create a log and connect it to a pipeline run's execution plan.                                                |
-| Logs             | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/logs`                           | Adds an issue (error or warning) to a timeline record of a pipeline run's execution plan so it surfaces in th… |
-| Logs             | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/logs/{logId}`                   | Append a log to a task's log. The log should be sent in the body of the request as a TaskLog object stream.    |
-| Nodes            | GET    | `distributedtask/elasticpools/{poolId}/nodes`                                  | Get a list of ElasticNodes currently in the ElasticPool                                                        |
-| Nodes            | PATCH  | `distributedtask/elasticpools/{poolId}/nodes/{elasticNodeId}`                  | Update properties on a specified ElasticNode                                                                   |
-| Oidctoken        | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/jobs/{jobId}/oidctoken`         |                                                                                                                |
-| Poolpermissions  | GET    | `distributedtask/pools/{poolId}/permissions/{permissions}`                     | Checks if current identity has passed permissions on a pool.                                                   |
-| Pools            | GET    | `distributedtask/pools`                                                        | Get a list of agent pools.                                                                                     |
-| Pools            | POST   | `distributedtask/pools`                                                        | Create an agent pool.                                                                                          |
-| Pools            | GET    | `distributedtask/pools/{poolId}`                                               | Get information about an agent pool.                                                                           |
-| Pools            | PATCH  | `distributedtask/pools/{poolId}`                                               | Update properties on an agent pool                                                                             |
-| Pools            | DELETE | `distributedtask/pools/{poolId}`                                               | Delete an agent pool.                                                                                          |
-| Queues           | GET    | `distributedtask/queues`                                                       | Get a list of agent queues by pool ids                                                                         |
-| Queues           | POST   | `distributedtask/queues`                                                       | Create a new agent queue to connect a project to an agent pool.                                                |
-| Queues           | GET    | `distributedtask/queues`                                                       | Get a list of agent queues by their names                                                                      |
-| Queues           | GET    | `distributedtask/queues`                                                       | Get a list of agent queues by their IDs                                                                        |
-| Queues           | GET    | `distributedtask/queues/{queueId}`                                             | Get information about an agent queue.                                                                          |
-| Queues           | DELETE | `distributedtask/queues/{queueId}`                                             | Removes an agent queue from a project.                                                                         |
-| Records          | PATCH  | `distributedtask/hubs/{hubName}/plans/{planId}/timelines/{timelineId}/records` | Update timeline records if they already exist, otherwise create new ones for the same timeline.                |
-| Requests         | GET    | `distributedtask/agentclouds/{agentCloudId}/requests`                          |                                                                                                                |
-| Securefiles      | GET    | `distributedtask/securefiles`                                                  | Get secure files                                                                                               |
-| Securefiles      | POST   | `distributedtask/securefiles`                                                  | Query secure files using a name pattern and a condition on file properties.                                    |
-| Securefiles      | PATCH  | `distributedtask/securefiles`                                                  | Update properties and/or names of a set of secure files. Files are identified by their IDs. Properties provid… |
-| Securefiles      | POST   | `distributedtask/securefiles`                                                  | Upload a secure file, include the file stream in the request body                                              |
-| Securefiles      | GET    | `distributedtask/securefiles`                                                  | Get secure files                                                                                               |
-| Securefiles      | GET    | `distributedtask/securefiles/{secureFileId}`                                   | Download a secure file by Id                                                                                   |
-| Targets          | GET    | `distributedtask/deploymentgroups/{deploymentGroupId}/targets`                 | Get a list of deployment targets in a deployment group.                                                        |
-| Targets          | PATCH  | `distributedtask/deploymentgroups/{deploymentGroupId}/targets`                 | Update tags of a list of deployment targets in a deployment group.                                             |
-| Targets          | GET    | `distributedtask/deploymentgroups/{deploymentGroupId}/targets/{targetId}`      | Get a deployment target by its ID in a deployment group                                                        |
-| Targets          | DELETE | `distributedtask/deploymentgroups/{deploymentGroupId}/targets/{targetId}`      | Delete a deployment target in a deployment group. This deletes the agent from associated deployment pool too.  |
-| Taskgroups       | POST   | `distributedtask/taskgroups`                                                   | Create a task group.                                                                                           |
-| Taskgroups       | PUT    | `distributedtask/taskgroups/{taskGroupId}`                                     | Update a task group.                                                                                           |
-| Variablegroups   | GET    | `distributedtask/variablegroups`                                               | Get variable groups by ids.                                                                                    |
-| Webhooks         | POST   | `public/distributedtask/webhooks/{webHookId}`                                  | Triggers a pipeline run of pipelines which have a webhook resource defined with specified WebHook Name proper… |
-| Yamlschema       | GET    | `distributedtask/yamlschema`                                                   | GET the Yaml schema used for Yaml file validation.                                                             |
 
 </details>
 
@@ -399,6 +337,45 @@
 | Variables                         | GET    | `testplan/variables/{testVariableId}`                            | Get a test variable by its ID.                                                                                 |
 | Variables                         | PATCH  | `testplan/variables/{testVariableId}`                            | Update a test variable by its ID.                                                                              |
 | Variables                         | DELETE | `testplan/variables/{testVariableId}`                            | Delete a test variable by its ID.                                                                              |
+
+</details>
+
+<details>
+<summary>Агенти, змінні, task groups — 31 з 72</summary>
+
+| Група           | Метод  | Шлях                                                                           | Що робить                                                                                                      |
+| --------------- | ------ | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Agentclouds     | GET    | `distributedtask/agentclouds`                                                  |                                                                                                                |
+| Agentclouds     | POST   | `distributedtask/agentclouds`                                                  |                                                                                                                |
+| Agentclouds     | GET    | `distributedtask/agentclouds/{agentCloudId}`                                   |                                                                                                                |
+| Agentclouds     | PATCH  | `distributedtask/agentclouds/{agentCloudId}`                                   |                                                                                                                |
+| Agentclouds     | DELETE | `distributedtask/agentclouds/{agentCloudId}`                                   |                                                                                                                |
+| Agentcloudtypes | GET    | `distributedtask/agentcloudtypes`                                              | Get agent cloud types.                                                                                         |
+| Agents          | POST   | `distributedtask/pools/{poolId}/agents`                                        | Adds an agent to a pool. You probably don't want to call this endpoint directly. Instead, [configure an agen…  |
+| Agents          | PUT    | `distributedtask/pools/{poolId}/agents/{agentId}`                              | Replace an agent. You probably don't want to call this endpoint directly. Instead, [use the agent configurat…  |
+| Elasticpools    | POST   | `distributedtask/elasticpools`                                                 | Create a new elastic pool. This will create a new TaskAgentPool at the organization level. If a project id is… |
+| Events          | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/events`                         | Send a pipeline job event to be processed by the execution plan.                                               |
+| Logs            | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/logs`                           | Create a log and connect it to a pipeline run's execution plan.                                                |
+| Logs            | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/logs`                           | Adds an issue (error or warning) to a timeline record of a pipeline run's execution plan so it surfaces in th… |
+| Logs            | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/logs/{logId}`                   | Append a log to a task's log. The log should be sent in the body of the request as a TaskLog object stream.    |
+| Nodes           | PATCH  | `distributedtask/elasticpools/{poolId}/nodes/{elasticNodeId}`                  | Update properties on a specified ElasticNode                                                                   |
+| Oidctoken       | POST   | `distributedtask/hubs/{hubName}/plans/{planId}/jobs/{jobId}/oidctoken`         |                                                                                                                |
+| Poolpermissions | GET    | `distributedtask/pools/{poolId}/permissions/{permissions}`                     | Checks if current identity has passed permissions on a pool.                                                   |
+| Pools           | GET    | `distributedtask/pools`                                                        | Get a list of agent pools.                                                                                     |
+| Queues          | GET    | `distributedtask/queues`                                                       | Get a list of agent queues by pool ids                                                                         |
+| Queues          | GET    | `distributedtask/queues`                                                       | Get a list of agent queues by their names                                                                      |
+| Queues          | GET    | `distributedtask/queues`                                                       | Get a list of agent queues by their IDs                                                                        |
+| Records         | PATCH  | `distributedtask/hubs/{hubName}/plans/{planId}/timelines/{timelineId}/records` | Update timeline records if they already exist, otherwise create new ones for the same timeline.                |
+| Requests        | GET    | `distributedtask/agentclouds/{agentCloudId}/requests`                          |                                                                                                                |
+| Securefiles     | GET    | `distributedtask/securefiles`                                                  | Get secure files                                                                                               |
+| Securefiles     | POST   | `distributedtask/securefiles`                                                  | Query secure files using a name pattern and a condition on file properties.                                    |
+| Securefiles     | PATCH  | `distributedtask/securefiles`                                                  | Update properties and/or names of a set of secure files. Files are identified by their IDs. Properties provid… |
+| Securefiles     | GET    | `distributedtask/securefiles`                                                  | Get secure files                                                                                               |
+| Securefiles     | GET    | `distributedtask/securefiles/{secureFileId}`                                   | Download a secure file by Id                                                                                   |
+| Targets         | GET    | `distributedtask/deploymentgroups/{deploymentGroupId}/targets/{targetId}`      | Get a deployment target by its ID in a deployment group                                                        |
+| Variablegroups  | GET    | `distributedtask/variablegroups`                                               | Get variable groups by ids.                                                                                    |
+| Webhooks        | POST   | `public/distributedtask/webhooks/{webHookId}`                                  | Triggers a pipeline run of pipelines which have a webhook resource defined with specified WebHook Name proper… |
+| Yamlschema      | GET    | `distributedtask/yamlschema`                                                   | GET the Yaml schema used for Yaml file validation.                                                             |
 
 </details>
 
@@ -582,26 +559,6 @@
 </details>
 
 <details>
-<summary>Середовища — 12 з 17</summary>
-
-| Група                        | Метод  | Шлях                                                                            | Що робить                                                                       |
-| ---------------------------- | ------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Environmentaccesstoken       | POST   | `pipelines/environments/environmentaccesstoken/{environmentId}`                 | GET a PAT token for creating and deleting deployment targets in an environment. |
-| Environmentdeploymentrecords | GET    | `pipelines/environments/{environmentId}/environmentdeploymentrecords`           | Get environment deployment execution history                                    |
-| Kubernetes                   | POST   | `pipelines/environments/{environmentId}/providers/kubernetes`                   |                                                                                 |
-| Kubernetes                   | PATCH  | `pipelines/environments/{environmentId}/providers/kubernetes`                   |                                                                                 |
-| Kubernetes                   | GET    | `pipelines/environments/{environmentId}/providers/kubernetes/{resourceId}`      |                                                                                 |
-| Kubernetes                   | DELETE | `pipelines/environments/{environmentId}/providers/kubernetes/{resourceId}`      |                                                                                 |
-| Pool                         | GET    | `pipelines/environments/{environmentId}/providers/virtualmachines/pool`         |                                                                                 |
-| Vmresource                   | GET    | `pipelines/environments/{environmentId}/providers/virtualmachines`              | Get Virtual Machine Resources                                                   |
-| Vmresource                   | POST   | `pipelines/environments/{environmentId}/providers/virtualmachines`              | Add Virtual Machine Resource                                                    |
-| Vmresource                   | PUT    | `pipelines/environments/{environmentId}/providers/virtualmachines`              | Replace Virtual Machine Resource                                                |
-| Vmresource                   | PATCH  | `pipelines/environments/{environmentId}/providers/virtualmachines`              | Update Virtual Machine Resource                                                 |
-| Vmresource                   | DELETE | `pipelines/environments/{environmentId}/providers/virtualmachines/{resourceId}` | Delete Virtual Machine Resource                                                 |
-
-</details>
-
-<details>
 <summary>Обране — 9 з 9</summary>
 
 | Група     | Метод  | Шлях                              | Що робить |
@@ -723,6 +680,20 @@
 | Processes         | GET    | `process/processes/{processId}`          | Get a process by ID.                                                                                     |
 | Teams             | GET    | `projects/{projectId}/teams/{teamId}`    | Get a specific team.                                                                                     |
 | Teams             | GET    | `teams`                                  | Get a list of all teams.                                                                                 |
+
+</details>
+
+<details>
+<summary>Середовища — 6 з 17</summary>
+
+| Група                  | Метод | Шлях                                                                    | Що робить                                                                       |
+| ---------------------- | ----- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Environmentaccesstoken | POST  | `pipelines/environments/environmentaccesstoken/{environmentId}`         | GET a PAT token for creating and deleting deployment targets in an environment. |
+| Kubernetes             | PATCH | `pipelines/environments/{environmentId}/providers/kubernetes`           |                                                                                 |
+| Pool                   | GET   | `pipelines/environments/{environmentId}/providers/virtualmachines/pool` |                                                                                 |
+| Vmresource             | POST  | `pipelines/environments/{environmentId}/providers/virtualmachines`      | Add Virtual Machine Resource                                                    |
+| Vmresource             | PUT   | `pipelines/environments/{environmentId}/providers/virtualmachines`      | Replace Virtual Machine Resource                                                |
+| Vmresource             | PATCH | `pipelines/environments/{environmentId}/providers/virtualmachines`      | Update Virtual Machine Resource                                                 |
 
 </details>
 

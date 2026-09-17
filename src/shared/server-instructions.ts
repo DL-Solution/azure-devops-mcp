@@ -38,7 +38,7 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.TEST_RESULTS, "testresults_ — test runs, their results and attachments, and code coverage."],
   [Domain.DASHBOARDS, "dashboard_ — dashboards and widgets."],
   [Domain.POLICY, "policy_ — branch policies: configurations, types, evaluations on a pull request."],
-  [Domain.TASK_AGENT, "taskagent_ — variable groups, agent pools, queues and agents, environments, task groups, secure file metadata."],
+  [Domain.TASK_AGENT, "taskagent_ — variable groups, agent pools (incl. scale set pools), queues and agents, environments and their resources, deployment groups, task groups, secure files."],
   [Domain.SERVICE_ENDPOINT, "serviceendpoint_ — service connections."],
   [Domain.SERVICE_HOOKS, "servicehook_ — service hook subscriptions (outgoing webhooks)."],
   [Domain.ARTIFACTS, "artifacts_ — package feeds (permissions, views, retention, recycle bin) and package versions: provenance, promotion to views, unlisting, deletion, upstream behavior."],
