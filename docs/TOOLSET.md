@@ -194,6 +194,16 @@
 | Pipelines          | [mcp_ado_pipelines_get_build_tags](#mcp_ado_pipelines_get_build_tags)                                     | Get the tags applied to a build                                                                                       |
 | Pipelines          | [mcp_ado_pipelines_add_build_tag](#mcp_ado_pipelines_add_build_tag)                                       | Add a tag to a build                                                                                                  |
 | Pipelines          | [mcp_ado_pipelines_delete_build_tag](#mcp_ado_pipelines_delete_build_tag)                                 | Delete a tag from a build                                                                                             |
+| Pipelines          | [mcp_ado_pipelines_create_build_definition](#mcp_ado_pipelines_create_build_definition)                   | Create a build definition from a complete definition object                                                           |
+| Pipelines          | [mcp_ado_pipelines_update_build_definition](#mcp_ado_pipelines_update_build_definition)                   | Replace a build definition with an edited copy of the whole definition                                                |
+| Pipelines          | [mcp_ado_pipelines_list_retention_leases](#mcp_ado_pipelines_list_retention_leases)                       | List the retention leases that keep runs from being deleted by retention policies                                     |
+| Pipelines          | [mcp_ado_pipelines_add_retention_lease](#mcp_ado_pipelines_add_retention_lease)                           | Keep a run from being deleted by retention policies for a number of days                                              |
+| Pipelines          | [mcp_ado_pipelines_update_retention_lease](#mcp_ado_pipelines_update_retention_lease)                     | Change how long a retention lease lasts, counted from now, or whether it also protects the pipeline                   |
+| Pipelines          | [mcp_ado_pipelines_delete_retention_leases](#mcp_ado_pipelines_delete_retention_leases)                   | Delete retention leases, after which runs may be removed by retention policies                                        |
+| Pipelines          | [mcp_ado_pipelines_list_folders](#mcp_ado_pipelines_list_folders)                                         | List the folders that pipelines are organized in                                                                      |
+| Pipelines          | [mcp_ado_pipelines_create_folder](#mcp_ado_pipelines_create_folder)                                       | Create a pipeline folder                                                                                              |
+| Pipelines          | [mcp_ado_pipelines_update_folder](#mcp_ado_pipelines_update_folder)                                       | Rename or move a pipeline folder, or change its description                                                           |
+| Pipelines          | [mcp_ado_pipelines_delete_folder](#mcp_ado_pipelines_delete_folder)                                       | Delete a pipeline folder together with everything in it                                                               |
 | Release            | [mcp_ado_release_list_definitions](#mcp_ado_release_list_definitions)                                     | List release definitions                                                                                              |
 | Release            | [mcp_ado_release_get_definition](#mcp_ado_release_get_definition)                                         | Get a release definition                                                                                              |
 | Release            | [mcp_ado_release_list_releases](#mcp_ado_release_list_releases)                                           | List releases                                                                                                         |
@@ -1719,6 +1729,76 @@ Add a tag to a build.
 Delete a tag from a build.
 
 - **Required**: `project`, `buildId`, `tag`
+- **Optional**: None
+
+### mcp_ado_pipelines_create_build_definition
+
+Create a build definition from a complete definition object. For a new YAML pipeline `pipelines_create_pipeline` needs far less input; to copy a definition, read it with `pipelines_get_build_definition`, change its name and path, drop `id`, `revision` and `url`, and pass it here.
+
+- **Required**: `project`, `definition`
+- **Optional**: None
+
+### mcp_ado_pipelines_update_build_definition
+
+Replace a build definition — rename it, move it to another folder, change its variables, triggers, YAML path, agent queue or any other setting. The API takes the whole definition rather than a patch, and rejects it unless its `revision` is still the latest.
+
+- **Required**: `project`, `definitionId`, `definition`
+- **Optional**: None
+
+### mcp_ado_pipelines_list_retention_leases
+
+List the retention leases that keep runs from being deleted by retention policies, filtered by pipeline, run or owner. Azure DevOps adds its own leases, owned by `Pipeline:<id>`, `Branch:…` or `Build:…`.
+
+- **Required**: `project`
+- **Optional**: `definitionId`, `ownerId`, `runId`
+
+### mcp_ado_pipelines_add_retention_lease
+
+Keep a run from being deleted by retention policies for a number of days, for example a release that must stay auditable. `daysValid: 36500` matches Retain in the web UI.
+
+- **Required**: `project`, `definitionId`, `runId`, `ownerId`, `daysValid`
+- **Optional**: `protectPipeline`
+
+### mcp_ado_pipelines_update_retention_lease
+
+Change how long a retention lease lasts, counted from now, or whether it also protects the pipeline.
+
+- **Required**: `project`, `leaseId`
+- **Optional**: `daysValid`, `protectPipeline`
+
+### mcp_ado_pipelines_delete_retention_leases
+
+Delete retention leases. A run with no valid lease left may be deleted with its logs and artifacts, and leases owned by Azure DevOps itself can be deleted too.
+
+- **Required**: `project`, `leaseIds`
+- **Optional**: None
+
+### mcp_ado_pipelines_list_folders
+
+List the folders that pipelines are organized in.
+
+- **Required**: `project`
+- **Optional**: `path`, `queryOrder` (`None` \| `FolderAscending` \| `FolderDescending`)
+
+### mcp_ado_pipelines_create_folder
+
+Create a pipeline folder. Pipelines move into it when the `path` of their definition changes.
+
+- **Required**: `project`, `path`
+- **Optional**: `description`
+
+### mcp_ado_pipelines_update_folder
+
+Rename or move a pipeline folder, or change its description.
+
+- **Required**: `project`, `path`
+- **Optional**: `description`, `newPath`
+
+### mcp_ado_pipelines_delete_folder
+
+Delete a pipeline folder together with everything in it: its subfolders, every pipeline definition inside and all their runs.
+
+- **Required**: `project`, `path`
 - **Optional**: None
 
 ## Release
