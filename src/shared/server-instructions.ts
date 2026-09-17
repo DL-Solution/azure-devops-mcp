@@ -42,7 +42,7 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.SERVICE_ENDPOINT, "serviceendpoint_ — service connections, their types, sharing and usage history."],
   [Domain.SERVICE_HOOKS, "servicehook_ — service hook subscriptions (outgoing webhooks) and their deliveries."],
   [Domain.ARTIFACTS, "artifacts_ — package feeds (permissions, views, retention, recycle bin) and package versions: provenance, promotion to views, unlisting, deletion, upstream behavior."],
-  [Domain.ADVANCED_SECURITY, "advsec_ — Advanced Security alerts (secrets, dependencies, code scanning)."],
+  [Domain.ADVANCED_SECURITY, "advsec_ — Advanced Security: alerts, enablement, billing."],
   [Domain.APPROVALS, "approvals_ — pipeline approvals awaiting a decision, checks on protected resources, which pipelines may use a resource."],
   [Domain.ANALYTICS, "analytics_ — OData reporting: counts, sums and groupings over work items, history snapshots and trends, pipeline and test pass rates."],
   [Domain.PROJECT_ANALYSIS, "projectanalysis_ — language breakdown and repository/project activity."],

@@ -44,6 +44,8 @@ const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   approvals_set_pipeline_permissions: "destructive",
   // Sharing a service connection hands its credentials to every pipeline of another project.
   serviceendpoint_share_service_endpoint: "destructive",
+  // Switching off secret scanning or push protection removes a safeguard; switching a plan on starts billing.
+  advsec_update_enablement: "destructive",
 };
 
 export function categorizeTool(name: string): ToolCategory {
