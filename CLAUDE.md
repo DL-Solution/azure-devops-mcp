@@ -21,7 +21,7 @@ CI (`.github/workflows/build.yml`) runs: `npm ci` → `build` → `validate-tool
 
 ## Architecture
 
-Fork of `microsoft/azure-devops-mcp` (origin: `DL-Solution/azure-devops-mcp`) — an MCP server exposing 377 Azure DevOps tools across 33 domains (the fork adds many beyond upstream). Upstream later consolidated its tools into `action`-dispatch tools; the fork deliberately did not, so upstream changes are ported by intent rather than merged — the per-commit decisions and the last reviewed upstream commit are in [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md). The core idea: tools are a **thin abstraction over the ADO REST API**; complex reasoning stays with the model. Do not add tools with heavy logic.
+Fork of `microsoft/azure-devops-mcp` (origin: `DL-Solution/azure-devops-mcp`) — an MCP server exposing 377 Azure DevOps tools across 33 domains (the fork adds many beyond upstream). Upstream later consolidated its tools into `action`-dispatch tools; the fork deliberately did not, so upstream changes are ported by intent rather than merged — the per-commit decisions and the last reviewed upstream commit are in [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md). `.github/workflows/upstream-watch.yml` runs [scripts/upstream-watch.sh](scripts/upstream-watch.sh) weekly and keeps one `upstream-sync` issue listing the commits after that marker (`DRY_RUN=1` to try it locally). The fork's version numbers are its own: 3.0.0 is not upstream's 3.0.0, and `server.json` is upstream's registry entry, left untouched. The core idea: tools are a **thin abstraction over the ADO REST API**; complex reasoning stays with the model. Do not add tools with heavy logic.
 
 ### Startup flow
 
@@ -54,7 +54,7 @@ Per-file convention in `src/tools/*.ts`:
 
 ### Resources
 
-[src/resources.ts](src/resources.ts) registers MCP resources — reference material the model reads, as opposed to tools it calls. `ado://wiql-reference` is static markdown (WIQL has no metadata endpoint, and getting the syntax wrong is the most common way a work item query fails); the rest are `ResourceTemplate` views over metadata a tool already exposes (`ado://projects`, `ado://project/{project}/teams`, `.../work-item-types`, `.../fields`). Registration is domain-gated like tools, so a preset endpoint does not advertise what it cannot serve.
+[src/resources.ts](src/resources.ts) registers MCP resources — reference material the model reads, as opposed to tools it calls. `ado://wiql-reference` is static markdown (WIQL has no metadata endpoint, and getting the syntax wrong is the most common way a work item query fails); the rest are `ResourceTemplate` views over metadata a tool already exposes (`ado://projects`, `ado://project/{project}/teams`, `.../work-item-types`, `.../fields`). Registration is domain-gated like tools, so a preset endpoint does not advertise what it cannot serve. The dynamic resources return their JSON through `untrustedJson`, which spotlights it like a tool response (hence `text/plain`); only the static WIQL reference, written by us, goes out unwrapped.
 
 **Clients do not load resources automatically** — a user attaches one, or the model reads it deliberately after seeing it named in `instructions`. So nothing here may be load-bearing: every fact a resource carries must also be reachable through a tool, and a new resource needs a line in `RESOURCE_GUIDE` ([src/shared/server-instructions.ts](src/shared/server-instructions.ts)) or the model will never know it exists.
 

@@ -18,6 +18,7 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 
+import { spotlightContent } from "./shared/content-safety.js";
 import { Domain } from "./shared/domains.js";
 
 const RESOURCE_URIS = {
@@ -127,13 +128,19 @@ Children of one item:
   paging blindly.
 `;
 
-function json(uri: string, value: unknown) {
+/**
+ * A resource built from Azure DevOps data. Project, team and field names and
+ * descriptions are text people typed, so the JSON goes out spotlighted exactly
+ * like tool responses do (see configureToolsWithContentSafety in tools.ts).
+ * The markers make the body no longer parseable JSON, hence text/plain.
+ */
+function untrustedJson(uri: string, value: unknown, source: string) {
   return {
     contents: [
       {
         uri,
-        mimeType: "application/json",
-        text: JSON.stringify(value, null, 2),
+        mimeType: "text/plain",
+        text: spotlightContent(JSON.stringify(value, null, 2), source),
       },
     ],
   };
@@ -166,15 +173,16 @@ export function configureResources(server: McpServer, connectionProvider: () => 
       {
         title: "Projects",
         description: "Every project in the organization, with its id and state.",
-        mimeType: "application/json",
+        mimeType: "text/plain",
       },
       async (uri) => {
         const connection = await connectionProvider();
         const coreApi = await connection.getCoreApi();
         const projects = await coreApi.getProjects();
-        return json(
+        return untrustedJson(
           uri.href,
-          projects.map((p) => ({ id: p.id, name: p.name, state: p.state, visibility: p.visibility, description: p.description }))
+          projects.map((p) => ({ id: p.id, name: p.name, state: p.state, visibility: p.visibility, description: p.description })),
+          "Azure DevOps projects"
         );
       }
     );
@@ -185,15 +193,16 @@ export function configureResources(server: McpServer, connectionProvider: () => 
       {
         title: "Teams in a project",
         description: "The teams defined in one project, with their ids.",
-        mimeType: "application/json",
+        mimeType: "text/plain",
       },
       async (uri, variables) => {
         const connection = await connectionProvider();
         const coreApi = await connection.getCoreApi();
         const teams = await coreApi.getTeams(String(variables.project));
-        return json(
+        return untrustedJson(
           uri.href,
-          teams.map((t) => ({ id: t.id, name: t.name, description: t.description }))
+          teams.map((t) => ({ id: t.id, name: t.name, description: t.description })),
+          "Azure DevOps teams"
         );
       }
     );
@@ -206,20 +215,21 @@ export function configureResources(server: McpServer, connectionProvider: () => 
       {
         title: "Work item types in a project",
         description: "The work item types the project's process defines, with their states.",
-        mimeType: "application/json",
+        mimeType: "text/plain",
       },
       async (uri, variables) => {
         const connection = await connectionProvider();
         const witApi = await connection.getWorkItemTrackingApi();
         const types = await witApi.getWorkItemTypes(String(variables.project));
-        return json(
+        return untrustedJson(
           uri.href,
           types.map((t) => ({
             name: t.name,
             referenceName: t.referenceName,
             description: t.description,
             states: t.states?.map((s) => ({ name: s.name, category: s.category })),
-          }))
+          })),
+          "Azure DevOps types"
         );
       }
     );
@@ -230,15 +240,16 @@ export function configureResources(server: McpServer, connectionProvider: () => 
       {
         title: "Work item fields in a project",
         description: "Every work item field in the project, mapping its display name to the reference name that queries and updates must use.",
-        mimeType: "application/json",
+        mimeType: "text/plain",
       },
       async (uri, variables) => {
         const connection = await connectionProvider();
         const witApi = await connection.getWorkItemTrackingApi();
         const fields = await witApi.getFields(String(variables.project));
-        return json(
+        return untrustedJson(
           uri.href,
-          fields.map((f) => ({ name: f.name, referenceName: f.referenceName, type: f.type, readOnly: f.readOnly }))
+          fields.map((f) => ({ name: f.name, referenceName: f.referenceName, type: f.type, readOnly: f.readOnly })),
+          "Azure DevOps fields"
         );
       }
     );
