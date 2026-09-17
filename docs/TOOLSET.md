@@ -71,6 +71,19 @@
 | Work Items         | [mcp_ado_wit_list_comment_reaction_users](#mcp_ado_wit_list_comment_reaction_users)                       | List who gave a particular reaction to a work item comment                                                              |
 | Work Items         | [mcp_ado_wit_add_comment_reaction](#mcp_ado_wit_add_comment_reaction)                                     | React to a work item comment as yourself                                                                                |
 | Work Items         | [mcp_ado_wit_remove_comment_reaction](#mcp_ado_wit_remove_comment_reaction)                               | Withdraw your own reaction from a work item comment                                                                     |
+| Work Items         | [mcp_ado_wit_delete_work_item_comment](#mcp_ado_wit_delete_work_item_comment)                             | Delete a comment from a work item                                                                                       |
+| Work Items         | [mcp_ado_wit_list_work_item_comment_versions](#mcp_ado_wit_list_work_item_comment_versions)               | List the edit history of a work item comment                                                                            |
+| Work Items         | [mcp_ado_wit_list_work_item_updates](#mcp_ado_wit_list_work_item_updates)                                 | List a work item's change history as deltas                                                                             |
+| Work Items         | [mcp_ado_wit_get_work_item_revision](#mcp_ado_wit_get_work_item_revision)                                 | Get a work item as it was at one revision                                                                               |
+| Work Items         | [mcp_ado_wit_list_work_item_type_states](#mcp_ado_wit_list_work_item_type_states)                         | List the states of a work item type in a project, with their categories                                                 |
+| Work Items         | [mcp_ado_wit_list_work_item_type_fields](#mcp_ado_wit_list_work_item_type_fields)                         | List the fields of a work item type in a project, with required flags, defaults and allowed values                      |
+| Work Items         | [mcp_ado_wit_search_queries](#mcp_ado_wit_search_queries)                                                 | Find saved work item queries by name in a project, across My Queries and Shared Queries folders you can see             |
+| Work Items         | [mcp_ado_wit_list_work_items_for_artifacts](#mcp_ado_wit_list_work_items_for_artifacts)                   | Find the work items linked to commits, pull requests or builds                                                          |
+| Work Items         | [mcp_ado_wit_delete_work_items](#mcp_ado_wit_delete_work_items)                                           | Delete several work items at once, moving them to the recycle bin                                                       |
+| Work Items         | [mcp_ado_wit_delete_attachment](#mcp_ado_wit_delete_attachment)                                           | Permanently delete a work item attachment's file                                                                        |
+| Work Items         | [mcp_ado_wit_delete_field](#mcp_ado_wit_delete_field)                                                     | Delete an organization-wide work item field                                                                             |
+| Work Items         | [mcp_ado_wit_restore_field](#mcp_ado_wit_restore_field)                                                   | Restore a deleted organization-wide work item field                                                                     |
+| Work Items         | [mcp_ado_wit_migrate_project_process](#mcp_ado_wit_migrate_project_process)                               | Switch a project to another process of the same base                                                                    |
 | Work               | [mcp_ado_work_list_team_iterations](#mcp_ado_work_list_team_iterations)                                   | List iterations assigned to a team                                                                                      |
 | Work               | [mcp_ado_work_create_iterations](#mcp_ado_work_create_iterations)                                         | Create new iterations in a project                                                                                      |
 | Work               | [mcp_ado_work_list_iterations](#mcp_ado_work_list_iterations)                                             | List all iterations in a project                                                                                        |
@@ -939,6 +952,97 @@ Withdraw your own reaction from a work item comment.
 
 - **Required**: `workItemId`, `commentId`, `reaction` (`like` \| `dislike` \| `heart` \| `hooray` \| `smile` \| `confused`)
 - **Optional**: `project`
+
+### mcp_ado_wit_delete_work_item_comment
+
+Delete a comment from a work item, with its earlier versions.
+
+- **Required**: `workItemId`, `commentId`
+- **Optional**: `project`
+
+### mcp_ado_wit_list_work_item_comment_versions
+
+List the edit history of a work item comment — every version of its text with who changed it and when — or get one version.
+
+- **Required**: `workItemId`, `commentId`
+- **Optional**: `project`, `version`
+
+### mcp_ado_wit_list_work_item_updates
+
+List a work item's change history as deltas: for each update, which fields changed from what to what, which links were added or removed, and who made the change when.
+
+- **Required**: `workItemId`
+- **Optional**: `project`, `skip`, `top`, `updateNumber`
+
+### mcp_ado_wit_get_work_item_revision
+
+Get a work item as it was at one revision: all its fields at that point in time.
+
+- **Required**: `workItemId`, `revision`
+- **Optional**: `expand` (`None` \| `Relations` \| `Fields` \| `Links` \| `All`), `project`
+
+### mcp_ado_wit_list_work_item_type_states
+
+List the states of a work item type in a project, with each state's category (Proposed, InProgress, Resolved, Completed, Removed) and color — the values `System.State` accepts.
+
+- **Required**: `project`, `type`
+- **Optional**: None
+
+### mcp_ado_wit_list_work_item_type_fields
+
+List the fields a work item type has in a project, with whether each is required, its default and, with `expand`, the values it allows. This is the project's effective view; `witprocess_list_work_item_type_fields` shows the type inside a process definition.
+
+- **Required**: `project`, `type`
+- **Optional**: `expand` (`None` \| `AllowedValues` \| `DependentFields` \| `All`), `field`
+
+### mcp_ado_wit_search_queries
+
+Find saved work item queries by name in a project, across My Queries and Shared Queries folders you can see.
+
+- **Required**: `filter`
+- **Optional**: `includeDeleted`, `project`, `top`
+
+### mcp_ado_wit_list_work_items_for_artifacts
+
+Find the work items linked to commits, pull requests, builds or other artifacts by their artifact URIs, such as `vstfs:///Git/Commit/{projectId}%2F{repositoryId}%2F{commitId}` or `vstfs:///Build/Build/{buildId}`.
+
+- **Required**: `artifactUris`
+- **Optional**: `project`
+
+### mcp_ado_wit_delete_work_items
+
+Delete several work items at once, moving them to the recycle bin — or, with destroy, erasing them permanently.
+
+- **Required**: `ids`
+- **Optional**: `destroy`, `project`, `skipNotifications`
+
+### mcp_ado_wit_delete_attachment
+
+Permanently delete a work item attachment's file.
+
+- **Required**: `attachmentId`
+- **Optional**: `project`
+
+### mcp_ado_wit_delete_field
+
+Delete an organization-wide work item field. It is removed from every process and work item type that uses it and can be brought back with `wit_restore_field`.
+
+- **Required**: `field`
+- **Optional**: None
+
+### mcp_ado_wit_restore_field
+
+Restore a deleted organization-wide work item field.
+
+- **Required**: `field`
+- **Optional**: None
+
+### mcp_ado_wit_migrate_project_process
+
+Switch a project to another process derived from the same system process, such as from Agile to an inherited Agile process or back. Work items keep their data; types, fields and rules follow the new process.
+
+- **Required**: `project`, `processTypeId`
+- **Optional**: None
 
 ## Work
 
