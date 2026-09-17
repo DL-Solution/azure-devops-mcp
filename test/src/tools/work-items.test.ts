@@ -1653,6 +1653,27 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem, null, 2));
     });
 
+    // A short Markdown value used to skip the format op and was stored as HTML (upstream #1446).
+    it("marks a short Markdown field as Markdown too", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_create_work_item");
+      if (!call) throw new Error("wit_create_work_item tool not registered");
+      const [, , , handler] = call;
+      (mockWorkItemTrackingApi.createWorkItem as jest.Mock).mockResolvedValue(_mockWorkItem);
+
+      await handler({ project: "Contoso", workItemType: "Task", fields: [{ name: "System.Description", value: "**short**", format: "Markdown" }] });
+
+      expect(mockWorkItemTrackingApi.createWorkItem).toHaveBeenCalledWith(
+        null,
+        [
+          { op: "add", path: "/fields/System.Description", value: "**short**" },
+          { op: "add", path: "/multilineFieldsFormat/System.Description", value: "Markdown" },
+        ],
+        "Contoso",
+        "Task"
+      );
+    });
+
     it("should handle null response from createWorkItem", async () => {
       configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
 
@@ -2843,12 +2864,27 @@ describe("configureWorkItemTools", () => {
         })
       );
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://dev.azure.com/contoso/_apis/wit/$batch?api-version=5.0",
-        expect.objectContaining({
-          body: expect.stringContaining("multilineFieldsFormat/Microsoft.VSTS.TCM.ReproSteps"),
-        })
-      );
+      // A Task has no Repro Steps field, so nothing may be written there.
+      expect(mockFetch.mock.calls[0][1].body).not.toContain("Microsoft.VSTS.TCM.ReproSteps");
+    });
+
+    // A Bug keeps its description in Repro Steps, not Description (upstream #1523).
+    it("puts a Bug child's description in Repro Steps only", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_add_child_work_items");
+      if (!call) throw new Error("wit_add_child_work_items tool not registered");
+      const [, , , handler] = call;
+      mockConnection.serverUrl = "https://dev.azure.com/contoso";
+      (tokenProvider as jest.Mock).mockResolvedValue("fake-token");
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ responses: [{ body: { id: 123 } }] }) });
+      global.fetch = mockFetch;
+
+      await handler({ parentId: 1, project: "TestProject", workItemType: "Bug", items: [{ title: "Crash", description: "Steps **here**", format: "Markdown" }] });
+
+      const ops = JSON.parse(mockFetch.mock.calls[0][1].body)[0].body.map((op: { path: string }) => op.path);
+      expect(ops).toContain("/fields/Microsoft.VSTS.TCM.ReproSteps");
+      expect(ops).toContain("/multilineFieldsFormat/Microsoft.VSTS.TCM.ReproSteps");
+      expect(ops).not.toContain("/fields/System.Description");
     });
 
     it("should handle fetch failure response", async () => {
@@ -3830,6 +3866,116 @@ describe("configureWorkItemTools", () => {
 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toBe("For 'Build' links, 'buildId' is required.");
+      });
+
+      it("should build Wiki URI from components and use 'Wiki Page' as attribute name", async () => {
+        configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+        const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_add_artifact_link");
+        if (!call) throw new Error("wit_add_artifact_link tool not registered");
+        const [, , , handler] = call;
+
+        const mockWorkItem = { id: 1234, fields: { "System.Title": "Test Item" } };
+        mockWorkItemTrackingApi.updateWorkItem.mockResolvedValue(mockWorkItem);
+
+        const params = {
+          workItemId: 1234,
+          project: "TestProject",
+          linkType: "Wiki",
+          projectId: "project-guid",
+          wikiId: "wiki-guid",
+          pagePath: "/Home/What-is-Contoso",
+        };
+
+        const result = await handler(params);
+
+        expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalledWith(
+          {},
+          [
+            {
+              op: "add",
+              path: "/relations/-",
+              value: {
+                rel: "ArtifactLink",
+                url: "vstfs:///Wiki/WikiPage/project-guid%2Fwiki-guid%2FHome%2FWhat-is-Contoso",
+                attributes: {
+                  name: "Wiki Page",
+                },
+              },
+            },
+          ],
+          1234,
+          "TestProject"
+        );
+
+        const response = JSON.parse(result.content[0].text);
+        expect(response.success).toBe(true);
+        expect(response.linkType).toBe("Wiki");
+      });
+
+      it("should build Wiki URI from components when pagePath has no leading slash", async () => {
+        configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+        const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_add_artifact_link");
+        if (!call) throw new Error("wit_add_artifact_link tool not registered");
+        const [, , , handler] = call;
+
+        const mockWorkItem = { id: 1234, fields: { "System.Title": "Test Item" } };
+        mockWorkItemTrackingApi.updateWorkItem.mockResolvedValue(mockWorkItem);
+
+        const params = {
+          workItemId: 1234,
+          project: "TestProject",
+          linkType: "Wiki",
+          projectId: "project-guid",
+          wikiId: "wiki-guid",
+          pagePath: "Home/What-is-Contoso",
+        };
+
+        const result = await handler(params);
+
+        expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalledWith(
+          {},
+          [
+            {
+              op: "add",
+              path: "/relations/-",
+              value: {
+                rel: "ArtifactLink",
+                url: "vstfs:///Wiki/WikiPage/project-guid%2Fwiki-guid%2FHome%2FWhat-is-Contoso",
+                attributes: {
+                  name: "Wiki Page",
+                },
+              },
+            },
+          ],
+          1234,
+          "TestProject"
+        );
+
+        const response = JSON.parse(result.content[0].text);
+        expect(response.success).toBe(true);
+      });
+
+      it("should return error for Wiki link missing required parameters", async () => {
+        configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+        const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_add_artifact_link");
+        if (!call) throw new Error("wit_add_artifact_link tool not registered");
+        const [, , , handler] = call;
+
+        const params = {
+          workItemId: 1234,
+          project: "TestProject",
+          linkType: "Wiki",
+          projectId: "project-guid",
+          // Missing wikiId and pagePath
+        };
+
+        const result = await handler(params);
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toBe("For 'Wiki' links, 'projectId', 'wikiId', and 'pagePath' are required.");
       });
 
       it("should return error for unsupported link type in URI building", async () => {
@@ -5627,6 +5773,143 @@ describe("configureWorkItemTools", () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("Unknown link type: nonsense");
+    });
+  });
+  describe("ported upstream work item fixes", () => {
+    function handlerFor(name: string) {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === name);
+      if (!call) throw new Error(`${name} not registered`);
+      return call[3] as (args: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
+    }
+
+    // Optimistic concurrency: a 'test' on /rev makes Azure DevOps reject a stale update.
+    it("wit_update_work_item passes a numeric '/rev' test operation through", async () => {
+      (mockWorkItemTrackingApi.updateWorkItem as jest.Mock).mockResolvedValue({ id: 1 });
+
+      await handlerFor("wit_update_work_item")({
+        id: 1,
+        updates: [
+          { op: "test", path: "/rev", value: 7 },
+          { op: "replace", path: "/fields/System.Title", value: "New" },
+        ],
+      });
+
+      expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalledWith(
+        null,
+        [
+          { op: "test", path: "/rev", value: 7 },
+          { op: "replace", path: "/fields/System.Title", value: "New" },
+        ],
+        1
+      );
+    });
+
+    it("wit_update_work_item refuses an add without a value", async () => {
+      const result = await handlerFor("wit_update_work_item")({ id: 1, updates: [{ op: "add", path: "/fields/System.Title" }] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("value is required for add");
+      expect(mockWorkItemTrackingApi.updateWorkItem).not.toHaveBeenCalled();
+    });
+
+    it("wit_update_work_item allows a remove without a value", async () => {
+      (mockWorkItemTrackingApi.updateWorkItem as jest.Mock).mockResolvedValue({ id: 1 });
+
+      const result = await handlerFor("wit_update_work_item")({ id: 1, updates: [{ op: "remove", path: "/fields/System.Tags" }] });
+
+      expect(result.isError).toBeUndefined();
+    });
+
+    it.each([
+      [409, "[HTTP 409 Conflict]"],
+      [412, "[HTTP 412 Precondition Failed]"],
+      [400, "[HTTP 400]"],
+    ])("wit_update_work_item names HTTP %i in the error", async (statusCode, label) => {
+      (mockWorkItemTrackingApi.updateWorkItem as jest.Mock).mockRejectedValue(Object.assign(new Error("Work item was modified."), { statusCode }));
+
+      const result = await handlerFor("wit_update_work_item")({ id: 1, updates: [{ op: "test", path: "/rev", value: 3 }] });
+
+      expect(result.content[0].text).toBe(`Error updating work item ${label}: Work item was modified.`);
+    });
+
+    it("wit_work_items_link creates a hyperlink to an external URL", async () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+      global.fetch = mockFetch;
+      mockConnection.serverUrl = "https://dev.azure.com/contoso";
+
+      await handlerFor("wit_work_items_link")({ project: "P", updates: [{ id: 5, type: "hyperlink", url: "https://example.com/spec", comment: "spec" }] });
+
+      const op = JSON.parse(mockFetch.mock.calls[0][1].body)[0].body[0];
+      expect(op.value).toEqual({ rel: "Hyperlink", url: "https://example.com/spec", attributes: { comment: "spec" } });
+    });
+
+    it.each([
+      [{ id: 5, type: "hyperlink" }, "url is required for hyperlink links"],
+      [{ id: 5, type: "related" }, "linkToId is required for work item links"],
+    ])("wit_work_items_link rejects %p", async (update, message) => {
+      global.fetch = jest.fn();
+
+      const result = await handlerFor("wit_work_items_link")({ project: "P", updates: [update] });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(message);
+    });
+  });
+  describe("comment mentions", () => {
+    function handlerFor(name: string) {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === name);
+      if (!call) throw new Error(`${name} not registered`);
+      return call[3] as (args: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
+    }
+
+    // Identity search answers for ada@contoso.com only; the comment call answers ok.
+    function mockFetchWithIdentities() {
+      const mockFetch = jest.fn((url: string) => {
+        if (url.includes("/_apis/identities")) {
+          const known = url.includes(encodeURIComponent("ada@contoso.com"));
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ value: known ? [{ id: "ada-guid", providerDisplayName: "Ada <Lovelace>" }] : [] }) });
+        }
+        return Promise.resolve({ ok: true, text: () => Promise.resolve("{}") });
+      });
+      global.fetch = mockFetch as unknown as typeof fetch;
+      mockConnection.serverUrl = "https://dev.azure.com/contoso";
+      return mockFetch;
+    }
+    const sentText = (mockFetch: jest.Mock) => JSON.parse((mockFetch.mock.calls.find(([url]) => (url as string).includes("/comments"))?.[1] as { body: string }).body).text;
+
+    it("turns an email mention into an identity mention in a Markdown comment", async () => {
+      const mockFetch = mockFetchWithIdentities();
+
+      await handlerFor("wit_add_work_item_comment")({ project: "P", workItemId: 1, comment: "cc @<ada@contoso.com> please", format: "Markdown" });
+
+      expect(sentText(mockFetch)).toBe("cc @<ada-guid> please");
+    });
+
+    it("renders an HTML mention anchor with an escaped display name", async () => {
+      const mockFetch = mockFetchWithIdentities();
+
+      await handlerFor("wit_update_work_item_comment")({ project: "P", workItemId: 1, commentId: 2, text: "<p>@<ada@contoso.com></p>", format: "Html" });
+
+      expect(sentText(mockFetch)).toBe('<p><a href="#" data-vss-mention="version:2.0,ada-guid">@Ada &lt;Lovelace&gt;</a></p>');
+    });
+
+    it("leaves an unresolvable mention as escaped text instead of failing the comment", async () => {
+      const mockFetch = mockFetchWithIdentities();
+
+      const result = await handlerFor("wit_add_work_item_comment")({ project: "P", workItemId: 1, comment: "hi @<ghost@contoso.com>", format: "Markdown" });
+
+      expect(result.isError).toBeUndefined();
+      expect(sentText(mockFetch)).toBe("hi @&lt;ghost@contoso.com&gt;");
+    });
+
+    it("does not look anyone up when the comment has no mention", async () => {
+      const mockFetch = mockFetchWithIdentities();
+
+      await handlerFor("wit_add_work_item_comment")({ project: "P", workItemId: 1, comment: "plain text, a@b.c is not a mention", format: "Markdown" });
+
+      expect(mockFetch.mock.calls.some(([url]) => (url as string).includes("/_apis/identities"))).toBe(false);
     });
   });
 });

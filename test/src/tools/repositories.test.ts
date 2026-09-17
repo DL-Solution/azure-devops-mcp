@@ -54,6 +54,7 @@ describe("repos tools", () => {
     createPullRequestLabel: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     deletePullRequestLabels: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     createComment: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
+    updateComment: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     createThread: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     updateThread: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     getCommits: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
@@ -87,6 +88,7 @@ describe("repos tools", () => {
       createPullRequestLabel: jest.fn(),
       deletePullRequestLabels: jest.fn(),
       createComment: jest.fn(),
+      updateComment: jest.fn(),
       createThread: jest.fn(),
       updateThread: jest.fn(),
       getCommits: jest.fn(),
@@ -4207,9 +4209,12 @@ describe("repos tools", () => {
       expect(mockGitApi.getPullRequestIterationChanges).toHaveBeenCalledWith("repo123", 123, 2, undefined);
 
       const resultData = JSON.parse(result.content[0].text);
+      // The comparing iterations are what a thread needs to anchor to this diff.
       expect(resultData.changedFilesSummary).toEqual({
         changeEntries: mockChangeEntries,
         fileCount: 2,
+        firstComparingIteration: 1,
+        secondComparingIteration: 2,
       });
     });
 
@@ -4333,7 +4338,7 @@ describe("repos tools", () => {
 
       const resultData = JSON.parse(result.content[0].text);
       expect(resultData.labelSummary).toEqual({ labels: ["bug"], labelCount: 1 });
-      expect(resultData.changedFilesSummary).toEqual({ changeEntries: mockChangeEntries, fileCount: 1 });
+      expect(resultData.changedFilesSummary).toEqual({ changeEntries: mockChangeEntries, fileCount: 1, firstComparingIteration: 0, secondComparingIteration: 1 });
     });
   });
 
@@ -5476,7 +5481,7 @@ describe("repos tools", () => {
 
       const result = await handler(params);
 
-      expect(mockGitApi.createComment).toHaveBeenCalledWith({ content: "Reply content" }, "repo123", 456, 789, undefined);
+      expect(mockGitApi.createComment).toHaveBeenCalledWith({ content: "Reply content", commentType: 1 }, "repo123", 456, 789, undefined);
       expect(result.content[0].text).toBe("Comment successfully added to thread 789.");
     });
 
@@ -5547,7 +5552,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.createThread).toHaveBeenCalledWith(
         {
-          comments: [{ content: "New thread content" }],
+          comments: [{ content: "New thread content", commentType: 1 }],
           threadContext: { filePath: undefined },
           status: undefined, // Default status would be handled by CommentThreadStatus enum lookup
         },
@@ -5584,7 +5589,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.createThread).toHaveBeenCalledWith(
         {
-          comments: [{ content: "Thread with position" }],
+          comments: [{ content: "Thread with position", commentType: 1 }],
           threadContext: {
             filePath: "/src/test.ts",
             rightFileStart: { line: 10, offset: 5 },
@@ -5621,7 +5626,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.createThread).toHaveBeenCalledWith(
         {
-          comments: [{ content: "Thread with normalized path" }],
+          comments: [{ content: "Thread with normalized path", commentType: 1 }],
           threadContext: {
             filePath: "/src/file-without-slash.ts", // Should have leading slash added
           },
@@ -5656,7 +5661,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.createThread).toHaveBeenCalledWith(
         {
-          comments: [{ content: "Thread with existing slash" }],
+          comments: [{ content: "Thread with existing slash", commentType: 1 }],
           threadContext: {
             filePath: "/src/file-with-slash.ts", // Should remain unchanged
           },
@@ -7090,7 +7095,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.createThread).toHaveBeenCalledWith(
         {
-          comments: [{ content: "Test comment" }],
+          comments: [{ content: "Test comment", commentType: 1 }],
           threadContext: {
             filePath: "/test/file.js",
             rightFileStart: { line: 5, offset: 10 },
@@ -7131,7 +7136,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.createThread).toHaveBeenCalledWith(
         {
-          comments: [{ content: "Test comment" }],
+          comments: [{ content: "Test comment", commentType: 1 }],
           threadContext: {
             filePath: "/test/file.js",
             rightFileStart: { line: 5 },
@@ -8842,6 +8847,74 @@ describe("repos tools", () => {
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toBe("Error pushing changes: denied");
       });
+    });
+  });
+  describe("ported upstream pull request thread changes", () => {
+    function handlerFor(name: string) {
+      configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === name);
+      if (!call) throw new Error(`${name} not registered`);
+      return call[3] as (args: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
+    }
+
+    it("anchors a new thread to an iteration diff when all three context values are given", async () => {
+      mockGitApi.createThread.mockResolvedValue({ id: 9, pullRequestThreadContext: { changeTrackingId: 4 } });
+
+      const result = await handlerFor(REPO_TOOLS.create_pull_request_thread)({
+        repositoryId: "repo",
+        pullRequestId: 1,
+        content: "nit",
+        filePath: "/src/a.ts",
+        changeTrackingId: 4,
+        firstComparingIteration: 1,
+        secondComparingIteration: 2,
+      });
+
+      expect(mockGitApi.createThread).toHaveBeenCalledWith(
+        expect.objectContaining({ pullRequestThreadContext: { changeTrackingId: 4, iterationContext: { firstComparingIteration: 1, secondComparingIteration: 2 } } }),
+        "repo",
+        1,
+        undefined
+      );
+      expect(JSON.parse(result.content[0].text).pullRequestThreadContext).toEqual({ changeTrackingId: 4 });
+    });
+
+    it("refuses a partial iteration context", async () => {
+      const result = await handlerFor(REPO_TOOLS.create_pull_request_thread)({ repositoryId: "repo", pullRequestId: 1, content: "nit", changeTrackingId: 4 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("must all be specified together");
+      expect(mockGitApi.createThread).not.toHaveBeenCalled();
+    });
+
+    it("repo_update_pull_request_comment edits the comment text", async () => {
+      mockGitApi.updateComment.mockResolvedValue({ id: 3, content: "fixed" });
+
+      const result = await handlerFor(REPO_TOOLS.update_pull_request_comment)({ repositoryId: "repo", pullRequestId: 1, threadId: 7, commentId: 3, content: "fixed", fullResponse: false });
+
+      expect(mockGitApi.updateComment).toHaveBeenCalledWith({ content: "fixed" }, "repo", 1, 7, 3, undefined);
+      expect(result.content[0].text).toBe("Comment 3 updated in thread 7.");
+    });
+
+    it("repo_update_pull_request_comment can return the full comment", async () => {
+      mockGitApi.updateComment.mockResolvedValue({ id: 3, content: "fixed" });
+
+      const result = await handlerFor(REPO_TOOLS.update_pull_request_comment)({ repositoryId: "repo", pullRequestId: 1, threadId: 7, commentId: 3, content: "fixed", fullResponse: true });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({ id: 3, content: "fixed" });
+    });
+
+    it.each([
+      [null, "was not updated"],
+      [new Error("TF401181: comment not found"), "TF401181"],
+    ])("repo_update_pull_request_comment reports failure (%p)", async (outcome, message) => {
+      if (outcome instanceof Error) mockGitApi.updateComment.mockRejectedValue(outcome);
+      else mockGitApi.updateComment.mockResolvedValue(outcome);
+
+      const result = await handlerFor(REPO_TOOLS.update_pull_request_comment)({ repositoryId: "repo", pullRequestId: 1, threadId: 7, commentId: 3, content: "x", fullResponse: false });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain(message);
     });
   });
 });
