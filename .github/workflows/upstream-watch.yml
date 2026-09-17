@@ -1,0 +1,39 @@
+name: Upstream watch
+
+# Keeps one issue listing the microsoft/azure-devops-mcp commits that
+# docs/UPSTREAM-SYNC.md has not reviewed yet, so the fork never drifts silently
+# again. The issue is refreshed weekly and closed once the marker catches up.
+# Logic lives in scripts/upstream-watch.sh (run it locally with DRY_RUN=1).
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Report unreviewed upstream commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Update the upstream sync issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/upstream-watch.sh
