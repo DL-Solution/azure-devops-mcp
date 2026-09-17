@@ -112,8 +112,16 @@ describe("renderLandingPage", () => {
 
     for (const endpoint of endpoints) {
       const url = `https://ado-mcp.example.com${endpoint.path}`;
-      expect(html).toContain(`<button type="button" class="copy" data-copy="${url}" aria-label="Копіювати ${url}" aria-live="polite" hidden>Копіювати</button>`);
+      expect(html).toContain(`<button type="button" class="copy" data-copy="${url}" aria-label="Копіювати ${url}" title="Копіювати" hidden><svg class="icon icon-copy"`);
     }
+  });
+
+  it("announces the copy result to screen readers through one live region", () => {
+    const html = renderLandingPage(options());
+
+    expect(html.match(/aria-live=/g)).toHaveLength(1);
+    expect(html).toContain('<p id="copy-status" class="sr-only" aria-live="polite"></p>');
+    expect(LANDING_PAGE_SCRIPT).toContain('getElementById("copy-status")');
   });
 
   it("escapes the text a copy button carries", () => {
