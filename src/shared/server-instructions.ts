@@ -34,7 +34,7 @@ const DOMAIN_GUIDE: readonly (readonly [Domain, string])[] = [
   [Domain.RELEASE, "release_ — classic release pipelines: definitions, releases, environments, approvals."],
   [Domain.SEARCH, "search_ — full-text search across code, wikis and work items."],
   [Domain.WIKI, "wiki_ — wikis and their pages."],
-  [Domain.TEST_PLANS, "testplan_ — test plans, suites, test cases, and test points (tester assignment and manual outcomes)."],
+  [Domain.TEST_PLANS, "testplan_ — test plans and suites (recycle bin, cloning), test cases, test points (testers, manual outcomes), configurations and test variables."],
   [Domain.TEST_RESULTS, "testresults_ — test runs, their results and attachments, and code coverage."],
   [Domain.DASHBOARDS, "dashboard_ — dashboards and widgets."],
   [Domain.POLICY, "policy_ — branch policies: configurations, types, evaluations on a pull request."],

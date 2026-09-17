@@ -8,8 +8,8 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     560 | 55% |
-| Свідомо не покриваємо |      167 |      23 |   — |
+| Потрібні області      |     1024 |     592 | 58% |
+| Свідомо не покриваємо |      167 |      24 |   — |
 
 ## Прогрес
 
@@ -25,6 +25,7 @@
 | 2026-09-17 |          487 |              509 | 1024 | 50% | Робочі елементи, PR #83        |
 | 2026-09-17 |          505 |              530 | 1024 | 52% | Збірки, PR #84                 |
 | 2026-09-17 |          535 |              560 | 1024 | 55% | Агенти й середовища, PR #85    |
+| 2026-09-17 |          565 |              592 | 1024 | 58% | Тест-плани, PR #86             |
 
 <!-- history:end -->
 
@@ -41,7 +42,7 @@
 - [x] **Робочі елементи** (~10 з 39) — PR #83: +13 операцій; лишилися reporting-API (його перекриває Analytics), іконки, тимчасові запити, розсилка пошти, GitHub connections: видалення коментаря й версії коментарів, зміна й видалення поля, історія змін
 - [x] **Збірки** (~15 з 65) — PR #84: +21 операція; лишилися source providers (GitHub/Bitbucket), шаблони визначень, властивості, бейджі, контролери XAML, вкладення, пакетні оновлення: видалення збірки, видалення й відновлення визначення, теги визначень, YAML визначення, дозволи на ресурси, налаштування retention
 - [x] **Агенти й середовища** (~20 з 67) — PR #85: +30 операцій; лишилися agent clouds, службові операції execution plan (логи, події, OIDC-токени агентів), YAML-схема, вебхуки, пакетні запити secure files: пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
-- [ ] **Тест-плани** (~20 з 31): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
+- [x] **Тест-плани** (~20 з 31) — PR #86: область покрита повністю (44 з 44): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
 - [ ] **Погодження й перевірки** (~10 з 12): конфігурації перевірок, дозволи пайплайнів на ресурси
 - [ ] **Service hooks, service connections, graph** (~25): решта операцій підписок і підключень, service principals
 - [ ] **Advanced Security** (~15 з 27): стан увімкнення, зведення, оновлення алертів
@@ -59,7 +60,6 @@
 | Результати тестів (`testResults`)                          |       97 |      12 |  12% |        85 |                                                              |
 | Збірки (`build`)                                           |       93 |      49 |  53% |        44 |                                                              |
 | Git (`git`)                                                |      112 |      72 |  64% |        40 |                                                              |
-| Тест-плани (`testPlan`)                                    |       44 |      12 |  27% |        32 |                                                              |
 | Агенти, змінні, task groups (`distributedTask`)            |       72 |      41 |  57% |        31 |                                                              |
 | Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
 | Artifacts: пакети за протоколами (`artifactsPackageTypes`) |       73 |      46 |  63% |        27 |                                                              |
@@ -89,8 +89,9 @@
 | Ролі на ресурсах (`securityRoles`)                         |        7 |       6 |  86% |         1 |                                                              |
 | Асинхронні операції (`operations`)                         |        1 |       1 | 100% |         0 |                                                              |
 | Політики гілок (`policy`)                                  |       12 |      12 | 100% |         0 |                                                              |
+| Тест-плани (`testPlan`)                                    |       44 |      44 | 100% |         0 |                                                              |
 | processDefinitions (`processDefinitions`)                  |       45 |       0 |    — |        45 | XML-процеси (лише 4.1) — замінені успадкованими процесами    |
-| test (`test`)                                              |       40 |      13 |    — |        27 | старий Test API — перекритий testPlan і testResults          |
+| test (`test`)                                              |       40 |      14 |    — |        26 | старий Test API — перекритий testPlan і testResults          |
 | release (`release`)                                        |       32 |       9 |    — |        23 | класичні релізи — застарілий механізм, свідомо відкладено    |
 | tfvc (`tfvc`)                                              |       19 |       0 |    — |        19 | TFVC — застаріла система контролю версій, свідомо відкладено |
 | symbol (`symbol`)                                          |       13 |       0 |    — |        13 | сервер символів налагодження                                 |
@@ -297,46 +298,6 @@
 | Repositories                    | GET    | `git/repositories/{repositoryId}`                                                                           | Retrieve a git repository.                                                                                     |
 | Reverts                         | GET    | `git/repositories/{repositoryId}/reverts`                                                                   | Retrieve information about a revert operation for a specific branch.                                           |
 | Trees                           | GET    | `git/repositories/{repositoryId}/trees/{sha1}`                                                              | The Tree endpoint returns the collection of objects underneath the specified tree. Trees are folders in a Git… |
-
-</details>
-
-<details>
-<summary>Тест-плани — 32 з 44</summary>
-
-| Група                             | Метод  | Шлях                                                             | Що робить                                                                                                      |
-| --------------------------------- | ------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Configurations                    | GET    | `testplan/configurations`                                        | Get a list of test configurations.                                                                             |
-| Configurations                    | POST   | `testplan/configurations`                                        | Create a test configuration.                                                                                   |
-| Configurations                    | PATCH  | `testplan/configurations`                                        | Update a test configuration by its ID.                                                                         |
-| Configurations                    | DELETE | `testplan/configurations`                                        | Delete a test configuration by its ID.                                                                         |
-| Configurations                    | GET    | `testplan/configurations/{testConfigurationId}`                  | Get a test configuration                                                                                       |
-| Suite Test Case                   | GET    | `testplan/Plans/{planId}/Suites/{suiteId}/TestCase/{testCaseId}` | Get a particular Test Case from a Suite.                                                                       |
-| Test Plan Recycle Bin             | GET    | `testplan/recycleBin/testplan`                                   | Get a list of deleted test plans                                                                               |
-| Test Plan Recycle Bin             | PATCH  | `testplan/recycleBin/testplan/{planId}`                          | Restores the deleted test plan                                                                                 |
-| Test Plans                        | GET    | `testplan/plans/{planId}`                                        | Get a test plan by Id.                                                                                         |
-| Test Plans                        | PATCH  | `testplan/plans/{planId}`                                        | Update a test plan.                                                                                            |
-| Test Plans                        | DELETE | `testplan/plans/{planId}`                                        | Delete a test plan.                                                                                            |
-| Test Suite Entry                  | GET    | `testplan/suiteentry/{suiteId}`                                  | Get a list of test suite entries in the test suite.                                                            |
-| Test Suite Entry                  | PATCH  | `testplan/suiteentry/{suiteId}`                                  | Reorder test suite entries in the test suite.                                                                  |
-| Test Suite Recycle Bin Operations | GET    | `testplan/recycleBin/TestPlan/{planId}/testsuite`                | Get Deleted Test Suites for a Test Plan.                                                                       |
-| Test Suite Recycle Bin Operations | GET    | `testplan/recycleBin/testsuite`                                  | Get Deleted Test Suites within a Project.                                                                      |
-| Test Suite Recycle Bin Operations | PATCH  | `testplan/recycleBin/testsuite/{suiteId}`                        | Restores the deleted test suite                                                                                |
-| Test Suites                       | GET    | `testplan/Plans/{planId}/suites/{suiteId}`                       | Get test suite by suite id.                                                                                    |
-| Test Suites                       | PATCH  | `testplan/Plans/{planId}/suites/{suiteId}`                       | Update test suite.                                                                                             |
-| Test Suites                       | DELETE | `testplan/Plans/{planId}/suites/{suiteId}`                       | Delete test suite.                                                                                             |
-| Test Suites                       | GET    | `testplan/suites`                                                | Find the list of all test suites in which a given test case is present. This is helpful if you need to find o… |
-| Test Case Clone                   | POST   | `testplan/TestCases/CloneTestCaseOperation`                      |                                                                                                                |
-| Test Case Clone                   | GET    | `testplan/TestCases/CloneTestCaseOperation/{cloneOperationId}`   | Get clone information.                                                                                         |
-| Test Cases                        | DELETE | `testplan/testcases/{testCaseId}`                                | Delete a test case.                                                                                            |
-| Test Plan Clone                   | POST   | `testplan/Plans/CloneOperation`                                  | Clone test plan                                                                                                |
-| Test Plan Clone                   | GET    | `testplan/Plans/CloneOperation/{cloneOperationId}`               | Get clone information.                                                                                         |
-| Test Suite Clone                  | POST   | `testplan/Suites/CloneOperation`                                 | Clone test suite                                                                                               |
-| Test Suite Clone                  | GET    | `testplan/Suites/CloneOperation/{cloneOperationId}`              | Get clone information.                                                                                         |
-| Variables                         | GET    | `testplan/variables`                                             | Get a list of test variables.                                                                                  |
-| Variables                         | POST   | `testplan/variables`                                             | Create a test variable.                                                                                        |
-| Variables                         | GET    | `testplan/variables/{testVariableId}`                            | Get a test variable by its ID.                                                                                 |
-| Variables                         | PATCH  | `testplan/variables/{testVariableId}`                            | Update a test variable by its ID.                                                                              |
-| Variables                         | DELETE | `testplan/variables/{testVariableId}`                            | Delete a test variable by its ID.                                                                              |
 
 </details>
 
