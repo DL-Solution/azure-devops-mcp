@@ -20,6 +20,7 @@ import { packageVersion } from "./version.js";
 import { DomainsManager } from "./shared/domains.js";
 import { PRESET_NAMES, resolvePreset } from "./shared/presets.js";
 import { buildServerInstructions } from "./shared/server-instructions.js";
+import { instrumentToolUsage, logToolCatalog } from "./shared/usage-stats.js";
 import { LandingEndpoint, renderLandingPage } from "./shared/landing-page.js";
 import { getRequestToken, startHttpServer } from "./transports/http.js";
 import { startOAuthHttpServer } from "./transports/http-oauth.js";
@@ -154,6 +155,10 @@ function createConfiguredServer(
     }
   );
 
+  // Before any tool registers: it wraps the tools/call handler as the first
+  // registration installs it. See shared/usage-stats.ts.
+  instrumentToolUsage(server, argv.transport === "http" ? (presetName ? `${argv.path}/${presetName}` : argv.path) : "stdio");
+
   server.server.oninitialized = () => {
     userAgentComposer.appendMcpClientInfo(server.server.getClientVersion());
   };
@@ -240,21 +245,25 @@ function createOAuthStateStore(): OAuthStateStore | undefined {
 }
 
 /**
- * Count the tools a domain set registers, for the landing page. Registration
- * only records handlers, so a throwaway server with providers that are never
- * called is enough.
+ * List the tools a domain set registers, for the landing page and the usage
+ * catalog. Registration only records handlers, so a throwaway server with
+ * providers that are never called is enough.
  */
-function countTools(domains: Set<string>, userAgentComposer: UserAgentComposer): number {
+function toolNames(domains: Set<string>, userAgentComposer: UserAgentComposer): string[] {
   const server = new McpServer({ name: "tool-count", version: packageVersion });
-  let count = 0;
+  const names: string[] = [];
   const register = server.registerTool.bind(server) as (...args: unknown[]) => unknown;
   (server as unknown as { registerTool: (...args: unknown[]) => unknown }).registerTool = (...args: unknown[]) => {
-    count++;
+    names.push(String(args[0]));
     return register(...args);
   };
   const unused = () => Promise.reject(new Error("not used while counting tools"));
   configureAllTools(server, unused, unused, () => userAgentComposer.userAgent, domains);
-  return count;
+  return names;
+}
+
+function countTools(domains: Set<string>, userAgentComposer: UserAgentComposer): number {
+  return toolNames(domains, userAgentComposer).length;
 }
 
 /** The endpoints listed on the landing page. Counted once at startup; the page itself is rendered per request. */
@@ -288,6 +297,8 @@ async function runHttpTransport(userAgentComposer: UserAgentComposer) {
   };
 
   const endpoints = landingEndpoints(userAgentComposer);
+  // What could have been called, so a usage report can list what never was.
+  logToolCatalog(new Map(Array.from(enabledDomains, (domain) => [domain, toolNames(new Set([domain]), userAgentComposer)])));
   const landingPage = (auth: "oauth" | "passthrough") => (baseUrl: string) => renderLandingPage({ baseUrl, organization: orgName, version: packageVersion, auth, endpoints });
 
   const allowedHosts = argv.allowedHosts && argv.allowedHosts.length > 0 ? argv.allowedHosts : [`${argv.host}:${argv.port}`, `localhost:${argv.port}`, `127.0.0.1:${argv.port}`];

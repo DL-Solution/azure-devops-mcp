@@ -227,7 +227,7 @@ The HTTP transport is intended to run **behind your own TLS-terminating reverse 
 - **Loopback binding** — it listens on `127.0.0.1` by default. Use `--host` to change the bind interface (do this only behind a proxy/firewall).
 - **DNS rebinding protection** is always on. Only requests whose `Host` header matches `--allowed-hosts` are served (defaults to the bound host/port plus `localhost`). When running behind a proxy, set `--allowed-hosts your.public.hostname`.
 - **Origin allow-listing** — by default only non-browser clients (no `Origin` header) are accepted. Use `--allowed-origins https://your.app` to permit specific browser origins.
-- The server never logs tokens or request bodies.
+- The server never logs tokens or request bodies. It does log one line per tool call — tool name, outcome, duration, argument _names_ and the caller identity from the token — for usage statistics; see [docs/USAGE-STATS.md](./docs/USAGE-STATS.md).
 
 ### HTTP options
 

@@ -354,7 +354,7 @@ The image is configured entirely through environment variables (see
   `AcrPull` role — no registry password is stored. You can keep the ACR admin
   user **disabled** (`az acr update -n <myregistry> --admin-enabled false`).
 - Keep ingress `allowInsecure: false` (HTTP is redirected to HTTPS).
-- The server never logs tokens or request bodies.
+- The server never logs tokens or request bodies. Each tool call is logged with the caller's identity from the token (Entra object id and sign-in name) for usage statistics — queries in [docs/USAGE-STATS.md](../../docs/USAGE-STATS.md); logs are kept 90 days.
 - The template defaults to **scale-to-zero** (`minReplicas: 0`) for lowest cost:
   with no traffic there are no running replicas. The first request after an idle
   period pays a cold-start delay (a few seconds). Set `minReplicas: 1` for an
