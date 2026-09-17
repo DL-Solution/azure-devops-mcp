@@ -8,7 +8,7 @@
 
 |                       | Операцій | Покрито |   % |
 | --------------------- | -------: | ------: | --: |
-| Потрібні області      |     1024 |     601 | 59% |
+| Потрібні області      |     1024 |     630 | 62% |
 | Свідомо не покриваємо |      167 |      24 |   — |
 
 ## Прогрес
@@ -17,16 +17,17 @@
 
 <!-- history:start -->
 
-| Дата       | Інструментів | Покрито операцій |    З |   % | Примітка                       |
-| ---------- | -----------: | ---------------: | ---: | --: | ------------------------------ |
-| 2026-09-17 |          420 |              398 | 1024 | 39% | перший замір, після PR #71–#79 |
-| 2026-09-17 |          450 |              469 | 1024 | 46% | Artifacts, PR #81              |
-| 2026-09-17 |          474 |              495 | 1024 | 48% | Git, PR #82                    |
-| 2026-09-17 |          487 |              509 | 1024 | 50% | Робочі елементи, PR #83        |
-| 2026-09-17 |          505 |              530 | 1024 | 52% | Збірки, PR #84                 |
-| 2026-09-17 |          535 |              560 | 1024 | 55% | Агенти й середовища, PR #85    |
-| 2026-09-17 |          565 |              592 | 1024 | 58% | Тест-плани, PR #86             |
-| 2026-09-17 |          573 |              601 | 1024 | 59% | Погодження й перевірки, PR #87 |
+| Дата       | Інструментів | Покрито операцій |    З |   % | Примітка                                          |
+| ---------- | -----------: | ---------------: | ---: | --: | ------------------------------------------------- |
+| 2026-09-17 |          420 |              398 | 1024 | 39% | перший замір, після PR #71–#79                    |
+| 2026-09-17 |          450 |              469 | 1024 | 46% | Artifacts, PR #81                                 |
+| 2026-09-17 |          474 |              495 | 1024 | 48% | Git, PR #82                                       |
+| 2026-09-17 |          487 |              509 | 1024 | 50% | Робочі елементи, PR #83                           |
+| 2026-09-17 |          505 |              530 | 1024 | 52% | Збірки, PR #84                                    |
+| 2026-09-17 |          535 |              560 | 1024 | 55% | Агенти й середовища, PR #85                       |
+| 2026-09-17 |          565 |              592 | 1024 | 58% | Тест-плани, PR #86                                |
+| 2026-09-17 |          573 |              601 | 1024 | 59% | Погодження й перевірки, PR #87                    |
+| 2026-09-17 |          602 |              630 | 1024 | 62% | Service hooks, service connections, graph, PR #88 |
 
 <!-- history:end -->
 
@@ -45,7 +46,7 @@
 - [x] **Агенти й середовища** (~20 з 67) — PR #85: +30 операцій; лишилися agent clouds, службові операції execution plan (логи, події, OIDC-токени агентів), YAML-схема, вебхуки, пакетні запити secure files: пули й черги, черга запитів до агентів, deployment groups, завантаження secure files, ресурси середовищ
 - [x] **Тест-плани** (~20 з 31) — PR #86: область покрита повністю (44 з 44): зміна й видалення планів і сьютів, конфігурації, змінні, клонування
 - [x] **Погодження й перевірки** (~10 з 12) — PR #87: +9 операцій; лишилися запуск і оновлення оцінки перевірок (службові) і пакетна зміна дозволів: конфігурації перевірок, дозволи пайплайнів на ресурси
-- [ ] **Service hooks, service connections, graph** (~25): решта операцій підписок і підключень, service principals
+- [x] **Service hooks, service connections, graph** (~25) — PR #88: +29 операцій; лишилися аватари, прив'язка користувача до іншого, query-варіанти hooks, окремі get-и дій споживача й типу подій, proxy запитів через підключення: service principals, створення й видалення груп, пошук і розв'язання дескрипторів, історія доставки й діагностика підписок, типи підключень, спільний доступ до підключення, історія його використання
 - [ ] **Advanced Security** (~15 з 27): стан увімкнення, зведення, оновлення алертів
 - [ ] **Wiki** (5): зміна й видалення wiki, вкладення, переміщення сторінок, статистика переглядів
 - [ ] Переглянути **testResults** (85): більшість — службові операції log store і вкладень; відібрати корисне
@@ -65,23 +66,23 @@
 | Advanced Security (`advancedSecurity`)                     |       29 |       2 |   7% |        27 |                                                              |
 | Artifacts: пакети за протоколами (`artifactsPackageTypes`) |       73 |      46 |  63% |        27 |                                                              |
 | Робочі елементи (`wit`)                                    |       89 |      63 |  71% |        26 |                                                              |
-| Користувачі й групи (`graph`)                              |       28 |       7 |  25% |        21 |                                                              |
-| Service hooks (`hooks`)                                    |       22 |       4 |  18% |        18 |                                                              |
 | Обране (`favorite`)                                        |        9 |       0 |   0% |         9 |                                                              |
 | Сповіщення (`notification`)                                |       17 |       8 |  47% |         9 |                                                              |
 | Artifacts: фіди (`artifacts`)                              |       37 |      29 |  78% |         8 |                                                              |
-| Service connections (`serviceEndpoint`)                    |       14 |       6 |  43% |         8 |                                                              |
+| Service hooks (`hooks`)                                    |       22 |      14 |  64% |         8 |                                                              |
 | Аудит (`audit`)                                            |        9 |       2 |  22% |         7 |                                                              |
 | Ліцензії (`memberEntitlementManagement`)                   |       21 |      14 |  67% |         7 |                                                              |
 | Дошки й спринти (`work`)                                   |       59 |      52 |  88% |         7 |                                                              |
 | Проєкти й команди (`core`)                                 |       19 |      13 |  68% |         6 |                                                              |
 | Середовища (`environments`)                                |       17 |      11 |  65% |         6 |                                                              |
+| Користувачі й групи (`graph`)                              |       28 |      22 |  79% |         6 |                                                              |
 | Дашборди (`dashboard`)                                     |       16 |      11 |  69% |         5 |                                                              |
 | Імпорт/експорт процесів (`processadmin`)                   |        5 |       0 |   0% |         5 |                                                              |
 | Wiki (`wiki`)                                              |       15 |      10 |  67% |         5 |                                                              |
 | Звіти про права (`permissionsReport`)                      |        4 |       0 |   0% |         4 |                                                              |
 | YAML-пайплайни (`pipelines`)                               |       10 |       6 |  60% |         4 |                                                              |
 | Кастомізація процесів (`processes`)                        |       57 |      53 |  93% |         4 |                                                              |
+| Service connections (`serviceEndpoint`)                    |       14 |      10 |  71% |         4 |                                                              |
 | Погодження й перевірки (`approvalsAndChecks`)              |       15 |      12 |  80% |         3 |                                                              |
 | Пошук (`search`)                                           |        6 |       3 |  50% |         3 |                                                              |
 | Розширення (`extensionManagement`)                         |        5 |       4 |  80% |         1 |                                                              |
@@ -446,61 +447,6 @@
 </details>
 
 <details>
-<summary>Користувачі й групи — 21 з 28</summary>
-
-| Група              | Метод  | Шлях                                                          | Що робить                                                                                                      |
-| ------------------ | ------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Avatars            | GET    | `graph/Subjects/{subjectDescriptor}/avatars`                  |                                                                                                                |
-| Avatars            | PUT    | `graph/Subjects/{subjectDescriptor}/avatars`                  |                                                                                                                |
-| Avatars            | DELETE | `graph/Subjects/{subjectDescriptor}/avatars`                  |                                                                                                                |
-| Descriptors        | GET    | `graph/descriptors/{storageKey}`                              | Resolve a storage key to a descriptor                                                                          |
-| Groups             | POST   | `graph/groups`                                                | Create a new Azure DevOps group or materialize an existing AAD group.                                          |
-| Groups             | PATCH  | `graph/groups/{groupDescriptor}`                              | Update the properties of an Azure DevOps group.                                                                |
-| Groups             | DELETE | `graph/groups/{groupDescriptor}`                              | Removes an Azure DevOps group from all of its parent groups.                                                   |
-| Membership States  | GET    | `graph/membershipstates/{subjectDescriptor}`                  | Check whether a subject is active or inactive.                                                                 |
-| Memberships        | GET    | `graph/memberships/{subjectDescriptor}/{containerDescriptor}` | Get a membership relationship between a container and subject.                                                 |
-| Provider Info      | GET    | `graph/Users/{userDescriptor}/providerinfo`                   |                                                                                                                |
-| Request Access     | POST   | `graph/requestaccess`                                         |                                                                                                                |
-| Service Principals | GET    | `graph/serviceprincipals`                                     | Get a list of all service principals in a given scope.                                                         |
-| Service Principals | POST   | `graph/serviceprincipals`                                     | Materialize an existing AAD service principal into the ADO account.                                            |
-| Service Principals | GET    | `graph/serviceprincipals/{servicePrincipalDescriptor}`        | Get a service principal by its descriptor.                                                                     |
-| Service Principals | DELETE | `graph/serviceprincipals/{servicePrincipalDescriptor}`        | Disables a service principal.                                                                                  |
-| Storage Keys       | GET    | `graph/storagekeys/{subjectDescriptor}`                       | Resolve a descriptor to a storage key.                                                                         |
-| Subject Lookup     | POST   | `graph/subjectlookup`                                         | Resolve descriptors to users, groups or scopes (Subjects) in a batch.                                          |
-| Subject Query      | POST   | `graph/subjectquery`                                          | Search for Azure Devops users, or/and groups. Results will be returned in a batch with no more than 100 graph… |
-| Users              | POST   | `graph/users`                                                 | Materialize an existing AAD or MSA user into the ADO account.                                                  |
-| Users              | PATCH  | `graph/users/{userDescriptor}`                                | Map an existing user to a different user.                                                                      |
-| Users              | DELETE | `graph/users/{userDescriptor}`                                | Disables a user.                                                                                               |
-
-</details>
-
-<details>
-<summary>Service hooks — 18 з 22</summary>
-
-| Група         | Метод | Шлях                                                                  | Що робить                                                                                                      |
-| ------------- | ----- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Consumers     | GET   | `hooks/consumers`                                                     | Get a list of available service hook consumer services. Optionally filter by consumers that support at least…  |
-| Consumers     | GET   | `hooks/consumers/{consumerId}`                                        | Get a specific consumer service. Optionally filter out consumer actions that do not support any event types f… |
-| Consumers     | GET   | `hooks/consumers/{consumerId}/actions`                                | Get a list of consumer actions for a specific consumer.                                                        |
-| Consumers     | GET   | `hooks/consumers/{consumerId}/actions/{consumerActionId}`             | Get details about a specific consumer action.                                                                  |
-| Diagnostics   | GET   | `hooks/subscriptions/{subscriptionId}/diagnostics`                    |                                                                                                                |
-| Diagnostics   | PUT   | `hooks/subscriptions/{subscriptionId}/diagnostics`                    |                                                                                                                |
-| Notifications | POST  | `hooks/notificationsquery`                                            | Query for notifications. A notification includes details about the event, the request to and the response fro… |
-| Notifications | GET   | `hooks/subscriptions/{subscriptionId}/notifications`                  | Get a list of notifications for a specific subscription. A notification includes details about the event, the… |
-| Notifications | GET   | `hooks/subscriptions/{subscriptionId}/notifications/{notificationId}` | Get a specific notification for a subscription.                                                                |
-| Notifications | POST  | `hooks/testnotifications`                                             | Sends a test notification. This is useful for verifying the configuration of an updated or new service hooks…  |
-| Publishers    | GET   | `hooks/publishers`                                                    | Get a list of publishers.                                                                                      |
-| Publishers    | GET   | `hooks/publishers/{publisherId}`                                      | Get a specific service hooks publisher.                                                                        |
-| Publishers    | GET   | `hooks/publishers/{publisherId}/eventtypes`                           | Get the event types for a specific publisher.                                                                  |
-| Publishers    | GET   | `hooks/publishers/{publisherId}/eventtypes/{eventTypeId}`             | Get a specific event type.                                                                                     |
-| Publishers    | POST  | `hooks/publishers/{publisherId}/inputValuesQuery`                     |                                                                                                                |
-| Publishers    | POST  | `hooks/publishersquery`                                               | Query for service hook publishers.                                                                             |
-| Subscriptions | PUT   | `hooks/subscriptions/{subscriptionId}`                                | Update a subscription. <param name="subscriptionId">ID for a subscription that you wish to update.</param>     |
-| Subscriptions | POST  | `hooks/subscriptionsquery`                                            | Query for service hook subscriptions.                                                                          |
-
-</details>
-
-<details>
 <summary>Обране — 9 з 9</summary>
 
 | Група     | Метод  | Шлях                              | Що робить |
@@ -551,18 +497,18 @@
 </details>
 
 <details>
-<summary>Service connections — 8 з 14</summary>
+<summary>Service hooks — 8 з 22</summary>
 
-| Група            | Метод | Шлях                                            | Що робить                                              |
-| ---------------- | ----- | ----------------------------------------------- | ------------------------------------------------------ |
-| Endpointproxy    | POST  | `serviceendpoint/endpointproxy`                 | Use ExecuteServiceEndpointRequest API Instead          |
-| Endpointproxy    | POST  | `serviceendpoint/endpointproxy`                 | Proxy for a GET request defined by a service endpoint. |
-| Endpoints        | PUT   | `serviceendpoint/endpoints`                     | Update the service endpoints.                          |
-| Endpoints        | PUT   | `serviceendpoint/endpoints/{endpointId}`        | Update the service endpoint                            |
-| Endpoints        | PATCH | `serviceendpoint/endpoints/{endpointId}`        | Share service endpoint across projects                 |
-| Executionhistory | GET   | `serviceendpoint/{endpointId}/executionhistory` | Get service endpoint execution records.                |
-| Types            | GET   | `serviceendpoint/types`                         | Get service endpoint types.                            |
-| Types            | POST  | `serviceendpoint/types`                         | Get service endpoint types with passed types filter.   |
+| Група         | Метод | Шлях                                                      | Що робить                                                                                                      |
+| ------------- | ----- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Consumers     | GET   | `hooks/consumers/{consumerId}/actions`                    | Get a list of consumer actions for a specific consumer.                                                        |
+| Consumers     | GET   | `hooks/consumers/{consumerId}/actions/{consumerActionId}` | Get details about a specific consumer action.                                                                  |
+| Notifications | POST  | `hooks/notificationsquery`                                | Query for notifications. A notification includes details about the event, the request to and the response fro… |
+| Publishers    | GET   | `hooks/publishers/{publisherId}`                          | Get a specific service hooks publisher.                                                                        |
+| Publishers    | GET   | `hooks/publishers/{publisherId}/eventtypes/{eventTypeId}` | Get a specific event type.                                                                                     |
+| Publishers    | POST  | `hooks/publishers/{publisherId}/inputValuesQuery`         |                                                                                                                |
+| Publishers    | POST  | `hooks/publishersquery`                                   | Query for service hook publishers.                                                                             |
+| Subscriptions | POST  | `hooks/subscriptionsquery`                                | Query for service hook subscriptions.                                                                          |
 
 </details>
 
@@ -640,6 +586,20 @@
 </details>
 
 <details>
+<summary>Користувачі й групи — 6 з 28</summary>
+
+| Група          | Метод  | Шлях                                         | Що робить                                 |
+| -------------- | ------ | -------------------------------------------- | ----------------------------------------- |
+| Avatars        | GET    | `graph/Subjects/{subjectDescriptor}/avatars` |                                           |
+| Avatars        | PUT    | `graph/Subjects/{subjectDescriptor}/avatars` |                                           |
+| Avatars        | DELETE | `graph/Subjects/{subjectDescriptor}/avatars` |                                           |
+| Provider Info  | GET    | `graph/Users/{userDescriptor}/providerinfo`  |                                           |
+| Request Access | POST   | `graph/requestaccess`                        |                                           |
+| Users          | PATCH  | `graph/users/{userDescriptor}`               | Map an existing user to a different user. |
+
+</details>
+
+<details>
 <summary>Дашборди — 5 з 16</summary>
 
 | Група      | Метод | Шлях                                                    | Що робить                                                                                                      |
@@ -711,6 +671,18 @@
 | Work Item Types Behaviors | GET   | `work/processes/{processId}/workitemtypesbehaviors/{witRefNameForBehaviors}/behaviors`                   | Returns a list of all behaviors for the work item type of the process. |
 | Work Item Types Behaviors | PATCH | `work/processes/{processId}/workitemtypesbehaviors/{witRefNameForBehaviors}/behaviors`                   | Updates a behavior for the work item type of the process.              |
 | Work Item Types Behaviors | GET   | `work/processes/{processId}/workitemtypesbehaviors/{witRefNameForBehaviors}/behaviors/{behaviorRefName}` | Returns a behavior for the work item type of the process.              |
+
+</details>
+
+<details>
+<summary>Service connections — 4 з 14</summary>
+
+| Група         | Метод | Шлях                            | Що робить                                              |
+| ------------- | ----- | ------------------------------- | ------------------------------------------------------ |
+| Endpointproxy | POST  | `serviceendpoint/endpointproxy` | Use ExecuteServiceEndpointRequest API Instead          |
+| Endpointproxy | POST  | `serviceendpoint/endpointproxy` | Proxy for a GET request defined by a service endpoint. |
+| Endpoints     | PUT   | `serviceendpoint/endpoints`     | Update the service endpoints.                          |
+| Types         | POST  | `serviceendpoint/types`         | Get service endpoint types with passed types filter.   |
 
 </details>
 
