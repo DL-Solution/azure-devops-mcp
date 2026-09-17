@@ -42,27 +42,31 @@ export interface LandingPageOptions {
  * plain http, nothing dead is left on the page. Static on purpose: its hash is in the CSP.
  */
 export const LANDING_PAGE_SCRIPT = `
-document.querySelectorAll("button[data-copy]").forEach(function (button) {
-  if (!navigator.clipboard || !window.isSecureContext) return;
-  var label = button.textContent;
-  var timer;
-  button.hidden = false;
-  button.addEventListener("click", function () {
-    var show = function (text, copied) {
-      button.textContent = text;
-      button.classList.toggle("copied", copied);
-      clearTimeout(timer);
-      timer = setTimeout(function () {
-        button.textContent = label;
-        button.classList.remove("copied");
-      }, 1500);
-    };
-    navigator.clipboard.writeText(button.getAttribute("data-copy")).then(
-      function () { show("Скопійовано", true); },
-      function () { show("Не вдалося", false); }
-    );
+(function () {
+  var announce = document.getElementById("copy-status");
+  document.querySelectorAll("button[data-copy]").forEach(function (button) {
+    if (!navigator.clipboard || !window.isSecureContext) return;
+    var timer;
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      var show = function (state, message) {
+        button.classList.remove("copied", "failed");
+        button.classList.add(state);
+        button.title = message;
+        announce.textContent = message;
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          button.classList.remove(state);
+          button.title = "Копіювати";
+        }, 1500);
+      };
+      navigator.clipboard.writeText(button.getAttribute("data-copy")).then(
+        function () { show("copied", "Скопійовано"); },
+        function () { show("failed", "Не вдалося скопіювати"); }
+      );
+    });
   });
-});
+})();
 `;
 
 const SCRIPT_HASH = `sha256-${createHash("sha256").update(LANDING_PAGE_SCRIPT, "utf8").digest("base64")}`;
@@ -145,8 +149,12 @@ export function toolCountLabel(count: number): string {
 
 /** A button that copies `text`; hidden until the script confirms the clipboard is usable. */
 function copyButton(text: string): string {
-  return `<button type="button" class="copy" data-copy="${escapeHtml(text)}" aria-label="Копіювати ${escapeHtml(text)}" aria-live="polite" hidden>Копіювати</button>`;
+  return `<button type="button" class="copy" data-copy="${escapeHtml(text)}" aria-label="Копіювати ${escapeHtml(text)}" title="Копіювати" hidden>${COPY_ICON}${CHECK_ICON}</button>`;
 }
+
+// Inline so the page needs no image source; stroke follows the text colour, so both themes work.
+const COPY_ICON = `<svg class="icon icon-copy" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+const CHECK_ICON = `<svg class="icon icon-check" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 function endpointCards(options: LandingPageOptions): string {
   return options.endpoints
@@ -158,11 +166,11 @@ function endpointCards(options: LandingPageOptions): string {
       const areas = endpoint.preset ? endpoint.domains.filter((domain) => domain !== Domain.CORE && domain !== Domain.PROFILE && domain !== Domain.SEARCH) : [];
       return `<div class="endpoint">
           <div class="endpoint-head">
-            <code class="url">${escapeHtml(url)}</code>
-            <div class="endpoint-meta">
-              <span class="count">${escapeHtml(toolCountLabel(endpoint.toolCount))}</span>
+            <div class="endpoint-url">
+              <code class="url">${escapeHtml(url)}</code>
               ${copyButton(url)}
             </div>
+            <span class="count">${escapeHtml(toolCountLabel(endpoint.toolCount))}</span>
           </div>
           ${summary ? `<p class="summary">${escapeHtml(summary)}</p>` : ""}
           ${areas.length > 0 ? `<p class="muted">${escapeHtml(areas.map(domainLabel).join(" · "))}</p>` : ""}
@@ -249,12 +257,12 @@ export function renderLandingPage(options: LandingPageOptions): string {
 <style>
   :root {
     --bg: #f7f7f5; --surface: #ffffff; --text: #1d1d1b; --muted: #62625d; --border: #e3e2dd;
-    --accent: #0b5cad; --code-bg: #f0efeb;
+    --accent: #0b5cad; --code-bg: #f0efeb; --success: #1a7f37; --danger: #c62828;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #151514; --surface: #1e1e1c; --text: #ecebe6; --muted: #a3a29b; --border: #33332f;
-      --accent: #6cb0f5; --code-bg: #262623;
+      --accent: #6cb0f5; --code-bg: #262623; --success: #57c27a; --danger: #f07167;
     }
   }
   * { box-sizing: border-box; }
@@ -277,12 +285,23 @@ export function renderLandingPage(options: LandingPageOptions): string {
   .endpoint { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
   .endpoint-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
   .endpoint .url { font-size: 15px; font-weight: 600; }
-  .endpoint-meta { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-  .count { color: var(--muted); font-size: 14px; white-space: nowrap; }
-  .copy { font: 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--accent); background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; white-space: nowrap; min-width: 96px; }
-  .copy:hover { border-color: var(--accent); }
-  .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .copy.copied { color: var(--text); border-color: var(--text); }
+  .endpoint-url { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .count { color: var(--muted); font-size: 14px; white-space: nowrap; margin-left: auto; }
+  .copy { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease; }
+  .copy[hidden] { display: none; }
+  .endpoint:hover .copy, .copy:focus-visible, .copy.copied, .copy.failed { opacity: 1; }
+  .copy:hover { background: var(--code-bg); color: var(--text); }
+  .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .copy .icon { grid-area: 1 / 1; }
+  .copy .icon-check { display: none; }
+  .copy.copied { color: var(--success); }
+  .copy.copied .icon-copy { display: none; }
+  .copy.copied .icon-check { display: block; }
+  .copy.failed { color: var(--danger); }
+  /* Touch screens have no hover, so the icon stays visible there. */
+  @media (hover: none) { .copy { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .copy { transition: none; } }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .summary { margin: 6px 0 0; }
   .endpoint .muted { margin: 2px 0 0; }
   a { color: var(--accent); }
@@ -330,6 +349,7 @@ ${options.auth === "oauth" ? oauthSteps(exampleUrl, exampleName) : passthroughSt
     <a href="https://github.com/DL-Solution/azure-devops-mcp">вихідний код</a>
   </footer>
 </main>
+<p id="copy-status" class="sr-only" aria-live="polite"></p>
 <script>${LANDING_PAGE_SCRIPT}</script>
 </body>
 </html>
