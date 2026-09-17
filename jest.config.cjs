@@ -61,6 +61,8 @@ module.exports = {
     "^(.+)/table-state-store\\.js$": "$1/table-state-store.ts",
     "^(.+)/presets\\.js$": "$1/presets.ts",
     "^(.+)/common-params\\.js$": "$1/common-params.ts",
+    // src/tools.ts imports every tool module; only its own "./tools/x.js" specifiers.
+    "^\\./tools/(.+)\\.js$": "<rootDir>/src/tools/$1.ts",
     "^(.+)/server-instructions\\.js$": "$1/server-instructions.ts",
     "^(.+)/domains\\.js$": "$1/domains.ts",
   },

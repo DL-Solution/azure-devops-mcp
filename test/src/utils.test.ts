@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import { AlertType, AlertValidityStatus, Confidence, Severity, State } from "azure-devops-node-api/interfaces/AlertInterfaces";
-import { createEnumMapping, encodeFormattedValue, extractAdoStreamError, getEnumKeys, mapStringArrayToEnum, mapStringToEnum, safeEnumConvert } from "../../src/utils";
+import { createEnumMapping, encodeFormattedValue, extractAdoStreamError, getCliArgs, getEnumKeys, getOrgFromUrl, mapStringArrayToEnum, mapStringToEnum, safeEnumConvert } from "../../src/utils";
 
 describe("utils", () => {
   describe("createEnumMapping", () => {
@@ -521,5 +521,49 @@ describe("encodeFormattedValue", () => {
       expect(once).toBe("Already &lt;tag&gt; plus &lt;new&gt; and $cash");
       expect(twice).toBe(once);
     });
+  });
+});
+
+describe("getOrgFromUrl", () => {
+  it("reads the org from the first path segment of a dev.azure.com URL", () => {
+    expect(getOrgFromUrl("https://dev.azure.com/contoso")).toBe("contoso");
+    expect(getOrgFromUrl("https://dev.azure.com/contoso/project/_wiki/wikis/myWiki?pagePath=%2FHome")).toBe("contoso");
+  });
+
+  it("reads the org from the subdomain of a legacy visualstudio.com URL", () => {
+    expect(getOrgFromUrl("https://contoso.visualstudio.com/project/_wiki/wikis/myWiki")).toBe("contoso");
+  });
+
+  it("lowercases the org so the comparison is case-insensitive", () => {
+    expect(getOrgFromUrl("https://dev.azure.com/Contoso/project")).toBe("contoso");
+    expect(getOrgFromUrl("https://Contoso.visualstudio.com/project")).toBe("contoso");
+  });
+
+  it.each([
+    "not-a-url",
+    "",
+    "https://example.com/contoso/project",
+    "https://dev.azure.com.evil.com/contoso/project",
+    "https://notvisualstudio.com/contoso",
+    "https://visualstudio.com/contoso",
+    "https://dev.azure.com/",
+  ])("returns null for %p", (url) => {
+    expect(getOrgFromUrl(url)).toBeNull();
+  });
+});
+
+describe("getCliArgs", () => {
+  it("drops the runtime and script path", () => {
+    expect(getCliArgs(["/usr/bin/node", "/app/dist/index.js", "contoso", "--authentication", "azcli"])).toEqual(["contoso", "--authentication", "azcli"]);
+  });
+
+  // yargs' hideBin drops a single entry on some Electron hosts, which turned the
+  // script path into the organization name.
+  it("drops exactly two entries on an Electron-style launch too", () => {
+    expect(getCliArgs(["/Applications/Code.app/Contents/MacOS/Electron", "/ext/dist/index.js", "contoso"])).toEqual(["contoso"]);
+  });
+
+  it("defaults to process.argv", () => {
+    expect(getCliArgs()).toEqual(process.argv.slice(2));
   });
 });

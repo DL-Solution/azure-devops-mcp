@@ -661,7 +661,7 @@ describe("repos tools", () => {
       expect(result.isError).toBeFalsy();
     });
 
-    it("should automatically bypass policies when bypassReason is provided", async () => {
+    it("bypasses policies only when bypassPolicy is set explicitly", async () => {
       configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
 
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === REPO_TOOLS.update_pull_request);
@@ -691,6 +691,7 @@ describe("repos tools", () => {
         pullRequestId: 123,
         project: "test-project",
         autoComplete: true,
+        bypassPolicy: true,
         bypassReason: "Emergency fix needed",
       };
 
@@ -709,6 +710,35 @@ describe("repos tools", () => {
         "test-project"
       );
       expect(result.isError).toBeFalsy();
+    });
+
+    // A reason alone used to imply bypass, so a model filling in a plausible
+    // reason bypassed policies by accident.
+    it("does not bypass policies when only a reason is given", async () => {
+      configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === REPO_TOOLS.update_pull_request);
+      if (!call) throw new Error("repo_update_pull_request tool not registered");
+      const [, , , handler] = call;
+      mockGitApi.updatePullRequest.mockResolvedValue({ pullRequestId: 123 });
+
+      await handler({ repositoryId: "test-repo-id", pullRequestId: 123, project: "test-project", autoComplete: true, bypassReason: "looks urgent" });
+
+      const completionOptions = (mockGitApi.updatePullRequest.mock.calls[0][0] as { completionOptions: Record<string, unknown> }).completionOptions;
+      expect(completionOptions.bypassPolicy).toBe(false);
+      expect(completionOptions.bypassReason).toBeUndefined();
+    });
+
+    it("refuses bypassPolicy without a reason", async () => {
+      configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === REPO_TOOLS.update_pull_request);
+      if (!call) throw new Error("repo_update_pull_request tool not registered");
+      const [, , , handler] = call;
+
+      const result = await handler({ repositoryId: "test-repo-id", pullRequestId: 123, project: "test-project", autoComplete: true, bypassPolicy: true });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("bypassReason is required when bypassPolicy is true");
+      expect(mockGitApi.updatePullRequest).not.toHaveBeenCalled();
     });
 
     it("should handle description over 4000 characters", async () => {

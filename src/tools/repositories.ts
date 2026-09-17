@@ -407,7 +407,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       mergeCommitMessage: z.string().optional().describe("Commit message to use when the pull request is completed."),
       deleteSourceBranch: z.boolean().optional().default(false).describe("Whether to delete the source branch when the pull request autocompletes. Defaults to false."),
       transitionWorkItems: z.boolean().optional().default(true).describe("Whether to transition associated work items to the next state when the pull request autocompletes. Defaults to true."),
-      bypassReason: z.string().optional().describe("Reason for bypassing branch policies. When provided, branch policies will be automatically bypassed during autocompletion."),
+      bypassPolicy: z.boolean().optional().default(false).describe("Bypass branch policies when the pull request autocompletes. Requires bypassReason."),
+      bypassReason: z.string().optional().describe("Why branch policies are bypassed. Only used when bypassPolicy is true."),
       labels: z.array(z.string()).optional().describe("Array of label names to replace existing labels on the pull request. This will remove all current labels and add the specified ones."),
     },
     async ({
@@ -424,6 +425,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       mergeCommitMessage,
       deleteSourceBranch,
       transitionWorkItems,
+      bypassPolicy,
       bypassReason,
       labels,
     }) => {
@@ -444,6 +446,13 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         if (autoComplete !== undefined) {
           if (autoComplete) {
+            // Bypassing policies used to be implied by passing a reason, so a
+            // model filling in a plausible-looking reason bypassed them by
+            // accident. It now takes an explicit flag (upstream #1570).
+            if (bypassPolicy && !bypassReason) {
+              return { content: [{ type: "text", text: "bypassReason is required when bypassPolicy is true" }], isError: true };
+            }
+
             const data = await getCurrentUserDetails(tokenProvider, connectionProvider, userAgentProvider);
             const autoCompleteUserId = data.authenticatedUser.id;
             updateRequest.autoCompleteSetBy = { id: autoCompleteUserId };
@@ -451,7 +460,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
             const completionOptions: GitPullRequestCompletionOptions = {
               deleteSourceBranch: deleteSourceBranch || false,
               transitionWorkItems: transitionWorkItems !== false, // Default to true unless explicitly set to false
-              bypassPolicy: !!bypassReason, // Automatically set to true if bypassReason is provided
+              bypassPolicy: bypassPolicy === true,
             };
 
             if (mergeStrategy) {
@@ -462,7 +471,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
               completionOptions.mergeCommitMessage = mergeCommitMessage;
             }
 
-            if (bypassReason) {
+            if (bypassPolicy && bypassReason) {
               completionOptions.bypassReason = bypassReason;
             }
 

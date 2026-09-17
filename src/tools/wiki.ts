@@ -7,7 +7,7 @@ import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { WikiPagesBatchRequest, WikiCreateParametersV2, WikiType } from "azure-devops-node-api/interfaces/WikiInterfaces.js";
 import { GitVersionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
-import { apiVersion, extractAdoStreamError } from "../utils.js";
+import { apiVersion, extractAdoStreamError, getOrgFromUrl } from "../utils.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 
 const WIKI_TOOLS = {
@@ -228,6 +228,23 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
 
           if ("error" in parsed) {
             return { content: [{ type: "text", text: `Error fetching wiki page content: ${parsed.error}` }], isError: true };
+          }
+
+          // Only the project and wiki are read from the URL; the request itself
+          // goes to the connected organization. A link into another organization
+          // would therefore silently return a same-named page from this one.
+          const configuredOrg = getOrgFromUrl(connection.serverUrl);
+          const urlOrg = getOrgFromUrl(url);
+          if (configuredOrg && urlOrg !== configuredOrg) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Error fetching wiki page content: The URL targets organization '${urlOrg ?? "unknown"}', but this server is connected to '${configuredOrg}'. Cross-organization requests are not allowed.`,
+                },
+              ],
+              isError: true,
+            };
           }
 
           resolvedProject = parsed.project;

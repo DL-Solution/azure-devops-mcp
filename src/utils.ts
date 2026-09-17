@@ -5,6 +5,18 @@ export const apiVersion = "7.2-preview.1";
 export const batchApiVersion = "5.0";
 export const markdownCommentsApiVersion = "7.2-preview.4";
 
+/**
+ * Returns the user-supplied CLI arguments.
+ *
+ * The server always starts script-style — `[runtime, scriptPath, ...args]` — on
+ * Node and on Electron hosts alike, so the first two entries are dropped. Not
+ * yargs' `hideBin`: on an Electron host it drops only one entry, and the script
+ * path is then parsed as the organization name (upstream #1542).
+ */
+export function getCliArgs(argv: string[] = process.argv): string[] {
+  return argv.slice(2);
+}
+
 export function createEnumMapping<T extends Record<string, string | number>>(enumObject: T): Record<string, T[keyof T]> {
   const mapping: Record<string, T[keyof T]> = {};
   for (const [key, value] of Object.entries(enumObject)) {
@@ -94,6 +106,33 @@ export function extractAdoStreamError(content: string): string | null {
     // Not JSON — not an ADO error response.
   }
   return null;
+}
+
+/**
+ * Extracts the Azure DevOps organization from a URL, lowercased.
+ *
+ * Only Azure DevOps hosts are recognised; any other host returns null, so a
+ * caller comparing organizations treats an unknown URL as a mismatch.
+ *  - https://dev.azure.com/{org}/...      -> first path segment
+ *  - https://{org}.visualstudio.com/...   -> host subdomain
+ * Ported from upstream microsoft/azure-devops-mcp#1369.
+ */
+export function getOrgFromUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host === "visualstudio.com" || host.endsWith(".visualstudio.com")) {
+      const subdomain = host.split(".")[0];
+      return subdomain && subdomain !== "visualstudio" ? subdomain : null;
+    }
+    if (host === "dev.azure.com" || host.endsWith(".dev.azure.com")) {
+      const firstSegment = u.pathname.split("/").filter(Boolean)[0];
+      return firstSegment ? firstSegment.toLowerCase() : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
