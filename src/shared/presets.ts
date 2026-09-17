@@ -3,9 +3,9 @@
 
 // Named subsets of the tool domains, served from their own URL path.
 //
-// The full server registers 336 tools, and their schemas cost roughly 83k
+// The full server registers about 400 tools, and their schemas cost roughly 87k
 // tokens in the model's context on every request — enough to crowd out the
-// work itself and to make the choice between 336 near-neighbours noisier than
+// work itself and to make the choice between 400 near-neighbours noisier than
 // it needs to be. MCP has no notion of tool groups, so the only way to hand a
 // client a smaller surface is to serve fewer tools.
 //
