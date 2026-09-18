@@ -6,19 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run build           # prebuild regenerates src/version.ts from package.json, then tsc + chmod dist/*.js
-npm test                # jest (coverage always on; global thresholds 88/71/96/89 statements/branches/functions/lines)
+npm test                # jest, no coverage (fast; transforms cached in .jest-cache/)
+npm run test:ci         # jest --coverage with global thresholds 88/71/96/89 statements/branches/functions/lines (what CI runs)
 npm test test/src/utils.test.ts          # single test file
 npm test -- -t "list_projects"           # single test by name
 npm run validate-tools  # tsc --noEmit + scripts/build-validate-tools.js (tool/param name guardrails)
 npm run eslint          # eslint (also: eslint-fix)
-npm run format          # prettier --write . (format-check in CI; husky + lint-staged run it pre-commit)
+npm run format          # prettier --write . (format-check in CI; the pre-commit hook formats only the staged files)
 npm run toolset         # regenerate docs/TOOLSET.md from the built server (needs npm run build; npm run toolset-check verifies)
 npm run api-coverage    # measure REST API coverage against MicrosoftDocs/vsts-rest-api-specs, rewrite docs/API-COVERAGE.md (clones the specs; needs network)
 npm run inspect         # MCP Inspector against dist/index.js
 npm run watch           # tsc --watch
 ```
 
-CI (`.github/workflows/build.yml`) runs: `npm ci` → `build` → `validate-tools` → `test` → `toolset-check` → `eslint` → `format-check` → `git diff --exit-code src/version.ts package-lock.json`. Commit the regenerated `src/version.ts` whenever `package.json` version changes.
+CI (`.github/workflows/build.yml`) runs two jobs. `build` (windows-latest): `npm ci --ignore-scripts` → `build` → `node scripts/build-validate-tools.js` (the build already type-checked) → `test:ci` → `toolset-check` → `npx` startup check. `static-code-analysis` (ubuntu-latest): `npm ci --ignore-scripts` → `prebuild` → `eslint` → `format-check` → `git diff --exit-code src/version.ts package-lock.json`. `--ignore-scripts` skips `prepare`, which would otherwise build once more during install; npm and jest caches are kept between runs. Commit the regenerated `src/version.ts` whenever `package.json` version changes.
 
 ## Architecture
 
