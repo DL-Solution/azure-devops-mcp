@@ -122,7 +122,7 @@ describe("configureTaskAgentTools", () => {
     const result = await handler({ project: "Proj", groupId: 5 });
 
     expect(mockTaskAgentApi.getVariableGroup).toHaveBeenCalledWith("Proj", 5);
-    expect(result.content[0].text).toContain('"id": 5');
+    expect(result.content[0].text).toContain('"id":5');
   });
 
   it("add_variable_group passes the parameters", async () => {
@@ -133,7 +133,7 @@ describe("configureTaskAgentTools", () => {
     const result = await handler({ variableGroup });
 
     expect(mockTaskAgentApi.addVariableGroup).toHaveBeenCalledWith(variableGroup);
-    expect(result.content[0].text).toContain('"id": 9');
+    expect(result.content[0].text).toContain('"id":9');
   });
 
   it("update_variable_group passes parameters and id", async () => {
@@ -205,7 +205,7 @@ describe("configureTaskAgentTools", () => {
     const result = await handler({ project: "Proj", environmentId: 3 });
 
     expect(mockTaskAgentApi.getEnvironmentById).toHaveBeenCalledWith("Proj", 3);
-    expect(result.content[0].text).toContain('"id": 3');
+    expect(result.content[0].text).toContain('"id":3');
   });
 
   it("add_environment builds the create parameter", async () => {
