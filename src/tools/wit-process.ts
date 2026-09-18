@@ -7,6 +7,8 @@ import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { GetProcessExpandLevel, GetWorkItemTypeExpand, RuleActionType, RuleConditionType } from "azure-devops-node-api/interfaces/WorkItemTrackingProcessInterfaces.js";
 import { getEnumKeys, safeEnumConvert } from "../utils.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
+import { processIdParam, witRefNameParam } from "../shared/common-params.js";
 
 const WIT_PROCESS_TOOLS = {
   list_processes: "witprocess_list_processes",
@@ -87,10 +89,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         if (!processes || processes.length === 0) {
           return { content: [{ type: "text", text: "No processes found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(processes, null, 2) }] };
+        return jsonResult(processes);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching processes: ${errorMessage}` }], isError: true };
+        return toolError("fetching processes", error);
       }
     }
   );
@@ -109,10 +110,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const process = await processApi.getProcessByItsId(processTypeId, includeProjects ? GetProcessExpandLevel.Projects : undefined);
 
-        return { content: [{ type: "text", text: JSON.stringify(process, null, 2) }] };
+        return jsonResult(process);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching process: ${errorMessage}` }], isError: true };
+        return toolError("fetching process", error);
       }
     }
   );
@@ -122,7 +122,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.list_work_item_types,
     "List the work item types defined in a process.",
     {
-      processId: z.string().describe("The ID (GUID) of the process."),
+      processId: processIdParam,
       expand: z.enum(["none", "states", "behaviors", "layout"]).optional().describe("Optional detail to expand for each work item type."),
     },
     async ({ processId, expand }) => {
@@ -134,10 +134,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         if (!workItemTypes || workItemTypes.length === 0) {
           return { content: [{ type: "text", text: "No work item types found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(workItemTypes, null, 2) }] };
+        return jsonResult(workItemTypes);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching work item types: ${errorMessage}` }], isError: true };
+        return toolError("fetching work item types", error);
       }
     }
   );
@@ -147,8 +146,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.get_work_item_type,
     "Get a specific work item type in a process by its reference name.",
     {
-      processId: z.string().describe("The ID (GUID) of the process."),
-      witRefName: z.string().describe("The reference name of the work item type (e.g. 'Agile.UserStory' or 'Microsoft.VSTS.WorkItemTypes.Bug')."),
+      processId: processIdParam,
+      witRefName: witRefNameParam,
       expand: z.enum(["none", "states", "behaviors", "layout"]).optional().describe("Optional detail to expand for the work item type."),
     },
     async ({ processId, witRefName, expand }) => {
@@ -157,10 +156,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const workItemType = await processApi.getProcessWorkItemType(processId, witRefName, expand ? WORK_ITEM_TYPE_EXPAND_MAP[expand] : undefined);
 
-        return { content: [{ type: "text", text: JSON.stringify(workItemType, null, 2) }] };
+        return jsonResult(workItemType);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching work item type: ${errorMessage}` }], isError: true };
+        return toolError("fetching work item type", error);
       }
     }
   );
@@ -170,8 +168,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.list_work_item_type_fields,
     "List the fields of a work item type in a process.",
     {
-      processId: z.string().describe("The ID (GUID) of the process."),
-      witRefName: z.string().describe("The reference name of the work item type."),
+      processId: processIdParam,
+      witRefName: witRefNameParam,
     },
     async ({ processId, witRefName }) => {
       try {
@@ -182,10 +180,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         if (!fields || fields.length === 0) {
           return { content: [{ type: "text", text: "No fields found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(fields, null, 2) }] };
+        return jsonResult(fields);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching work item type fields: ${errorMessage}` }], isError: true };
+        return toolError("fetching work item type fields", error);
       }
     }
   );
@@ -195,8 +192,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.list_states,
     "List the state definitions of a work item type in a process.",
     {
-      processId: z.string().describe("The ID (GUID) of the process."),
-      witRefName: z.string().describe("The reference name of the work item type."),
+      processId: processIdParam,
+      witRefName: witRefNameParam,
     },
     async ({ processId, witRefName }) => {
       try {
@@ -207,10 +204,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         if (!states || states.length === 0) {
           return { content: [{ type: "text", text: "No state definitions found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(states, null, 2) }] };
+        return jsonResult(states);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching state definitions: ${errorMessage}` }], isError: true };
+        return toolError("fetching state definitions", error);
       }
     }
   );
@@ -220,8 +216,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.get_state,
     "Get a specific state definition of a work item type in a process.",
     {
-      processId: z.string().describe("The ID (GUID) of the process."),
-      witRefName: z.string().describe("The reference name of the work item type."),
+      processId: processIdParam,
+      witRefName: witRefNameParam,
       stateId: z.string().describe("The ID of the state definition."),
     },
     async ({ processId, witRefName, stateId }) => {
@@ -230,10 +226,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const state = await processApi.getStateDefinition(processId, witRefName, stateId);
 
-        return { content: [{ type: "text", text: JSON.stringify(state, null, 2) }] };
+        return jsonResult(state);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching state definition: ${errorMessage}` }], isError: true };
+        return toolError("fetching state definition", error);
       }
     }
   );
@@ -243,7 +238,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.list_behaviors,
     "List the behaviors defined in a process.",
     {
-      processId: z.string().describe("The ID (GUID) of the process."),
+      processId: processIdParam,
     },
     async ({ processId }) => {
       try {
@@ -254,10 +249,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         if (!behaviors || behaviors.length === 0) {
           return { content: [{ type: "text", text: "No behaviors found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(behaviors, null, 2) }] };
+        return jsonResult(behaviors);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching behaviors: ${errorMessage}` }], isError: true };
+        return toolError("fetching behaviors", error);
       }
     }
   );
@@ -267,7 +261,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.get_behavior,
     "Get a specific behavior in a process by its reference name.",
     {
-      processId: z.string().describe("The ID (GUID) of the process."),
+      processId: processIdParam,
       behaviorRefName: z.string().describe("The reference name of the behavior."),
     },
     async ({ processId, behaviorRefName }) => {
@@ -276,10 +270,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const behavior = await processApi.getProcessBehavior(processId, behaviorRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(behavior, null, 2) }] };
+        return jsonResult(behavior);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching behavior: ${errorMessage}` }], isError: true };
+        return toolError("fetching behavior", error);
       }
     }
   );
@@ -300,10 +293,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const process = await processApi.createNewProcess({ name, parentProcessTypeId, description, referenceName });
 
-        return { content: [{ type: "text", text: JSON.stringify(process, null, 2) }] };
+        return jsonResult(process);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating process: ${errorMessage}` }], isError: true };
+        return toolError("creating process", error);
       }
     }
   );
@@ -313,7 +305,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.create_work_item_type,
     "Create a new work item type in an inherited process, optionally inheriting from an existing type.",
     {
-      processId: z.string().describe("The ID of the (inherited) process."),
+      processId: processIdParam,
       name: z.string().describe("The name of the work item type."),
       description: z.string().optional().describe("An optional description."),
       color: z.string().optional().describe("The color of the work item type as a hex string without '#', e.g. 'f6546a'."),
@@ -327,10 +319,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const workItemType = await processApi.createProcessWorkItemType({ name, description, color, icon, inheritsFrom, isDisabled }, processId);
 
-        return { content: [{ type: "text", text: JSON.stringify(workItemType, null, 2) }] };
+        return jsonResult(workItemType);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating work item type: ${errorMessage}` }], isError: true };
+        return toolError("creating work item type", error);
       }
     }
   );
@@ -340,8 +331,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.add_field_to_work_item_type,
     "Add a field to a work item type in an inherited process.",
     {
-      processId: z.string().describe("The ID of the (inherited) process."),
-      witRefName: z.string().describe("The reference name of the work item type, e.g. 'MyProcess.Bug'."),
+      processId: processIdParam,
+      witRefName: witRefNameParam,
       referenceName: z.string().describe("The reference name of the field to add, e.g. 'Custom.MyField'."),
       required: z.boolean().optional().describe("Whether the field is required."),
       readOnly: z.boolean().optional().describe("Whether the field is read-only."),
@@ -355,10 +346,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const field = await processApi.addFieldToWorkItemType({ referenceName, required, readOnly, allowGroups, defaultValue, allowedValues }, processId, witRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(field, null, 2) }] };
+        return jsonResult(field);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error adding field to work item type: ${errorMessage}` }], isError: true };
+        return toolError("adding field to work item type", error);
       }
     }
   );
@@ -368,8 +358,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.create_state,
     "Create a new workflow state for a work item type in an inherited process.",
     {
-      processId: z.string().describe("The ID of the (inherited) process."),
-      witRefName: z.string().describe("The reference name of the work item type, e.g. 'MyProcess.Bug'."),
+      processId: processIdParam,
+      witRefName: witRefNameParam,
       name: z.string().describe("The name of the state, e.g. 'Triaged'."),
       stateCategory: z.enum(["Proposed", "InProgress", "Resolved", "Completed", "Removed"]).describe("The state category the state belongs to."),
       color: z.string().optional().describe("The color of the state as a hex string without '#', e.g. 'b2b2b2'."),
@@ -381,10 +371,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const state = await processApi.createStateDefinition({ name, stateCategory, color, order }, processId, witRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(state, null, 2) }] };
+        return jsonResult(state);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating state: ${errorMessage}` }], isError: true };
+        return toolError("creating state", error);
       }
     }
   );
@@ -412,10 +401,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const updated = await processApi.editProcess({ name, description, isEnabled, isDefault }, processId);
 
-        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+        return jsonResult(updated);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating process: ${errorMessage}` }], isError: true };
+        return toolError("updating process", error);
       }
     }
   );
@@ -435,8 +423,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `Process '${processId}' was deleted.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting process: ${errorMessage}` }], isError: true };
+        return toolError("deleting process", error);
       }
     }
   );
@@ -459,10 +446,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const updated = await processApi.updateProcessWorkItemType({ description, color, icon, isDisabled }, processId, witRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+        return jsonResult(updated);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating work item type: ${errorMessage}` }], isError: true };
+        return toolError("updating work item type", error);
       }
     }
   );
@@ -483,8 +469,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `Work item type '${witRefName}' was deleted from process '${processId}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting work item type: ${errorMessage}` }], isError: true };
+        return toolError("deleting work item type", error);
       }
     }
   );
@@ -509,10 +494,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const updated = await processApi.updateWorkItemTypeField({ required, readOnly, defaultValue, allowedValues, allowGroups }, processId, witRefName, fieldRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+        return jsonResult(updated);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating work item type field: ${errorMessage}` }], isError: true };
+        return toolError("updating work item type field", error);
       }
     }
   );
@@ -534,8 +518,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `Field '${fieldRefName}' was removed from '${witRefName}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing work item type field: ${errorMessage}` }], isError: true };
+        return toolError("removing work item type field", error);
       }
     }
   );
@@ -559,10 +542,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const updated = await processApi.updateStateDefinition({ name, color, stateCategory, order }, processId, witRefName, stateId);
 
-        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+        return jsonResult(updated);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating state: ${errorMessage}` }], isError: true };
+        return toolError("updating state", error);
       }
     }
   );
@@ -584,8 +566,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `State '${stateId}' was deleted from '${witRefName}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting state: ${errorMessage}` }], isError: true };
+        return toolError("deleting state", error);
       }
     }
   );
@@ -606,10 +587,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const result = await processApi.hideStateDefinition({ hidden }, processId, witRefName, stateId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error hiding state: ${errorMessage}` }], isError: true };
+        return toolError("hiding state", error);
       }
     }
   );
@@ -631,10 +611,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const behavior = await processApi.createProcessBehavior({ name, referenceName, inherits, color }, processId);
 
-        return { content: [{ type: "text", text: JSON.stringify(behavior, null, 2) }] };
+        return jsonResult(behavior);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating behavior: ${errorMessage}` }], isError: true };
+        return toolError("creating behavior", error);
       }
     }
   );
@@ -655,10 +634,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const behavior = await processApi.updateProcessBehavior({ name, color }, processId, behaviorRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(behavior, null, 2) }] };
+        return jsonResult(behavior);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating behavior: ${errorMessage}` }], isError: true };
+        return toolError("updating behavior", error);
       }
     }
   );
@@ -679,8 +657,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `Behavior '${behaviorRefName}' was deleted.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting behavior: ${errorMessage}` }], isError: true };
+        return toolError("deleting behavior", error);
       }
     }
   );
@@ -701,10 +678,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const result = await processApi.addBehaviorToWorkItemType({ behavior: { id: behaviorRefName }, isDefault }, processId, witRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error adding behavior to work item type: ${errorMessage}` }], isError: true };
+        return toolError("adding behavior to work item type", error);
       }
     }
   );
@@ -726,8 +702,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `Behavior '${behaviorRefName}' was removed from '${witRefName}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing behavior from work item type: ${errorMessage}` }], isError: true };
+        return toolError("removing behavior from work item type", error);
       }
     }
   );
@@ -773,10 +748,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const rules = await processApi.getProcessWorkItemTypeRules(processId, witRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(rules, null, 2) }] };
+        return jsonResult(rules);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing rules: ${errorMessage}` }], isError: true };
+        return toolError("listing rules", error);
       }
     }
   );
@@ -800,10 +774,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
           return { content: [{ type: "text", text: `Rule '${ruleId}' not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(rule, null, 2) }] };
+        return jsonResult(rule);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching rule: ${errorMessage}` }], isError: true };
+        return toolError("fetching rule", error);
       }
     }
   );
@@ -826,10 +799,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const rule = await processApi.addProcessWorkItemTypeRule({ name, isDisabled, ...mapRule(conditions, actions) }, processId, witRefName);
 
-        return { content: [{ type: "text", text: JSON.stringify(rule, null, 2) }] };
+        return jsonResult(rule);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating rule: ${errorMessage}` }], isError: true };
+        return toolError("creating rule", error);
       }
     }
   );
@@ -853,10 +825,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const rule = await processApi.updateProcessWorkItemTypeRule({ id: ruleId, name, isDisabled, ...mapRule(conditions, actions) }, processId, witRefName, ruleId);
 
-        return { content: [{ type: "text", text: JSON.stringify(rule, null, 2) }] };
+        return jsonResult(rule);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating rule: ${errorMessage}` }], isError: true };
+        return toolError("updating rule", error);
       }
     }
   );
@@ -878,8 +849,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `Rule '${ruleId}' was deleted from '${witRefName}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting rule: ${errorMessage}` }], isError: true };
+        return toolError("deleting rule", error);
       }
     }
   );
@@ -895,10 +865,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const lists = await processApi.getListsMetadata();
 
-        return { content: [{ type: "text", text: JSON.stringify(lists, null, 2) }] };
+        return jsonResult(lists);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing picklists: ${errorMessage}` }], isError: true };
+        return toolError("listing picklists", error);
       }
     }
   );
@@ -920,10 +889,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
           return { content: [{ type: "text", text: `Picklist '${listId}' not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(list, null, 2) }] };
+        return jsonResult(list);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching picklist: ${errorMessage}` }], isError: true };
+        return toolError("fetching picklist", error);
       }
     }
   );
@@ -944,10 +912,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const list = await processApi.createList({ name, items, type, isSuggested });
 
-        return { content: [{ type: "text", text: JSON.stringify(list, null, 2) }] };
+        return jsonResult(list);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating picklist: ${errorMessage}` }], isError: true };
+        return toolError("creating picklist", error);
       }
     }
   );
@@ -969,10 +936,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const processApi = await connection.getWorkItemTrackingProcessApi();
         const list = await processApi.updateList({ id: listId, name, items, type, isSuggested }, listId);
 
-        return { content: [{ type: "text", text: JSON.stringify(list, null, 2) }] };
+        return jsonResult(list);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating picklist: ${errorMessage}` }], isError: true };
+        return toolError("updating picklist", error);
       }
     }
   );
@@ -992,21 +958,15 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
 
         return { content: [{ type: "text", text: `Picklist '${listId}' was deleted.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting picklist: ${errorMessage}` }], isError: true };
+        return toolError("deleting picklist", error);
       }
     }
   );
 
   // Form layout. Only work item types of an inherited process have an editable
   // layout; the system processes (Agile, Scrum, CMMI, Basic) answer VS403115.
-  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
-  const failed = (action: string, error: unknown) => ({
-    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
-    isError: true,
-  });
-  const processIdParam = z.string().describe("The ID (GUID) of an inherited process. System processes (Agile, Scrum, CMMI, Basic) cannot be customized.");
-  const witRefNameParam = z.string().describe("The reference name of the work item type, e.g. 'MyAgile.Bug'.");
+  const layoutProcessIdParam = z.string().describe("The ID (GUID) of an inherited process. System processes (Agile, Scrum, CMMI, Basic) cannot be customized.");
+  const layoutWitRefNameParam = z.string().describe("The reference name of the work item type, e.g. 'MyAgile.Bug'.");
   const pageIdParam = z.string().describe("The page ID, as returned by witprocess_get_form_layout.");
   const sectionIdParam = z.string().describe("The section ID within the page: 'Section1', 'Section2' or 'Section3', the page's columns from left to right.");
   const groupIdParam = z.string().describe("The group ID, as returned by witprocess_get_form_layout.");
@@ -1019,16 +979,16 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.get_form_layout,
     "Get the form layout of a work item type: its pages, each page's three sections (columns), the groups in them and the field controls in each group, plus the system controls in the header. Every other layout tool takes the IDs from here.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
     },
     async ({ processId, witRefName }) => {
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.getFormLayout(processId, witRefName));
+        return jsonResult(await processApi.getFormLayout(processId, witRefName));
       } catch (error) {
-        return failed(`fetching the form layout of '${witRefName}'`, error);
+        return toolError(`fetching the form layout of '${witRefName}'`, error);
       }
     }
   );
@@ -1038,8 +998,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.add_page,
     "Add a page (tab) to a work item type's form. It starts empty; add groups to its sections with witprocess_add_group.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       label: labelParam("page"),
       order: orderParam,
       visible: visibleParam,
@@ -1048,9 +1008,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.addPage({ label, order, visible }, processId, witRefName));
+        return jsonResult(await processApi.addPage({ label, order, visible }, processId, witRefName));
       } catch (error) {
-        return failed(`adding page '${label}'`, error);
+        return toolError(`adding page '${label}'`, error);
       }
     }
   );
@@ -1060,8 +1020,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.update_page,
     "Rename, reorder, show or hide a page of a work item type's form.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       pageId: pageIdParam,
       label: z.string().optional().describe("New label of the page."),
       order: orderParam,
@@ -1071,9 +1031,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.updatePage({ id: pageId, label, order, visible }, processId, witRefName));
+        return jsonResult(await processApi.updatePage({ id: pageId, label, order, visible }, processId, witRefName));
       } catch (error) {
-        return failed(`updating page '${pageId}'`, error);
+        return toolError(`updating page '${pageId}'`, error);
       }
     }
   );
@@ -1083,8 +1043,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.remove_page,
     "Remove a custom page from a work item type's form, with its groups and controls. Fields and their values stay on the work items; they are just no longer shown there. Inherited pages cannot be removed — hide them with witprocess_update_page.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       pageId: pageIdParam,
     },
     async ({ processId, witRefName, pageId }) => {
@@ -1092,9 +1052,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
         await processApi.removePage(processId, witRefName, pageId);
-        return ok({ removed: pageId });
+        return jsonResult({ removed: pageId });
       } catch (error) {
-        return failed(`removing page '${pageId}'`, error);
+        return toolError(`removing page '${pageId}'`, error);
       }
     }
   );
@@ -1104,8 +1064,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.add_group,
     "Add a group (a titled box of fields) to a section of a form page. Put fields into it with witprocess_add_control.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       pageId: pageIdParam,
       sectionId: sectionIdParam,
       label: labelParam("group"),
@@ -1116,9 +1076,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.addGroup({ label, order, visible }, processId, witRefName, pageId, sectionId));
+        return jsonResult(await processApi.addGroup({ label, order, visible }, processId, witRefName, pageId, sectionId));
       } catch (error) {
-        return failed(`adding group '${label}'`, error);
+        return toolError(`adding group '${label}'`, error);
       }
     }
   );
@@ -1128,8 +1088,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.update_group,
     "Rename, reorder, show or hide a group on a form page.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       pageId: pageIdParam,
       sectionId: sectionIdParam,
       groupId: groupIdParam,
@@ -1141,9 +1101,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.updateGroup({ id: groupId, label, order, visible }, processId, witRefName, pageId, sectionId, groupId));
+        return jsonResult(await processApi.updateGroup({ id: groupId, label, order, visible }, processId, witRefName, pageId, sectionId, groupId));
       } catch (error) {
-        return failed(`updating group '${groupId}'`, error);
+        return toolError(`updating group '${groupId}'`, error);
       }
     }
   );
@@ -1153,8 +1113,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.move_group,
     "Move a group, with its controls, to another section of the same page or to a section of another page.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       pageId: z.string().describe("The page the group is on now."),
       sectionId: z.string().describe("The section the group is in now."),
       groupId: groupIdParam,
@@ -1171,9 +1131,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
           toPageId && toPageId !== pageId
             ? await processApi.moveGroupToPage(group, processId, witRefName, toPageId, toSectionId, groupId, pageId, sectionId)
             : await processApi.moveGroupToSection(group, processId, witRefName, pageId, toSectionId, groupId, sectionId);
-        return ok(moved);
+        return jsonResult(moved);
       } catch (error) {
-        return failed(`moving group '${groupId}'`, error);
+        return toolError(`moving group '${groupId}'`, error);
       }
     }
   );
@@ -1183,8 +1143,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.remove_group,
     "Remove a custom group from a form page. Inherited groups cannot be removed, only hidden with witprocess_update_group.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       pageId: pageIdParam,
       sectionId: sectionIdParam,
       groupId: groupIdParam,
@@ -1194,9 +1154,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
         await processApi.removeGroup(processId, witRefName, pageId, sectionId, groupId);
-        return ok({ removed: groupId });
+        return jsonResult({ removed: groupId });
       } catch (error) {
-        return failed(`removing group '${groupId}'`, error);
+        return toolError(`removing group '${groupId}'`, error);
       }
     }
   );
@@ -1208,8 +1168,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.add_control,
     "Show a field on the form by adding its control to a group. The field must already belong to the work item type — add it with witprocess_add_field_to_work_item_type first.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       groupId: groupIdParam,
       fieldReferenceName: z.string().describe("Reference name of the field to show, e.g. 'Custom.Severity'. It becomes the control's ID."),
       label: z.string().optional().describe("Label on the form. Omit to use the field's name."),
@@ -1222,9 +1182,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.createControlInGroup({ id: fieldReferenceName, label, order, readOnly, visible, watermark }, processId, witRefName, groupId));
+        return jsonResult(await processApi.createControlInGroup({ id: fieldReferenceName, label, order, readOnly, visible, watermark }, processId, witRefName, groupId));
       } catch (error) {
-        return failed(`adding control '${fieldReferenceName}'`, error);
+        return toolError(`adding control '${fieldReferenceName}'`, error);
       }
     }
   );
@@ -1234,8 +1194,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.update_control,
     "Change how a control in a group is shown: label, position, read-only, visibility or placeholder text.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       groupId: groupIdParam,
       controlId: controlIdParam,
       label: z.string().optional().describe("New label on the form."),
@@ -1248,9 +1208,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.updateControl({ id: controlId, label, order, readOnly, visible, watermark }, processId, witRefName, groupId, controlId));
+        return jsonResult(await processApi.updateControl({ id: controlId, label, order, readOnly, visible, watermark }, processId, witRefName, groupId, controlId));
       } catch (error) {
-        return failed(`updating control '${controlId}'`, error);
+        return toolError(`updating control '${controlId}'`, error);
       }
     }
   );
@@ -1260,8 +1220,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.move_control,
     "Move a control from one group to another, on the same page or a different one.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       fromGroupId: z.string().describe("The group the control is in now."),
       toGroupId: z.string().describe("The group to move the control into."),
       controlId: controlIdParam,
@@ -1271,9 +1231,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.moveControlToGroup({ id: controlId, order }, processId, witRefName, toGroupId, controlId, fromGroupId));
+        return jsonResult(await processApi.moveControlToGroup({ id: controlId, order }, processId, witRefName, toGroupId, controlId, fromGroupId));
       } catch (error) {
-        return failed(`moving control '${controlId}'`, error);
+        return toolError(`moving control '${controlId}'`, error);
       }
     }
   );
@@ -1283,8 +1243,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.remove_control,
     "Remove a control from a group, so the field is no longer shown on the form. The field stays on the work item type and keeps its values. Inherited controls cannot be removed, only hidden with witprocess_update_control.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       groupId: groupIdParam,
       controlId: controlIdParam,
     },
@@ -1293,9 +1253,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
         await processApi.removeControlFromGroup(processId, witRefName, groupId, controlId);
-        return ok({ removed: controlId, groupId });
+        return jsonResult({ removed: controlId, groupId });
       } catch (error) {
-        return failed(`removing control '${controlId}'`, error);
+        return toolError(`removing control '${controlId}'`, error);
       }
     }
   );
@@ -1305,16 +1265,16 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.list_system_controls,
     "List the system controls of a work item type — the fixed header fields such as Area Path, Iteration Path, Reason and State — with their current labels and visibility.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
     },
     async ({ processId, witRefName }) => {
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.getSystemControls(processId, witRefName));
+        return jsonResult(await processApi.getSystemControls(processId, witRefName));
       } catch (error) {
-        return failed(`listing system controls of '${witRefName}'`, error);
+        return toolError(`listing system controls of '${witRefName}'`, error);
       }
     }
   );
@@ -1324,8 +1284,8 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.update_system_control,
     "Relabel, show or hide a system control in the form header, e.g. hide 'System.Reason'. Undo it with witprocess_reset_system_control.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       controlId: z.string().describe("The system control ID, e.g. 'System.AreaPath', as listed by witprocess_list_system_controls."),
       label: z.string().optional().describe("New label in the header."),
       visible: visibleParam,
@@ -1334,9 +1294,9 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.updateSystemControl({ id: controlId, label, visible }, processId, witRefName, controlId));
+        return jsonResult(await processApi.updateSystemControl({ id: controlId, label, visible }, processId, witRefName, controlId));
       } catch (error) {
-        return failed(`updating system control '${controlId}'`, error);
+        return toolError(`updating system control '${controlId}'`, error);
       }
     }
   );
@@ -1346,17 +1306,17 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     WIT_PROCESS_TOOLS.reset_system_control,
     "Undo the changes made to a system control, restoring the label and visibility the parent process gives it.",
     {
-      processId: processIdParam,
-      witRefName: witRefNameParam,
+      processId: layoutProcessIdParam,
+      witRefName: layoutWitRefNameParam,
       controlId: z.string().describe("The system control ID, e.g. 'System.AreaPath'."),
     },
     async ({ processId, witRefName, controlId }) => {
       try {
         const connection = await connectionProvider();
         const processApi = await connection.getWorkItemTrackingProcessApi();
-        return ok(await processApi.deleteSystemControl(processId, witRefName, controlId));
+        return jsonResult(await processApi.deleteSystemControl(processId, witRefName, controlId));
       } catch (error) {
-        return failed(`resetting system control '${controlId}'`, error);
+        return toolError(`resetting system control '${controlId}'`, error);
       }
     }
   );
