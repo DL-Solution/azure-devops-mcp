@@ -150,6 +150,7 @@
 | Repositories       | [mcp_ado_repo_update_pull_request_reviewers](#mcp_ado_repo_update_pull_request_reviewers)                     | Add or remove reviewers from a pull request                                                                                                           |
 | Repositories       | [mcp_ado_repo_list_repos_by_project](#mcp_ado_repo_list_repos_by_project)                                     | List all repositories in a project                                                                                                                    |
 | Repositories       | [mcp_ado_repo_list_pull_requests_by_repo_or_project](#mcp_ado_repo_list_pull_requests_by_repo_or_project)     | List pull requests with optional filters                                                                                                              |
+| Repositories       | [mcp_ado_repo_list_pull_requests_by_org](#mcp_ado_repo_list_pull_requests_by_org)                             | Retrieve pull requests from every project and repository in the organization at once                                                                  |
 | Repositories       | [mcp_ado_repo_list_pull_request_threads](#mcp_ado_repo_list_pull_request_threads)                             | List comment threads on a pull request                                                                                                                |
 | Repositories       | [mcp_ado_repo_list_pull_request_thread_comments](#mcp_ado_repo_list_pull_request_thread_comments)             | List comments in a specific thread                                                                                                                    |
 | Repositories       | [mcp_ado_repo_list_branches_by_repo](#mcp_ado_repo_list_branches_by_repo)                                     | List all branches in a repository                                                                                                                     |
@@ -1642,6 +1643,13 @@ Retrieve a list of pull requests for a given repository.
 
 - **Required**: None
 - **Optional**: `created_by_me`, `created_by_user`, `i_am_reviewer`, `project`, `repositoryId`, `skip`, `sourceRefName`, `status` (`NotSet` \| `Active` \| `Abandoned` \| `Completed` \| `All`), `targetRefName`, `top`, `user_is_reviewer`
+
+### mcp_ado_repo_list_pull_requests_by_org
+
+Retrieve pull requests from every project and repository in the organization at once — use it for questions like 'my pull requests' or 'pull requests waiting for my review'.
+
+- **Required**: None
+- **Optional**: `created_by_me`, `created_by_user`, `i_am_reviewer`, `skip`, `sourceRefName`, `status` (`NotSet` \| `Active` \| `Abandoned` \| `Completed` \| `All`), `targetRefName`, `top`, `user_is_reviewer`
 
 ### mcp_ado_repo_list_pull_request_threads
 
