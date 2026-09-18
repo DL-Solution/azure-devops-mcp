@@ -18,6 +18,7 @@ import { getCliArgs } from "./utils.js";
 import { packageVersion } from "./version.js";
 import { DomainsManager } from "./shared/domains.js";
 import { shareAdoMetadata } from "./shared/ado-metadata-cache.js";
+import { reportNotFound } from "./shared/not-found.js";
 import { PRESET_NAMES, resolvePreset } from "./shared/presets.js";
 import { buildServerInstructions } from "./shared/server-instructions.js";
 import { instrumentToolUsage, logToolCatalog } from "./shared/usage-stats.js";
@@ -129,7 +130,9 @@ function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAg
     });
     // A fresh WebApi per call keeps credentials per request; the service
     // metadata it would otherwise re-fetch every time is shared instead.
-    return shareAdoMetadata(connection);
+    // Its clients reject a 404 with Azure DevOps' message rather than
+    // resolving null (see shared/not-found.ts).
+    return shareAdoMetadata(reportNotFound(connection));
   };
 }
 

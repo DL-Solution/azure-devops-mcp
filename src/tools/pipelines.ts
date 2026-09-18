@@ -609,9 +609,17 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         throw new Error(`Failed to update build stage: ${response.status} ${errorText}`);
       }
 
+      // The body is JSON text already (or empty): parse it, so the model gets the object and not a quoted string.
       const updatedBuild = await response.text();
+      if (!updatedBuild) {
+        return { content: [{ type: "text", text: `Stage '${stageName}' of build ${buildId} updated: ${status}.` }] };
+      }
 
-      return jsonResult(updatedBuild);
+      try {
+        return jsonResult(JSON.parse(updatedBuild));
+      } catch {
+        return { content: [{ type: "text", text: updatedBuild }] };
+      }
     }
   );
 

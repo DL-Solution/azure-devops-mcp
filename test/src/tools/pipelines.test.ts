@@ -88,7 +88,36 @@ describe("configurePipelineTools", () => {
           state: StageUpdateType.Retry.valueOf(),
         }),
       });
-      expect(result.content[0].text).toBe(JSON.stringify(JSON.stringify(mockUpdateBuildStageResponse)));
+      // The response body is JSON already: it must reach the model as that JSON, not as a quoted string.
+      expect(result.content[0].text).toBe(JSON.stringify(mockUpdateBuildStageResponse));
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should report the update when Azure DevOps answers with an empty body", async () => {
+      configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "pipelines_update_build_stage");
+      if (!call) throw new Error("pipelines_update_build_stage tool not registered");
+      const [, , , handler] = call;
+      (tokenProvider as jest.Mock).mockResolvedValue("mock-token");
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({ ok: true, text: jest.fn().mockResolvedValue("") } as unknown as Response);
+
+      const result = await handler({ project: "test-project", buildId: 123, stageName: "Build", status: "Retry", forceRetryAllJobs: false });
+
+      expect(result.content[0].text).toBe("Stage 'Build' of build 123 updated: Retry.");
+      expect(result.isError).toBeUndefined();
+    });
+
+    it("should pass a body that is not JSON through as text", async () => {
+      configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "pipelines_update_build_stage");
+      if (!call) throw new Error("pipelines_update_build_stage tool not registered");
+      const [, , , handler] = call;
+      (tokenProvider as jest.Mock).mockResolvedValue("mock-token");
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({ ok: true, text: jest.fn().mockResolvedValue("Stage queued") } as unknown as Response);
+
+      const result = await handler({ project: "test-project", buildId: 123, stageName: "Build", status: "Retry", forceRetryAllJobs: false });
+
+      expect(result.content[0].text).toBe("Stage queued");
       expect(result.isError).toBeUndefined();
     });
 

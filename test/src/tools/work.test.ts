@@ -1344,6 +1344,53 @@ describe("configureWorkTools", () => {
       expect(result.content[0].text).toBe("No iterations were assigned to the team");
     });
 
+    it("should report each iteration that failed and keep going with the rest", async () => {
+      configureWorkTools(server, tokenProvider, connectionProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "work_assign_iterations");
+      if (!call) throw new Error("work_assign_iterations tool not registered");
+      const [, , , handler] = call;
+
+      const assigned = { id: "a1", name: "Sprint 1", path: "Fabrikam\\Sprint 1" };
+      (mockWorkApi.postTeamIteration as jest.Mock).mockRejectedValueOnce(new Error("VS402371: Iteration does not exist.")).mockResolvedValueOnce(assigned);
+
+      const result = await handler({
+        project: "Fabrikam",
+        team: "Fabrikam Team",
+        iterations: [
+          { identifier: "missing", path: "Fabrikam\\Nope" },
+          { identifier: "a1", path: "Fabrikam\\Sprint 1" },
+        ],
+      });
+
+      expect(mockWorkApi.postTeamIteration).toHaveBeenCalledTimes(2);
+      expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        assigned: [assigned],
+        failed: [{ path: "Fabrikam\\Nope", error: "VS402371: Iteration does not exist." }],
+      });
+    });
+
+    it("should name every failure when no iteration could be assigned", async () => {
+      configureWorkTools(server, tokenProvider, connectionProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "work_assign_iterations");
+      if (!call) throw new Error("work_assign_iterations tool not registered");
+      const [, , , handler] = call;
+
+      (mockWorkApi.postTeamIteration as jest.Mock).mockRejectedValueOnce(new Error("first")).mockRejectedValueOnce(new Error("second"));
+
+      const result = await handler({
+        project: "Fabrikam",
+        team: "Fabrikam Team",
+        iterations: [
+          { identifier: "x", path: "Fabrikam\\A" },
+          { identifier: "y", path: "Fabrikam\\B" },
+        ],
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error assigning iterations: Fabrikam\\A: first; Fabrikam\\B: second");
+    });
+
     it("should handle unknown error type correctly", async () => {
       configureWorkTools(server, tokenProvider, connectionProvider);
 
@@ -1503,6 +1550,28 @@ describe("configureWorkTools", () => {
       expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).toHaveBeenCalled();
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toBe("No iterations were created");
+    });
+
+    it("should report each iteration that failed and keep going with the rest", async () => {
+      configureWorkTools(server, tokenProvider, connectionProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "work_create_iterations");
+      if (!call) throw new Error("work_create_iterations tool not registered");
+      const [, , , handler] = call;
+
+      const created = { id: 7, name: "Sprint 3" };
+      (mockWorkItemTrackingApi.createOrUpdateClassificationNode as jest.Mock).mockRejectedValueOnce(new Error("TF200016: The following project does not exist.")).mockResolvedValueOnce(created);
+
+      const result = await handler({
+        project: "Fabrikam",
+        iterations: [{ iterationName: "Sprint 2" }, { iterationName: "Sprint 3" }],
+      });
+
+      expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).toHaveBeenCalledTimes(2);
+      expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        created: [created],
+        failed: [{ iterationName: "Sprint 2", error: "TF200016: The following project does not exist." }],
+      });
     });
 
     it("should handle unknown error type correctly", async () => {
