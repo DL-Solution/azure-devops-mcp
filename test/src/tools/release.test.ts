@@ -90,7 +90,7 @@ describe("configureReleaseTools", () => {
     const result = await handler({ project: "Proj", definitionId: 3 });
 
     expect(mockReleaseApi.getReleaseDefinition).toHaveBeenCalledWith("Proj", 3);
-    expect(result.content[0].text).toContain('"id": 3');
+    expect(result.content[0].text).toContain('"id":3');
   });
 
   it("list_releases maps the status filter (active => 2)", async () => {
@@ -100,7 +100,7 @@ describe("configureReleaseTools", () => {
     const result = await handler({ project: "Proj", definitionId: 3, status: "active", top: 5 });
 
     expect(mockReleaseApi.getReleases).toHaveBeenCalledWith("Proj", 3, undefined, undefined, undefined, 2, undefined, undefined, undefined, undefined, 5);
-    expect(result.content[0].text).toContain('"id": 10');
+    expect(result.content[0].text).toContain('"id":10');
   });
 
   it("get_release passes the release id", async () => {
@@ -110,7 +110,7 @@ describe("configureReleaseTools", () => {
     const result = await handler({ project: "Proj", releaseId: 10 });
 
     expect(mockReleaseApi.getRelease).toHaveBeenCalledWith("Proj", 10);
-    expect(result.content[0].text).toContain('"id": 10');
+    expect(result.content[0].text).toContain('"id":10');
   });
 
   it("create_release builds the start metadata", async () => {
@@ -120,7 +120,7 @@ describe("configureReleaseTools", () => {
     const result = await handler({ project: "Proj", definitionId: 3, description: "manual", isDraft: false });
 
     expect(mockReleaseApi.createRelease).toHaveBeenCalledWith({ definitionId: 3, description: "manual", isDraft: false, artifacts: undefined }, "Proj");
-    expect(result.content[0].text).toContain('"id": 11');
+    expect(result.content[0].text).toContain('"id":11');
   });
 
   it("get_environment passes release and environment ids", async () => {
@@ -130,7 +130,7 @@ describe("configureReleaseTools", () => {
     const result = await handler({ project: "Proj", releaseId: 10, environmentId: 100 });
 
     expect(mockReleaseApi.getReleaseEnvironment).toHaveBeenCalledWith("Proj", 10, 100);
-    expect(result.content[0].text).toContain('"id": 100');
+    expect(result.content[0].text).toContain('"id":100');
   });
 
   it("update_environment passes the update metadata", async () => {
@@ -151,7 +151,7 @@ describe("configureReleaseTools", () => {
     const result = await handler({ project: "Proj", status: "pending", assignedToFilter: "user@x", top: 20 });
 
     expect(mockReleaseApi.getApprovals).toHaveBeenCalledWith("Proj", "user@x", 1, undefined, undefined, 20);
-    expect(result.content[0].text).toContain('"id": 50');
+    expect(result.content[0].text).toContain('"id":50');
   });
 
   it("update_approval maps the approved status (=> 2)", async () => {
@@ -161,7 +161,7 @@ describe("configureReleaseTools", () => {
     const result = await handler({ project: "Proj", approvalId: 50, status: "approved", comments: "lgtm" });
 
     expect(mockReleaseApi.updateReleaseApproval).toHaveBeenCalledWith({ status: 2, comments: "lgtm" }, "Proj", 50);
-    expect(result.content[0].text).toContain('"id": 50');
+    expect(result.content[0].text).toContain('"id":50');
   });
 
   it("surfaces API errors", async () => {
