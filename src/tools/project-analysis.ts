@@ -6,8 +6,9 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { AggregationType } from "azure-devops-node-api/interfaces/ProjectAnalysisInterfaces.js";
-import { elicitProject } from "../shared/elicitations.js";
+import { resolveProject } from "../shared/elicitations.js";
 import { optionalProject } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const PROJECT_ANALYSIS_TOOLS = {
   get_language_analytics: "projectanalysis_get_language_analytics",
@@ -22,14 +23,6 @@ const AGGREGATION_TYPE_MAP: Record<string, AggregationType> = {
 };
 
 function configureProjectAnalysisTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
-  // Resolve the project (eliciting if not supplied).
-  const resolveProject = async (connection: WebApi, project: string | undefined) => {
-    if (project) return { project };
-    const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
-    if ("response" in result) return result;
-    return { project: result.resolved };
-  };
-
   const projectField = optionalProject;
   const aggregationField = z.enum(["daily", "hourly"]).default("daily").describe("The aggregation granularity for the metrics.");
 
@@ -43,16 +36,15 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
     async ({ project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const projectAnalysisApi = await connection.getProjectAnalysisApi();
         const analytics = await projectAnalysisApi.getProjectLanguageAnalytics(ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(analytics, null, 2) }] };
+        return jsonResult(analytics);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching language analytics: ${errorMessage}` }], isError: true };
+        return toolError("fetching language analytics", error);
       }
     }
   );
@@ -69,16 +61,15 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
     async ({ project, fromDate, aggregation }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const projectAnalysisApi = await connection.getProjectAnalysisApi();
         const metrics = await projectAnalysisApi.getProjectActivityMetrics(ctx.project, new Date(fromDate), AGGREGATION_TYPE_MAP[aggregation]);
 
-        return { content: [{ type: "text", text: JSON.stringify(metrics, null, 2) }] };
+        return jsonResult(metrics);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching project activity metrics: ${errorMessage}` }], isError: true };
+        return toolError("fetching project activity metrics", error);
       }
     }
   );
@@ -97,7 +88,7 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
     async ({ project, fromDate, aggregation, skip, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const projectAnalysisApi = await connection.getProjectAnalysisApi();
@@ -106,10 +97,9 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
         if (!metrics || metrics.length === 0) {
           return { content: [{ type: "text", text: "No repository activity metrics found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(metrics, null, 2) }] };
+        return jsonResult(metrics);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching repository activity metrics: ${errorMessage}` }], isError: true };
+        return toolError("fetching repository activity metrics", error);
       }
     }
   );
@@ -127,16 +117,15 @@ function configureProjectAnalysisTools(server: McpServer, _: () => Promise<strin
     async ({ project, repositoryId, fromDate, aggregation }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const projectAnalysisApi = await connection.getProjectAnalysisApi();
         const metrics = await projectAnalysisApi.getRepositoryActivityMetrics(ctx.project, repositoryId, new Date(fromDate), AGGREGATION_TYPE_MAP[aggregation]);
 
-        return { content: [{ type: "text", text: JSON.stringify(metrics, null, 2) }] };
+        return jsonResult(metrics);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching repository activity metrics: ${errorMessage}` }], isError: true };
+        return toolError("fetching repository activity metrics", error);
       }
     }
   );
