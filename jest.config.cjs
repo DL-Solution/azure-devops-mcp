@@ -70,5 +70,7 @@ module.exports = {
     "^(.+)/domains\\.js$": "$1/domains.ts",
     "^(.+)/landing-page\\.js$": "$1/landing-page.ts",
     "^(.+)/usage-stats\\.js$": "$1/usage-stats.ts",
+    "^(.+)/tool-list\\.js$": "$1/tool-list.ts",
+    "^(.+)/request-interception\\.js$": "$1/request-interception.ts",
   },
 };

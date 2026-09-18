@@ -69,7 +69,7 @@ describe("registerTool", () => {
   });
 
   it.each([
-    ["wit_get_work_item", { readOnlyHint: true, destructiveHint: false }],
+    ["wit_get_work_item", { readOnlyHint: true }],
     ["core_delete_project", { readOnlyHint: false, destructiveHint: true }],
     ["wit_create_work_item", { readOnlyHint: false, destructiveHint: false }],
     ["permissions_set_access_control_entries", { readOnlyHint: false, destructiveHint: true }],

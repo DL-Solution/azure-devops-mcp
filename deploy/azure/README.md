@@ -150,18 +150,18 @@ az account get-access-token \
 
 ### Tool presets (a smaller tool list per endpoint)
 
-The full server registers 619 tools, whose schemas cost roughly **136k tokens**
+The full server registers 620 tools, whose schemas cost roughly **120k tokens**
 of the model's context on every request. Appending a preset name to the MCP path
 serves only the domains that preset covers — same deployment, same sign-in, no
 extra resources, and no state kept between requests:
 
 | URL          | Tools | ~Tokens | Covers                                                          |
 | ------------ | ----: | ------: | --------------------------------------------------------------- |
-| `/mcp`       |   619 |    136k | everything (or whatever `MCP_DOMAINS` sets)                     |
-| `/mcp/dev`   |   226 |     55k | repos, pull requests, work items, pipelines, wiki, search       |
-| `/mcp/plan`  |   225 |     49k | boards, backlogs, sprints, capacity, dashboards, test plans     |
-| `/mcp/ops`   |   237 |     50k | pipelines, releases, agents, service connections, feeds, alerts |
-| `/mcp/admin` |   135 |     27k | process customization, identity, licences, access, audit        |
+| `/mcp`       |   620 |    120k | everything (or whatever `MCP_DOMAINS` sets)                     |
+| `/mcp/dev`   |   227 |     49k | repos, pull requests, work items, pipelines, wiki, search       |
+| `/mcp/plan`  |   225 |     43k | boards, backlogs, sprints, capacity, dashboards, test plans     |
+| `/mcp/ops`   |   237 |     44k | pipelines, releases, agents, service connections, feeds, alerts |
+| `/mcp/admin` |   135 |     24k | process customization, identity, licences, access, audit        |
 
 Counts as of September 2026; tokens are the `tools/list` JSON divided by four.
 The landing page at `https://<app-fqdn>/` (in Ukrainian) always shows the live

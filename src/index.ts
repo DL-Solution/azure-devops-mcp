@@ -11,7 +11,6 @@ import yargs from "yargs";
 import { createAuthenticator, installPatFetchInterceptor } from "./auth.js";
 import { logger } from "./logger.js";
 import { getOrgTenant } from "./org-tenants.js";
-//import { configurePrompts } from "./prompts.js";
 import { configureResources } from "./resources.js";
 import { configureAllTools } from "./tools.js";
 import { UserAgentComposer } from "./useragent.js";
@@ -22,6 +21,7 @@ import { shareAdoMetadata } from "./shared/ado-metadata-cache.js";
 import { PRESET_NAMES, resolvePreset } from "./shared/presets.js";
 import { buildServerInstructions } from "./shared/server-instructions.js";
 import { instrumentToolUsage, logToolCatalog } from "./shared/usage-stats.js";
+import { slimToolList } from "./shared/tool-list.js";
 import { LandingEndpoint, renderLandingPage } from "./shared/landing-page.js";
 import { getRequestToken, startHttpServer } from "./transports/http.js";
 import { startOAuthHttpServer } from "./transports/http-oauth.js";
@@ -162,14 +162,14 @@ function createConfiguredServer(
   // registration installs it. See shared/usage-stats.ts.
   instrumentToolUsage(server, argv.transport === "http" ? (presetName ? `${argv.path}/${presetName}` : argv.path) : "stdio");
 
+  // Also before any tool registers: trims per-tool boilerplate from tools/list.
+  slimToolList(server);
+
   server.server.oninitialized = () => {
     userAgentComposer.appendMcpClientInfo(server.server.getClientVersion());
   };
 
   instrumentToolErrors(server);
-
-  // removing prompts untill further notice
-  // configurePrompts(server);
 
   configureAllTools(server, authenticator, connectionProvider, () => userAgentComposer.userAgent, domains);
   configureResources(server, connectionProvider, domains);

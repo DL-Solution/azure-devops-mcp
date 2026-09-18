@@ -8,7 +8,7 @@
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Прод        | ACA-ревізія `ado-mcp--0000079`, образ `919dae4` (PR #92), стан Running; на `/` — коренева сторінка з інструкцією підключення                                  |
 | Версія      | 3.0.0                                                                                                                                                         |
-| Інструменти | 621 у 33 доменах; схеми `/mcp` ≈136k токенів, пресети 27–55k ([deploy/azure/README.md](deploy/azure/README.md#tool-presets-a-smaller-tool-list-per-endpoint)) |
+| Інструменти | 621 у 33 доменах; схеми `/mcp` ≈120k токенів, пресети 24–49k ([deploy/azure/README.md](deploy/azure/README.md#tool-presets-a-smaller-tool-list-per-endpoint)) |
 | Тести       | 2301, покриття 91.0 / 76.2 / 97.6 / 92.1                                                                                                                      |
 | REST API    | покрито 654 з 1024 операцій потрібних областей (64%) — [docs/API-COVERAGE.md](docs/API-COVERAGE.md)                                                           |
 | Upstream    | переглянуто до `aacff1e` ([docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md)), нерозібраних комітів немає                                                         |
@@ -67,7 +67,6 @@
 - Класичні релізи (покриття ~11%) і TFVC (~12%) — застарілі механізми.
 - Upstream #1360 (`repo_search_commits` на Search API) — на dl-sol Search API не знаходив комітів, які є в Git API.
 - Upstream #1538 (MSAL broker) — для Windows/macOS, сервер працює на Linux і ACA.
-- Поле `$schema` у схемах (~4.8k токенів на запит) — додає MCP SDK, питання до SDK.
 
 ## Нагадування
 

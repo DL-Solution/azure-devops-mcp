@@ -19,6 +19,7 @@ import { CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import { logger } from "../logger.js";
+import { interceptRequestHandler } from "./request-interception.js";
 
 /** Who made a call, as far as the bearer token says. */
 export interface Caller {
@@ -104,16 +105,10 @@ function outcomeOf(result: unknown): ToolCallOutcome {
  * runs — invalid arguments and unknown tool names.
  */
 export function instrumentToolUsage(server: McpServer, endpoint: string, now: () => number = Date.now): void {
-  const lowLevel = server.server;
-  const original = lowLevel.setRequestHandler.bind(lowLevel) as (...args: unknown[]) => void;
-
-  (lowLevel as unknown as { setRequestHandler: (...args: unknown[]) => void }).setRequestHandler = (schema: unknown, handler: unknown) => {
-    if (schema !== CallToolRequestSchema || typeof handler !== "function") {
-      original(schema, handler);
-      return;
-    }
+  interceptRequestHandler(server, CallToolRequestSchema, (handler) => {
     const callHandler = handler as (request: { params: { name: string; arguments?: Record<string, unknown> } }, extra: { requestInfo?: { headers?: Headers } }) => Promise<unknown>;
-    original(schema, async (request: Parameters<typeof callHandler>[0], extra: Parameters<typeof callHandler>[1]) => {
+    return async (...args: unknown[]) => {
+      const [request, extra] = args as Parameters<typeof callHandler>;
       const started = now();
       const headers = extra?.requestInfo?.headers;
       const base = {
@@ -132,8 +127,8 @@ export function instrumentToolUsage(server: McpServer, endpoint: string, now: ()
         logToolCall({ ...base, outcome: "error", durationMs: now() - started });
         throw error;
       }
-    });
-  };
+    };
+  });
 }
 
 export function logToolCall(record: ToolCallRecord): void {
