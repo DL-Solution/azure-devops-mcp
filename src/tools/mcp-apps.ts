@@ -3,6 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
+import { errorMessage } from "../shared/tool-results.js";
 
 const MCP_APPS_TOOLS = {
   ping: "mcp_apps_ping",
@@ -15,10 +16,8 @@ function configureMcpAppsTools(server: McpServer) {
         content: [{ type: "text", text: "pong — mcp-apps domain is active" }],
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
       return {
-        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        content: [{ type: "text", text: `Error: ${errorMessage(error)}` }],
         isError: true,
       };
     }

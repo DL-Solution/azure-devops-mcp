@@ -6,6 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
+import { toolError } from "../shared/tool-results.js";
 
 const PERMISSIONS_TOOLS = {
   list_security_namespaces: "permissions_list_security_namespaces",
@@ -69,8 +70,7 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing security namespaces: ${errorMessage}` }], isError: true };
+        return toolError("listing security namespaces", error);
       }
     }
   );
@@ -101,8 +101,7 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching access control lists: ${errorMessage}` }], isError: true };
+        return toolError("fetching access control lists", error);
       }
     }
   );

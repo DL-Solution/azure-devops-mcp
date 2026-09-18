@@ -6,8 +6,9 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { ReleaseStartMetadata, ReleaseApproval, ReleaseEnvironmentUpdateMetadata, ApprovalStatus, ReleaseStatus } from "azure-devops-node-api/interfaces/ReleaseInterfaces.js";
-import { elicitProject } from "../shared/elicitations.js";
+import { resolveProject } from "../shared/elicitations.js";
 import { optionalProject } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const RELEASE_TOOLS = {
   list_definitions: "release_list_definitions",
@@ -34,14 +35,6 @@ const APPROVAL_STATUS_MAP: Record<string, ApprovalStatus> = {
 };
 
 function configureReleaseTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
-  // Resolve the project (eliciting if not supplied).
-  const resolveProject = async (connection: WebApi, project: string | undefined) => {
-    if (project) return { project };
-    const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
-    if ("response" in result) return result;
-    return { project: result.resolved };
-  };
-
   const projectField = optionalProject;
 
   registerTool(
@@ -56,7 +49,7 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, searchText, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const releaseApi = await connection.getReleaseApi();
@@ -65,10 +58,9 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
         if (!definitions || definitions.length === 0) {
           return { content: [{ type: "text", text: "No release definitions found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(definitions, null, 2) }] };
+        return jsonResult(definitions);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching release definitions: ${errorMessage}` }], isError: true };
+        return toolError("fetching release definitions", error);
       }
     }
   );
@@ -84,16 +76,15 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, definitionId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const releaseApi = await connection.getReleaseApi();
         const definition = await releaseApi.getReleaseDefinition(ctx.project, definitionId);
 
-        return { content: [{ type: "text", text: JSON.stringify(definition, null, 2) }] };
+        return jsonResult(definition);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching release definition: ${errorMessage}` }], isError: true };
+        return toolError("fetching release definition", error);
       }
     }
   );
@@ -111,7 +102,7 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, definitionId, status, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const statusFilter = status ? RELEASE_STATUS_MAP[status] : undefined;
@@ -121,10 +112,9 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
         if (!releases || releases.length === 0) {
           return { content: [{ type: "text", text: "No releases found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(releases, null, 2) }] };
+        return jsonResult(releases);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching releases: ${errorMessage}` }], isError: true };
+        return toolError("fetching releases", error);
       }
     }
   );
@@ -140,16 +130,15 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, releaseId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const releaseApi = await connection.getReleaseApi();
         const release = await releaseApi.getRelease(ctx.project, releaseId);
 
-        return { content: [{ type: "text", text: JSON.stringify(release, null, 2) }] };
+        return jsonResult(release);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching release: ${errorMessage}` }], isError: true };
+        return toolError("fetching release", error);
       }
     }
   );
@@ -171,7 +160,7 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, definitionId, description, isDraft, artifacts }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const metadata: ReleaseStartMetadata = {
@@ -183,10 +172,9 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
         const releaseApi = await connection.getReleaseApi();
         const release = await releaseApi.createRelease(metadata, ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(release, null, 2) }] };
+        return jsonResult(release);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating release: ${errorMessage}` }], isError: true };
+        return toolError("creating release", error);
       }
     }
   );
@@ -203,16 +191,15 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, releaseId, environmentId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const releaseApi = await connection.getReleaseApi();
         const environment = await releaseApi.getReleaseEnvironment(ctx.project, releaseId, environmentId);
 
-        return { content: [{ type: "text", text: JSON.stringify(environment, null, 2) }] };
+        return jsonResult(environment);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching release environment: ${errorMessage}` }], isError: true };
+        return toolError("fetching release environment", error);
       }
     }
   );
@@ -230,16 +217,15 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, releaseId, environmentId, updateData }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const releaseApi = await connection.getReleaseApi();
         const environment = await releaseApi.updateReleaseEnvironment(updateData as unknown as ReleaseEnvironmentUpdateMetadata, ctx.project, releaseId, environmentId);
 
-        return { content: [{ type: "text", text: JSON.stringify(environment, null, 2) }] };
+        return jsonResult(environment);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating release environment: ${errorMessage}` }], isError: true };
+        return toolError("updating release environment", error);
       }
     }
   );
@@ -257,7 +243,7 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, status, assignedToFilter, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const statusFilter = status ? APPROVAL_STATUS_MAP[status] : undefined;
@@ -267,10 +253,9 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
         if (!approvals || approvals.length === 0) {
           return { content: [{ type: "text", text: "No release approvals found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(approvals, null, 2) }] };
+        return jsonResult(approvals);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching release approvals: ${errorMessage}` }], isError: true };
+        return toolError("fetching release approvals", error);
       }
     }
   );
@@ -288,17 +273,16 @@ function configureReleaseTools(server: McpServer, _: () => Promise<string>, conn
     async ({ project, approvalId, status, comments }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const approval: ReleaseApproval = { status: APPROVAL_STATUS_MAP[status], comments };
         const releaseApi = await connection.getReleaseApi();
         const result = await releaseApi.updateReleaseApproval(approval, ctx.project, approvalId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating release approval: ${errorMessage}` }], isError: true };
+        return toolError("updating release approval", error);
       }
     }
   );

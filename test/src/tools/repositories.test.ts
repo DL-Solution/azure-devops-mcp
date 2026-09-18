@@ -183,7 +183,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should update pull request with only title", async () => {
@@ -247,7 +247,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should update pull request status to Active", async () => {
@@ -311,7 +311,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should update pull request status to Abandoned", async () => {
@@ -375,7 +375,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should update pull request with status and other fields", async () => {
@@ -441,7 +441,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should return error when no fields provided", async () => {
@@ -1082,7 +1082,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature-branch",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should create pull request with all optional fields including labels", async () => {
@@ -1163,7 +1163,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature-branch",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should reject pull request with description over 4000 characters", async () => {
@@ -1252,7 +1252,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature-branch",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should return error when createPullRequest returns null and fallback finds no PRs", async () => {
@@ -1620,7 +1620,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.createPullRequestReviewers).toHaveBeenCalledWith([{ id: "reviewer1" }, { id: "reviewer2" }], "repo123", 456, "test-project");
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockReviewers, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockReviewers));
     });
 
     it("should remove reviewers from pull request", async () => {
@@ -1701,7 +1701,7 @@ describe("repos tools", () => {
         size: repo.size,
       }));
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedRepos, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedRepos));
     });
 
     it("should filter repositories by name", async () => {
@@ -1770,7 +1770,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getPullRequests).toHaveBeenCalledWith("repo123", { status: PullRequestStatus.Active, repositoryId: "repo123" }, undefined, undefined, 0, 100);
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockPRs, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPRs));
     });
 
     it("should filter pull requests created by me", async () => {
@@ -2154,7 +2154,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should map statusName from PullRequestStatus enum values", async () => {
@@ -2230,7 +2230,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should return Unknown statusName for unrecognized pull request status", async () => {
@@ -2281,7 +2281,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should filter by current user when created_by_me is true", async () => {
@@ -2337,7 +2337,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should filter by current user as reviewer when i_am_reviewer is true", async () => {
@@ -2393,7 +2393,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should filter by both creator and reviewer when both created_by_me and i_am_reviewer are true", async () => {
@@ -2450,7 +2450,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should prioritize created_by_user over created_by_me flag", async () => {
@@ -2511,7 +2511,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should filter pull requests by source branch", async () => {
@@ -2700,7 +2700,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should prioritize user_is_reviewer over i_am_reviewer flag", async () => {
@@ -2856,7 +2856,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should return full response when requested", async () => {
@@ -2879,7 +2879,7 @@ describe("repos tools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThreads, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThreads));
     });
 
     it("should return an empty array when no pull request threads are returned", async () => {
@@ -2900,7 +2900,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getThreads).toHaveBeenCalledWith("repo123", 456, undefined, undefined, undefined);
       expect(result).not.toHaveProperty("isError");
-      expect(result.content[0].text).toBe(JSON.stringify([], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([]));
     });
 
     it("should return an empty full response when no pull request threads are returned", async () => {
@@ -2922,7 +2922,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getThreads).toHaveBeenCalledWith("repo123", 456, undefined, undefined, undefined);
       expect(result).not.toHaveProperty("isError");
-      expect(result.content[0].text).toBe(JSON.stringify([], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([]));
     });
 
     it("should filter threads by status (Active)", async () => {
@@ -3537,7 +3537,7 @@ describe("repos tools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should list pull request thread comments with full response", async () => {
@@ -3588,7 +3588,7 @@ describe("repos tools", () => {
       expect(mockGitApi.getComments).toHaveBeenCalledWith("repo123", 456, 789, undefined);
 
       // When fullResponse is true, it should return the full comment objects without trimming
-      expect(result.content[0].text).toBe(JSON.stringify(mockComments, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockComments));
     });
   });
 
@@ -3619,7 +3619,7 @@ describe("repos tools", () => {
       expect(mockGitApi.getRefs).toHaveBeenCalledWith("repo123", "test-project", "heads/", undefined, undefined, undefined, undefined, undefined, undefined);
 
       const expectedResult = ["main", "feature-2", "feature-1"]; // Sorted reverse alphabetically
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
   });
 
@@ -3645,7 +3645,7 @@ describe("repos tools", () => {
       expect(mockGitApi.getRefs).toHaveBeenCalledWith("repo123", "test-project", "heads/", undefined, undefined, true, undefined, undefined, undefined);
 
       const expectedResult = ["my-feature", "main"];
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
   });
 
@@ -3671,7 +3671,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getRepositories).toHaveBeenCalledWith("test-project");
-      expect(result.content[0].text).toBe(JSON.stringify(mockRepos[0], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockRepos[0]));
     });
 
     it("should get repository by ID", async () => {
@@ -3694,7 +3694,7 @@ describe("repos tools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockRepos[1], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockRepos[1]));
     });
 
     it("should return error when repository not found", async () => {
@@ -3742,7 +3742,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getRefs).toHaveBeenCalledWith("repo123", "test-project", "heads/", false, false, undefined, false, undefined, "main");
-      expect(result.content[0].text).toBe(JSON.stringify(mockBranches[0], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockBranches[0]));
     });
 
     it("should return error message when branch not found", async () => {
@@ -3790,7 +3790,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, false);
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
     });
 
     it("should pass project parameter when provided", async () => {
@@ -3817,7 +3817,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("my-repo-name", 456, "my-project", undefined, undefined, undefined, undefined, false);
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
     });
 
     it("should include work item refs when requested", async () => {
@@ -3886,7 +3886,7 @@ describe("repos tools", () => {
         },
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
     });
 
     it("should not include labels when includeLabels parameter is not specified and defaults are not applied", async () => {
@@ -3915,7 +3915,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, undefined);
       expect(mockGitApi.getPullRequestLabels).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
     });
 
     it("should include labels by default when includeLabels is explicitly set to default value true", async () => {
@@ -3961,7 +3961,7 @@ describe("repos tools", () => {
         },
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
     });
 
     it("should not include labels when includeLabels is false", async () => {
@@ -3990,7 +3990,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, false);
       expect(mockGitApi.getPullRequestLabels).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
     });
 
     it("should handle empty labels array", async () => {
@@ -4034,7 +4034,7 @@ describe("repos tools", () => {
         },
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
     });
 
     it("should handle labels with undefined names", async () => {
@@ -4080,7 +4080,7 @@ describe("repos tools", () => {
         },
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
     });
 
     it("should handle getPullRequestLabels API error gracefully", async () => {
@@ -4125,7 +4125,7 @@ describe("repos tools", () => {
         labelSummary: {},
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
 
       consoleSpy.mockRestore();
     });
@@ -4173,7 +4173,7 @@ describe("repos tools", () => {
         },
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
     });
 
     it("should include changed files when includeChangedFiles is true", async () => {
@@ -4230,7 +4230,7 @@ describe("repos tools", () => {
       const result = await handler({ repositoryId: "repo123", pullRequestId: 123, includeChangedFiles: false });
 
       expect(mockGitApi.getPullRequestIterations).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
     });
 
     it("should not fetch changed files when includeChangedFiles is not specified", async () => {
@@ -4245,7 +4245,7 @@ describe("repos tools", () => {
       const result = await handler({ repositoryId: "repo123", pullRequestId: 123 });
 
       expect(mockGitApi.getPullRequestIterations).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
     });
 
     it("should handle empty iterations when includeChangedFiles is true", async () => {
@@ -4375,7 +4375,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getPullRequestIterationChanges).toHaveBeenCalledWith("12345678-1234-1234-1234-123456789012", 456, 1, undefined, undefined, undefined, undefined);
-      expect(result.content[0].text).toBe(JSON.stringify(mockChanges, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockChanges));
     });
 
     it("should get pull request changes for latest iteration when not specified", async () => {
@@ -4422,7 +4422,7 @@ describe("repos tools", () => {
         undefined,
         undefined
       );
-      expect(result.content[0].text).toBe(JSON.stringify(mockChanges, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockChanges));
     });
 
     it("should support pagination parameters", async () => {
@@ -4640,7 +4640,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getFileDiffs).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockChanges, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockChanges));
     });
 
     it("should handle diff fetch errors gracefully and return metadata", async () => {
@@ -5505,7 +5505,7 @@ describe("repos tools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockComment, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockComment));
     });
 
     it("should return error when comment creation fails", async () => {
@@ -5561,7 +5561,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
     });
 
     it("should create pull request thread with file context and position", async () => {
@@ -5602,7 +5602,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
     });
 
     it("should normalize file path by adding leading slash if missing", async () => {
@@ -5637,7 +5637,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
     });
 
     it("should preserve file path if it already starts with slash", async () => {
@@ -5672,7 +5672,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
     });
 
     it("should throw error for invalid line numbers", async () => {
@@ -5747,7 +5747,7 @@ describe("repos tools", () => {
         ],
         threadContext: { filePath: "/src/test.ts" },
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread));
     });
 
     it("should update thread status to Fixed", async () => {
@@ -5787,7 +5787,7 @@ describe("repos tools", () => {
         comments: [],
         threadContext: null,
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread));
     });
 
     it("should update thread status to WontFix", async () => {
@@ -5827,7 +5827,7 @@ describe("repos tools", () => {
         comments: [],
         threadContext: null,
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread));
     });
 
     it("should update thread status to Closed", async () => {
@@ -5867,7 +5867,7 @@ describe("repos tools", () => {
         comments: [],
         threadContext: null,
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread));
     });
 
     it("should update thread status to ByDesign", async () => {
@@ -5907,7 +5907,7 @@ describe("repos tools", () => {
         comments: [],
         threadContext: null,
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread));
     });
 
     it("should update thread status to Pending", async () => {
@@ -5947,7 +5947,7 @@ describe("repos tools", () => {
         comments: [],
         threadContext: null,
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedThread));
     });
 
     it("should return error when no fields provided", async () => {
@@ -6075,7 +6075,7 @@ describe("repos tools", () => {
         10
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockCommits, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockCommits));
     });
 
     it("should handle commit search errors", async () => {
@@ -6139,7 +6139,7 @@ describe("repos tools", () => {
         "test-project"
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockQueryResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockQueryResult));
     });
 
     it("should handle pull request query errors", async () => {
@@ -6801,7 +6801,7 @@ describe("repos tools", () => {
         sourceRefName: "refs/heads/feature",
         targetRefName: "refs/heads/main",
       };
-      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedTrimmedPR));
     });
 
     it("should handle trimComments with undefined comments", async () => {
@@ -7108,7 +7108,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
     });
 
     it("should handle rightFileEndOffset without validation error", async () => {
@@ -7149,7 +7149,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
     });
 
     it("should handle search_commits with version parameter", async () => {
@@ -7192,7 +7192,7 @@ describe("repos tools", () => {
         10
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockCommits, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockCommits));
     });
 
     it("should handle search_commits without version parameter", async () => {
@@ -7231,7 +7231,7 @@ describe("repos tools", () => {
         10
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockCommits, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockCommits));
     });
 
     it("should handle rightFileEndLine without rightFileStartLine", async () => {
@@ -7645,7 +7645,7 @@ describe("repos tools", () => {
         "test-repo",
         "test-project"
       );
-      expect(result.content[0].text).toBe(JSON.stringify(mockQueryResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockQueryResult));
     });
 
     it("should handle repositories with null/undefined names in sorting", async () => {
@@ -7740,7 +7740,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error querying pull requests by commits: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error querying pull requests by commits: String error");
     });
 
     it("should handle invalid rightFileEndOffset with rightFileEndLine in create_pull_request_thread", async () => {
@@ -7824,7 +7824,7 @@ describe("repos tools", () => {
         456,
         undefined
       );
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
     });
   });
 
@@ -7872,7 +7872,7 @@ describe("repos tools", () => {
           10
         );
 
-        expect(result.content[0].text).toBe(JSON.stringify(mockCommits, null, 2));
+        expect(result.content[0].text).toBe(JSON.stringify(mockCommits));
       });
 
       it("should retrieve specific commits by IDs", async () => {
@@ -7919,7 +7919,7 @@ describe("repos tools", () => {
         );
 
         const expectedCommits = [mockCommit1, mockCommit2];
-        expect(result.content[0].text).toBe(JSON.stringify(expectedCommits, null, 2));
+        expect(result.content[0].text).toBe(JSON.stringify(expectedCommits));
       });
     });
   });
@@ -8421,7 +8421,7 @@ describe("repos tools", () => {
         const result = await handler(params);
 
         expect(result).toEqual({
-          content: [{ type: "text", text: "Error updating pull request thread: Unknown error occurred" }],
+          content: [{ type: "text", text: "Error updating pull request thread: String error" }],
           isError: true,
         });
       });
@@ -8507,31 +8507,27 @@ describe("repos tools", () => {
         expect(mockGitApi.getItems).toHaveBeenCalledWith("repo123", undefined, "/", VersionControlRecursionType.OneLevel, true, false, false, false, undefined);
 
         expect(result.content[0].text).toBe(
-          JSON.stringify(
-            {
-              count: 2,
-              path: "/",
-              recursive: false,
-              items: [
-                {
-                  path: "/",
-                  isFolder: true,
-                  gitObjectType: 2,
-                  commitId: "abc123",
-                  contentMetadata: { contentType: undefined, fileName: "" },
-                },
-                {
-                  path: "/README.md",
-                  isFolder: false,
-                  gitObjectType: 3,
-                  commitId: "abc123",
-                  contentMetadata: { contentType: "text/markdown", fileName: "README.md" },
-                },
-              ],
-            },
-            null,
-            2
-          )
+          JSON.stringify({
+            count: 2,
+            path: "/",
+            recursive: false,
+            items: [
+              {
+                path: "/",
+                isFolder: true,
+                gitObjectType: 2,
+                commitId: "abc123",
+                contentMetadata: { contentType: undefined, fileName: "" },
+              },
+              {
+                path: "/README.md",
+                isFolder: false,
+                gitObjectType: 3,
+                commitId: "abc123",
+                contentMetadata: { contentType: "text/markdown", fileName: "README.md" },
+              },
+            ],
+          })
         );
       });
 
@@ -8565,22 +8561,18 @@ describe("repos tools", () => {
         });
 
         expect(result.content[0].text).toBe(
-          JSON.stringify(
-            {
-              count: 4,
-              path: "/src",
-              recursive: true,
-              recursionDepth: 2,
-              items: [
-                { path: "/src", isFolder: true, gitObjectType: 2, commitId: "def456", contentMetadata: undefined },
-                { path: "/src/index.ts", isFolder: false, gitObjectType: 3, commitId: "def456", contentMetadata: undefined },
-                { path: "/src/components", isFolder: true, gitObjectType: 2, commitId: "def456", contentMetadata: undefined },
-                { path: "/src/components/Button.tsx", isFolder: false, gitObjectType: 3, commitId: "def456", contentMetadata: undefined },
-              ],
-            },
-            null,
-            2
-          )
+          JSON.stringify({
+            count: 4,
+            path: "/src",
+            recursive: true,
+            recursionDepth: 2,
+            items: [
+              { path: "/src", isFolder: true, gitObjectType: 2, commitId: "def456", contentMetadata: undefined },
+              { path: "/src/index.ts", isFolder: false, gitObjectType: 3, commitId: "def456", contentMetadata: undefined },
+              { path: "/src/components", isFolder: true, gitObjectType: 2, commitId: "def456", contentMetadata: undefined },
+              { path: "/src/components/Button.tsx", isFolder: false, gitObjectType: 3, commitId: "def456", contentMetadata: undefined },
+            ],
+          })
         );
       });
 
@@ -8617,7 +8609,7 @@ describe("repos tools", () => {
         const result = await handler({ repositoryId: "repo123", path: "/empty-dir" });
 
         expect(result.isError).toBeFalsy();
-        expect(result.content[0].text).toContain('"count": 1');
+        expect(result.content[0].text).toContain('"count":1');
       });
 
       it("should return isError when getItems returns null", async () => {
@@ -8671,7 +8663,7 @@ describe("repos tools", () => {
         const result = await handler(params);
 
         expect(result).toEqual({
-          content: [{ type: "text", text: "Error creating pull request: Unknown error occurred" }],
+          content: [{ type: "text", text: "Error creating pull request: String error" }],
           isError: true,
         });
       });

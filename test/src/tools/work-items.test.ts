@@ -185,7 +185,7 @@ describe("configureWorkItemTools", () => {
         team: params.team,
       });
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockBacklogs], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockBacklogs]));
     });
   });
 
@@ -229,30 +229,26 @@ describe("configureWorkItemTools", () => {
       expect(mockWorkApi.getBacklogLevelWorkItems).toHaveBeenCalledWith({ project: params.project, team: params.team }, params.backlogId);
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            {
-              workItems: [
-                {
-                  rel: null,
-                  source: null,
-                  target: {
-                    id: 50,
-                  },
+        JSON.stringify([
+          {
+            workItems: [
+              {
+                rel: null,
+                source: null,
+                target: {
+                  id: 50,
                 },
-                {
-                  rel: null,
-                  source: null,
-                  target: {
-                    id: 49,
-                  },
+              },
+              {
+                rel: null,
+                source: null,
+                target: {
+                  id: 49,
                 },
-              ],
-            },
-          ],
-          null,
-          2
-        )
+              },
+            ],
+          },
+        ])
       );
     });
   });
@@ -301,33 +297,29 @@ describe("configureWorkItemTools", () => {
       expect(mockWorkApi.getPredefinedQueryResults).toHaveBeenCalledWith(params.project, params.type, params.top, params.includeCompleted);
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            {
-              id: "assignedtome",
-              name: "Assigned to me",
-              url: "https://dev.azure.com/org/project/_apis/work/predefinedQueries/assignedtome",
-              webUrl: "https://dev.azure.com/org/project/project/_workitems/assignedtome",
-              hasMore: false,
-              results: [
-                {
-                  id: 115784,
-                  url: "https://dev.azure.com/org/_apis/wit/workItems/115784",
-                },
-                {
-                  id: 115794,
-                  url: "https://dev.azure.com/org/_apis/wit/workItems/115794",
-                },
-                {
-                  id: 115792,
-                  url: "https://dev.azure.com/org/_apis/wit/workItems/115792",
-                },
-              ],
-            },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          {
+            id: "assignedtome",
+            name: "Assigned to me",
+            url: "https://dev.azure.com/org/project/_apis/work/predefinedQueries/assignedtome",
+            webUrl: "https://dev.azure.com/org/project/project/_workitems/assignedtome",
+            hasMore: false,
+            results: [
+              {
+                id: 115784,
+                url: "https://dev.azure.com/org/_apis/wit/workItems/115784",
+              },
+              {
+                id: 115794,
+                url: "https://dev.azure.com/org/_apis/wit/workItems/115794",
+              },
+              {
+                id: 115792,
+                url: "https://dev.azure.com/org/_apis/wit/workItems/115792",
+              },
+            ],
+          },
+        ])
       );
     });
   });
@@ -358,7 +350,7 @@ describe("configureWorkItemTools", () => {
         params.project
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItems], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItems]));
     });
 
     it("should call workItemApi.getWorkItemsBatch API with custom fields when fields parameter is provided", async () => {
@@ -397,7 +389,7 @@ describe("configureWorkItemTools", () => {
         params.project
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockWorkItemsWithCustomFields, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockWorkItemsWithCustomFields));
     });
 
     it("should use default fields when an empty fields array is provided", async () => {
@@ -426,7 +418,7 @@ describe("configureWorkItemTools", () => {
         params.project
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItems], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItems]));
     });
 
     it("should transform System.AssignedTo object to formatted string", async () => {
@@ -637,7 +629,7 @@ describe("configureWorkItemTools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe(JSON.stringify(null, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(null));
     });
 
     it("should transform all user fields to formatted strings", async () => {
@@ -741,7 +733,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, params.expand, params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem]));
     });
 
     it("should call getWorkItem with fields and no expand when fields are provided but expand is empty", async () => {
@@ -766,7 +758,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, undefined, params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
     });
 
     it("should call getWorkItem with expand and no fields when expand is provided but fields are empty", async () => {
@@ -791,7 +783,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, "relations", params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
     });
 
     it("should override expand to 'none' when both fields and expand are provided", async () => {
@@ -817,7 +809,7 @@ describe("configureWorkItemTools", () => {
       // expand should be overridden to "none" because fields takes precedence
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, "none", params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
     });
   });
 
@@ -842,7 +834,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getComments).toHaveBeenCalledWith(params.project, params.workItemId, params.top);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemComments], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemComments]));
     });
   });
 
@@ -1183,15 +1175,11 @@ describe("configureWorkItemTools", () => {
       expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalledWith({}, document, params.workItemId, params.projectId);
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            workItemId: 131489,
-            pullRequestId: 67890,
-            success: true,
-          },
-          null,
-          2
-        )
+        JSON.stringify({
+          workItemId: 131489,
+          pullRequestId: 67890,
+          success: true,
+        })
       );
     });
 
@@ -1347,7 +1335,7 @@ describe("configureWorkItemTools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe("Error linking work item to pull request: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error linking work item to pull request: String error");
       expect(result.isError).toBe(true);
     });
   });
@@ -1379,7 +1367,7 @@ describe("configureWorkItemTools", () => {
         params.iterationId
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemsForIteration], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemsForIteration]));
     });
   });
 
@@ -1404,7 +1392,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getRevisions).toHaveBeenCalledWith(params.workItemId, params.top, undefined, undefined, params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItemRevisions, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItemRevisions));
     });
 
     it("should call workItemApi.getRevisions API with expand parameter", async () => {
@@ -1429,7 +1417,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getRevisions).toHaveBeenCalledWith(params.workItemId, params.top, params.skip, 1, params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItemRevisions, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItemRevisions));
     });
 
     it("should clean up identity fields by removing unwanted properties", async () => {
@@ -1497,7 +1485,7 @@ describe("configureWorkItemTools", () => {
       const result = await handler(params);
 
       expect(mockWorkItemTrackingApi.getRevisions).toHaveBeenCalledWith(params.workItemId, 25, undefined, undefined, params.project);
-      expect(result.content[0].text).toBe(JSON.stringify(mockRevisionsWithoutIdentities, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockRevisionsWithoutIdentities));
     });
 
     it("should use default top value of 50 when not provided", async () => {
@@ -1557,7 +1545,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalledWith(null, expectedUpdates, params.id);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem]));
     });
   });
 
@@ -1581,7 +1569,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getWorkItemType).toHaveBeenCalledWith(params.project, params.workItemType);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemType], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemType]));
     });
   });
 
@@ -1616,7 +1604,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.createWorkItem).toHaveBeenCalledWith(null, expectedDocument, params.project, params.workItemType);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
     });
 
     it("should handle Markdown format for long fields", async () => {
@@ -1650,7 +1638,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.createWorkItem).toHaveBeenCalledWith(null, expectedDocument, params.project, params.workItemType);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
     });
 
     // A short Markdown value used to skip the format op and was stored as HTML (upstream #1446).
@@ -1737,7 +1725,7 @@ describe("configureWorkItemTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error creating work item: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error creating work item: String error");
     });
   });
 
@@ -1765,7 +1753,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getQuery).toHaveBeenCalledWith(params.project, params.query, QueryExpand.None, params.depth, params.includeDeleted, params.useIsoDateFormat);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockQuery], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockQuery]));
     });
   });
 
@@ -1792,7 +1780,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.queryById).toHaveBeenCalledWith(params.id, { project: params.project, team: params.team }, params.timePrecision, params.top);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockQueryResults], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockQueryResults]));
     });
   });
 
@@ -1929,7 +1917,7 @@ describe("configureWorkItemTools", () => {
         })
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
     });
 
     it("should handle Markdown format for large text fields", async () => {
@@ -1999,7 +1987,7 @@ describe("configureWorkItemTools", () => {
         })
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
     });
 
     it("should handle batch update failure", async () => {
@@ -2076,7 +2064,7 @@ describe("configureWorkItemTools", () => {
         })
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
     });
 
     it("should handle linking failure", async () => {
@@ -2503,7 +2491,7 @@ describe("configureWorkItemTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error unlinking work item: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error unlinking work item: String error");
     });
 
     describe("type + url matching", () => {
@@ -2694,7 +2682,7 @@ describe("configureWorkItemTools", () => {
       const result = await handler(params);
 
       expect(fetch).toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
     });
   });
 
@@ -2948,7 +2936,7 @@ describe("configureWorkItemTools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe("Error creating child work items: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error creating child work items: String error");
       expect(result.isError).toBe(true);
     });
 
@@ -3237,7 +3225,7 @@ describe("configureWorkItemTools", () => {
 
       // The operation value is kept as-is per the implementation
       expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem]));
     });
 
     it("should handle get_work_item_type errors", async () => {
@@ -3404,7 +3392,7 @@ describe("configureWorkItemTools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe("Error adding artifact link to work item: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error adding artifact link to work item: String error");
       expect(result.isError).toBe(true);
     });
   });
@@ -4437,7 +4425,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.queryByWiql).toHaveBeenCalledWith({ query: params.wiql }, { project: params.project, team: undefined }, undefined, 50);
       expect(result.content[0].text).toContain("UNTRUSTED");
-      expect(result.content[0].text).toContain(JSON.stringify(_mockWiqlQueryResults, null, 2));
+      expect(result.content[0].text).toContain(JSON.stringify(_mockWiqlQueryResults));
     });
 
     it("should call queryByWiql with all optional params when provided", async () => {
@@ -4461,7 +4449,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.queryByWiql).toHaveBeenCalledWith({ query: params.wiql }, { project: "Contoso", team: "Fabrikam" }, true, 100);
       expect(result.content[0].text).toContain("UNTRUSTED");
-      expect(result.content[0].text).toContain(JSON.stringify(_mockWiqlQueryResults, null, 2));
+      expect(result.content[0].text).toContain(JSON.stringify(_mockWiqlQueryResults));
     });
 
     it("should elicit project when project is not provided and user accepts", async () => {
@@ -4495,7 +4483,7 @@ describe("configureWorkItemTools", () => {
       expect(mockWorkItemTrackingApi.queryByWiql).toHaveBeenCalledWith({ query: params.wiql }, { project: "Contoso", team: undefined }, undefined, 50);
       const elicitText = result.content.map((c: { text: string }) => c.text).join("\n");
       expect(elicitText).toContain("UNTRUSTED");
-      expect(elicitText).toContain(JSON.stringify(_mockWiqlQueryResults, null, 2));
+      expect(elicitText).toContain(JSON.stringify(_mockWiqlQueryResults));
     });
 
     it("should prepend a scoping warning when the query omits a [System.TeamProject] filter", async () => {
@@ -4519,7 +4507,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toContain("[System.TeamProject]");
       expect(result.content[0].text).toContain("Contoso");
       // The actual results still follow the warning.
-      expect(result.content[1].text).toContain(JSON.stringify(_mockWiqlQueryResults, null, 2));
+      expect(result.content[1].text).toContain(JSON.stringify(_mockWiqlQueryResults));
     });
 
     it("should warn that recursive queries span the whole organization when unscoped", async () => {
@@ -5185,68 +5173,68 @@ describe("configureWorkItemTools", () => {
       return call[3] as (params: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
     }
 
-    it("list_backlogs: should return unknown error message for non-Error throws", async () => {
+    it("list_backlogs: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_backlogs");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", team: "T" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error listing backlogs: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error listing backlogs: string error");
     });
 
-    it("list_backlog_work_items: should return unknown error message for non-Error throws", async () => {
+    it("list_backlog_work_items: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_backlog_work_items");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", team: "T", backlogId: "B" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error listing backlog work items: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error listing backlog work items: string error");
     });
 
-    it("my_work_items: should return unknown error message for non-Error throws", async () => {
+    it("my_work_items: should pass a thrown string through", async () => {
       const handler = getHandler("wit_my_work_items");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", type: "assignedtome", top: 10, includeCompleted: false });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving work items: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving work items: string error");
     });
 
-    it("get_work_items_batch_by_ids: should return unknown error message for non-Error throws", async () => {
+    it("get_work_items_batch_by_ids: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_items_batch_by_ids");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", ids: [1] });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving work items batch: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving work items batch: string error");
     });
 
-    it("get_work_item: should return unknown error message for non-Error throws", async () => {
+    it("get_work_item: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_item");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ id: 1, project: "P" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving work item: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving work item: string error");
     });
 
-    it("list_work_item_comments: should return unknown error message for non-Error throws", async () => {
+    it("list_work_item_comments: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_work_item_comments");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, top: 10 });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error listing work item comments: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error listing work item comments: string error");
     });
 
-    it("add_work_item_comment: should return unknown error message for non-Error throws", async () => {
+    it("add_work_item_comment: should pass a thrown string through", async () => {
       const handler = getHandler("wit_add_work_item_comment");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, comment: "test" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error adding work item comment: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error adding work item comment: string error");
     });
 
-    it("update_work_item_comment: should return unknown error message for non-Error throws", async () => {
+    it("update_work_item_comment: should pass a thrown string through", async () => {
       const handler = getHandler("wit_update_work_item_comment");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, commentId: 1, text: "updated" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error updating work item comment: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error updating work item comment: string error");
     });
 
     it("update_work_item_comment: should use format=0 when format is markdown", async () => {
@@ -5271,59 +5259,59 @@ describe("configureWorkItemTools", () => {
       expect(calledUrl).toContain("format=1");
     });
 
-    it("list_work_item_revisions: should return unknown error message for non-Error throws", async () => {
+    it("list_work_item_revisions: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_work_item_revisions");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, top: 10 });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error listing work item revisions: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error listing work item revisions: string error");
     });
 
     it("list_work_item_revisions: should handle null revisions without errors", async () => {
       const handler = getHandler("wit_list_work_item_revisions");
       (mockWorkItemTrackingApi.getRevisions as jest.Mock).mockResolvedValue(null);
       const result = await handler({ project: "P", workItemId: 1, top: 10 });
-      expect(result.content[0].text).toBe(JSON.stringify(null, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(null));
     });
 
-    it("get_work_items_for_iteration: should return unknown error message for non-Error throws", async () => {
+    it("get_work_items_for_iteration: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_items_for_iteration");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", iterationId: "iter-1" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving work items for iteration: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving work items for iteration: string error");
     });
 
-    it("update_work_item: should return unknown error message for non-Error throws", async () => {
+    it("update_work_item: should pass a thrown string through", async () => {
       const handler = getHandler("wit_update_work_item");
       (mockWorkItemTrackingApi.updateWorkItem as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ id: 1, updates: [{ op: "add", path: "/fields/System.Title", value: "T" }] });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error updating work item: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error updating work item: string error");
     });
 
-    it("get_work_item_type: should return unknown error message for non-Error throws", async () => {
+    it("get_work_item_type: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_item_type");
       (mockWorkItemTrackingApi.getWorkItemType as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemType: "Bug" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving work item type: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving work item type: string error");
     });
 
-    it("get_query: should return unknown error message for non-Error throws", async () => {
+    it("get_query: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_query");
       (mockWorkItemTrackingApi.getQuery as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", query: "q", depth: 0, includeDeleted: false, useIsoDateFormat: false });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving query: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving query: string error");
     });
 
-    it("get_query_results_by_id: should return unknown error message for non-Error throws", async () => {
+    it("get_query_results_by_id: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_query_results_by_id");
       (mockWorkItemTrackingApi.queryById as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ id: "q-id", project: "P", top: 10 });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving query results: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving query results: string error");
     });
 
     it("get_query_results_by_id: should handle null workItems in ids mode", async () => {
@@ -5335,36 +5323,36 @@ describe("configureWorkItemTools", () => {
       expect(parsed.count).toBe(0);
     });
 
-    it("update_work_items_batch: should return unknown error message for non-Error throws", async () => {
+    it("update_work_items_batch: should pass a thrown string through", async () => {
       const handler = getHandler("wit_update_work_items_batch");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ updates: [{ op: "replace", id: 1, path: "/fields/System.Title", value: "T" }] });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error updating work items in batch: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error updating work items in batch: string error");
     });
 
-    it("work_items_link: should return unknown error message for non-Error throws", async () => {
+    it("work_items_link: should pass a thrown string through", async () => {
       const handler = getHandler("wit_work_items_link");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", updates: [{ id: 1, linkToId: 2, type: "related" }] });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error linking work items: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error linking work items: string error");
     });
 
-    it("get_work_item_attachment: should return unknown error message for non-Error throws", async () => {
+    it("get_work_item_attachment: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_item_attachment");
       (mockWorkItemTrackingApi.getAttachmentContent as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", attachmentId: "att-id" });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error retrieving work item attachment: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error retrieving work item attachment: string error");
     });
 
-    it("query_by_wiql: should return unknown error message for non-Error throws", async () => {
+    it("query_by_wiql: should pass a thrown string through", async () => {
       const handler = getHandler("wit_query_by_wiql");
       (mockWorkItemTrackingApi.queryByWiql as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ wiql: "SELECT [System.Id] FROM WorkItems", project: "P", top: 50 });
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error executing WIQL query: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error executing WIQL query: string error");
     });
 
     it("list_work_item_revisions: should handle revision without fields property", async () => {
@@ -5375,7 +5363,7 @@ describe("configureWorkItemTools", () => {
       ];
       (mockWorkItemTrackingApi.getRevisions as jest.Mock).mockResolvedValue(revisionsWithNoFields);
       const result = await handler({ project: "P", workItemId: 1, top: 10 });
-      expect(result.content[0].text).toBe(JSON.stringify(revisionsWithNoFields, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(revisionsWithNoFields));
     });
   });
 

@@ -21,18 +21,19 @@ describe("common project and team params", () => {
     expect(() => requiredProject.parse(42)).toThrow();
   });
 
-  // These strings are repeated across every tool schema, so a sentence added
-  // here costs the model context on every single request.
-  it("keeps the descriptions to one short sentence", () => {
+  // These schemas are repeated across every tool, so any description added
+  // here costs the model context on every single request. What "project" and
+  // "team" mean is said once in `instructions` instead (see
+  // server-instructions.ts), not per parameter.
+  it("carries no description on the bare schemas", () => {
     for (const schema of [optionalProject, requiredProject, optionalTeam, requiredTeam]) {
-      expect(schema.description?.length).toBeLessThanOrEqual(40);
+      expect(schema.description).toBeUndefined();
     }
   });
 
-  it("appends a caller-visible note without repeating the boilerplate", () => {
-    const described = optionalProjectWith("The project to delete.").description ?? "";
-    expect(described).toBe("Azure DevOps project name or ID. The project to delete.");
-    expect(optionalTeamWith("Omit for project-scoped dashboards.").description).toContain("Omit for project-scoped");
+  it("describes a builder with only the caller-visible note, no boilerplate", () => {
+    expect(optionalProjectWith("The project to delete.").description).toBe("The project to delete.");
+    expect(optionalTeamWith("Omit for project-scoped dashboards.").description).toBe("Omit for project-scoped dashboards.");
   });
 });
 

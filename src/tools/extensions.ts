@@ -6,6 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { toolError } from "../shared/tool-results.js";
 
 const EXTENSIONS_TOOLS = {
   list_installed: "extension_list_installed",
@@ -43,8 +44,7 @@ function configureExtensionsTools(server: McpServer, tokenProvider: () => Promis
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing installed extensions: ${errorMessage}` }], isError: true };
+        return toolError("listing installed extensions", error);
       }
     }
   );
@@ -69,8 +69,7 @@ function configureExtensionsTools(server: McpServer, tokenProvider: () => Promis
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching installed extension: ${errorMessage}` }], isError: true };
+        return toolError("fetching installed extension", error);
       }
     }
   );

@@ -6,6 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
+import { toolError } from "../shared/tool-results.js";
 
 const FEATURE_MANAGEMENT_TOOLS = {
   get_feature_state: "featuremanagement_get_feature_state",
@@ -61,8 +62,7 @@ function configureFeatureManagementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching feature state: ${errorMessage}` }], isError: true };
+        return toolError("fetching feature state", error);
       }
     }
   );
@@ -100,8 +100,7 @@ function configureFeatureManagementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error setting feature state: ${errorMessage}` }], isError: true };
+        return toolError("setting feature state", error);
       }
     }
   );

@@ -12,6 +12,7 @@ import type { ProjectInfo, TeamProject, WebApiTeam } from "azure-devops-node-api
 import { ProjectVisibility } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
 import { IdentityBase } from "azure-devops-node-api/interfaces/IdentitiesInterfaces.js";
 import { optionalProject, optionalProjectWith, optionalTeam } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const CORE_TOOLS = {
   list_project_teams: "core_list_project_teams",
@@ -70,16 +71,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "No teams found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(teams, null, 2) }],
-        };
+        return jsonResult(teams);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching project teams: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching project teams", error);
       }
     }
   );
@@ -107,16 +101,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const filteredProject = projectNameFilter ? filterProjectsByName(projects, projectNameFilter) : projects;
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(filteredProject, null, 2) }],
-        };
+        return jsonResult(filteredProject);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching projects: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching projects", error);
       }
     }
   );
@@ -144,16 +131,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
           };
         });
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(identitiesTrimmed, null, 2) }],
-        };
+        return jsonResult(identitiesTrimmed);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching identities: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching identities", error);
       }
     }
   );
@@ -201,16 +181,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const operation = await coreApi.queueCreateProject(projectToCreate);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(operation, null, 2) }],
-        };
+        return jsonResult(operation);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating project: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating project", error);
       }
     }
   );
@@ -254,16 +227,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const operation = await coreApi.updateProject(projectUpdate, existing.id);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(operation, null, 2) }],
-        };
+        return jsonResult(operation);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating project: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating project", error);
       }
     }
   );
@@ -294,16 +260,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const operation = await coreApi.queueDeleteProject(existing.id);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(operation, null, 2) }],
-        };
+        return jsonResult(operation);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error deleting project: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("deleting project", error);
       }
     }
   );
@@ -332,16 +291,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
         const team: WebApiTeam = { name, description };
         const createdTeam = await coreApi.createTeam(team, resolvedProject);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(createdTeam, null, 2) }],
-        };
+        return jsonResult(createdTeam);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating team: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating team", error);
       }
     }
   );
@@ -375,16 +327,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
         const teamData: WebApiTeam = { name, description };
         const updatedTeam = await coreApi.updateTeam(teamData, resolvedProject, team);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(updatedTeam, null, 2) }],
-        };
+        return jsonResult(updatedTeam);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating team: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating team", error);
       }
     }
   );
@@ -415,12 +360,7 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
           content: [{ type: "text", text: `Team '${team}' deleted from project '${resolvedProject}'.` }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error deleting team: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("deleting team", error);
       }
     }
   );
@@ -435,16 +375,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
         return { content: [{ type: "text", text: "No processes found" }], isError: true };
       }
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(processes, null, 2) }],
-      };
+      return jsonResult(processes);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-      return {
-        content: [{ type: "text", text: `Error fetching processes: ${errorMessage}` }],
-        isError: true,
-      };
+      return toolError("fetching processes", error);
     }
   });
 
@@ -483,16 +416,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "No team members found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(members, null, 2) }],
-        };
+        return jsonResult(members);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching team members: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching team members", error);
       }
     }
   );
@@ -524,16 +450,9 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const properties = await coreApi.getProjectProperties(existing.id, keys);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(properties ?? [], null, 2) }],
-        };
+        return jsonResult(properties ?? []);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching project properties: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching project properties", error);
       }
     }
   );
@@ -575,12 +494,7 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
           content: [{ type: "text", text: `Set ${entries.length} propert${entries.length === 1 ? "y" : "ies"} on project '${resolvedProject}'.` }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error setting project properties: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("setting project properties", error);
       }
     }
   );

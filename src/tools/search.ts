@@ -3,6 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
+import { errorMessage } from "../shared/tool-results.js";
 import { WebApi } from "azure-devops-node-api";
 import { IGitApi } from "azure-devops-node-api/GitApi.js";
 import { z } from "zod";
@@ -279,7 +280,7 @@ async function fetchCombinedResults(topSearchResults: SearchResult[], gitApi: IG
       });
     } catch (err) {
       combinedResults.push({
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
     }
   }

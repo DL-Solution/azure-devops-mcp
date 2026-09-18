@@ -5,6 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const GALLERY_TOOLS = {
   query_extensions: "gallery_query_extensions",
@@ -44,10 +45,9 @@ function configureGalleryTools(server: McpServer, _: () => Promise<string>, conn
 
         const result = await galleryApi.queryExtensions({}, extensionQuery);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error querying extensions: ${errorMessage}` }], isError: true };
+        return toolError("querying extensions", error);
       }
     }
   );
@@ -72,10 +72,9 @@ function configureGalleryTools(server: McpServer, _: () => Promise<string>, conn
           return { content: [{ type: "text", text: `Extension '${publisherName}.${extensionName}' not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(extension, null, 2) }] };
+        return jsonResult(extension);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching extension: ${errorMessage}` }], isError: true };
+        return toolError("fetching extension", error);
       }
     }
   );

@@ -25,6 +25,7 @@ import {
 } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 import { optionalProject, optionalTeam, requiredProject, requiredTeam } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 // Maps the TreeStructureGroup enum to the string segment used in the
 // classification-nodes REST route (.../wit/classificationNodes/{areas|iterations}/...).
@@ -157,16 +158,11 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         return {
           content: [
             { type: "text", text: `Project: ${resolvedProject}, Team: ${resolvedTeam}` },
-            { type: "text", text: JSON.stringify(iterations, null, 2) },
+            { type: "text", text: JSON.stringify(iterations) },
           ],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching team iterations: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching team iterations", error);
       }
     }
   );
@@ -216,16 +212,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No iterations were created" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-        };
+        return jsonResult(results);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating iterations: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating iterations", error);
       }
     }
   );
@@ -290,16 +279,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No iterations were found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(filteredResults, null, 2) }],
-        };
+        return jsonResult(filteredResults);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching iterations: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching iterations", error);
       }
     }
   );
@@ -339,16 +321,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No iterations were assigned to the team" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
-        };
+        return jsonResult(results);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error assigning iterations: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("assigning iterations", error);
       }
     }
   );
@@ -401,16 +376,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           }),
         };
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(simplifiedResults, null, 2) }],
-        };
+        return jsonResult(simplifiedResults);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error getting team capacity: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("getting team capacity", error);
       }
     }
   );
@@ -486,15 +454,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           daysOff: updatedCapacity.daysOff,
         };
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(simplifiedResult, null, 2) }],
-        };
+        return jsonResult(simplifiedResult);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error updating team capacity: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating team capacity", error);
       }
     }
   );
@@ -526,16 +488,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No iteration capacity assigned to the teams" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(rawResults, null, 2) }],
-        };
+        return jsonResult(rawResults);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error getting iteration capacities: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("getting iteration capacities", error);
       }
     }
   );
@@ -592,16 +547,11 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         return {
           content: [
             { type: "text", text: `Project: ${resolvedProject}, Team: ${resolvedTeam}` },
-            { type: "text", text: JSON.stringify(result, null, 2) },
+            { type: "text", text: JSON.stringify(result) },
           ],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching team settings: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching team settings", error);
       }
     }
   );
@@ -631,16 +581,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No delivery plans found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(plans, null, 2) }],
-        };
+        return jsonResult(plans);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching delivery plans: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching delivery plans", error);
       }
     }
   );
@@ -671,16 +614,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: `Delivery plan '${id}' not found` }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(plan, null, 2) }],
-        };
+        return jsonResult(plan);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching delivery plan: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching delivery plan", error);
       }
     }
   );
@@ -716,16 +652,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         const plan = await workApi.createPlan(postedPlan, resolvedProject);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(plan, null, 2) }],
-        };
+        return jsonResult(plan);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating delivery plan: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating delivery plan", error);
       }
     }
   );
@@ -772,16 +701,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         const plan = await workApi.updatePlan(updatedPlan, resolvedProject, id);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(plan, null, 2) }],
-        };
+        return jsonResult(plan);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating delivery plan: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating delivery plan", error);
       }
     }
   );
@@ -812,12 +734,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           content: [{ type: "text", text: `Delivery plan '${id}' deleted from project '${resolvedProject}'.` }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error deleting delivery plan: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("deleting delivery plan", error);
       }
     }
   );
@@ -850,16 +767,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No area paths found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(areas, null, 2) }],
-        };
+        return jsonResult(areas);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching area paths: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching area paths", error);
       }
     }
   );
@@ -887,16 +797,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const url = classificationNodeUrl(connection, resolvedProject, TreeStructureGroup.Areas, parentPath);
         const created = await connection.rest.create<WorkItemClassificationNode>(url, { name });
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(created.result, null, 2) }],
-        };
+        return jsonResult(created.result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating area path: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating area path", error);
       }
     }
   );
@@ -924,16 +827,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const url = classificationNodeUrl(connection, resolvedProject, TreeStructureGroup.Areas, path);
         const updated = await connection.rest.update<WorkItemClassificationNode>(url, { name });
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(updated.result, null, 2) }],
-        };
+        return jsonResult(updated.result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating area path: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating area path", error);
       }
     }
   );
@@ -965,12 +861,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           content: [{ type: "text", text: `Area path '${path}' deleted from project '${resolvedProject}'. Work items reclassified to area ID ${reclassifyId}.` }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error deleting area path: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("deleting area path", error);
       }
     }
   );
@@ -1012,16 +903,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const iteration = await workItemTrackingApi.updateClassificationNode(node, resolvedProject, TreeStructureGroup.Iterations, path);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(iteration, null, 2) }],
-        };
+        return jsonResult(iteration);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating iteration: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating iteration", error);
       }
     }
   );
@@ -1053,12 +937,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           content: [{ type: "text", text: `Iteration '${path}' deleted from project '${resolvedProject}'. Work items reclassified to iteration ID ${reclassifyId}.` }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error deleting iteration: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("deleting iteration", error);
       }
     }
   );
@@ -1114,16 +993,11 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         return {
           content: [
             { type: "text", text: `Project: ${resolvedProject}, Team: ${resolvedTeam}` },
-            { type: "text", text: JSON.stringify(result, null, 2) },
+            { type: "text", text: JSON.stringify(result) },
           ],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error setting team area paths: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("setting team area paths", error);
       }
     }
   );
@@ -1161,16 +1035,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No boards found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(boards, null, 2) }],
-        };
+        return jsonResult(boards);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching boards: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching boards", error);
       }
     }
   );
@@ -1209,16 +1076,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No board columns found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(columns, null, 2) }],
-        };
+        return jsonResult(columns);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching board columns: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching board columns", error);
       }
     }
   );
@@ -1257,16 +1117,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
           return { content: [{ type: "text", text: "No board rows found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
-        };
+        return jsonResult(rows);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching board rows: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching board rows", error);
       }
     }
   );
@@ -1300,16 +1153,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const config = await workApi.getBacklogConfigurations({ project: resolvedProject, team: resolvedTeam });
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(config, null, 2) }],
-        };
+        return jsonResult(config);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching backlog configuration: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching backlog configuration", error);
       }
     }
   );
@@ -1344,16 +1190,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const daysOff = await workApi.getTeamDaysOff({ project: resolvedProject, team: resolvedTeam }, iterationId);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(daysOff, null, 2) }],
-        };
+        return jsonResult(daysOff);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching team days off: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching team days off", error);
       }
     }
   );
@@ -1400,16 +1239,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.updateTeamDaysOff(patch, { project: resolvedProject, team: resolvedTeam }, iterationId);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error setting team days off: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("setting team days off", error);
       }
     }
   );
@@ -1450,10 +1282,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.updateBoardColumns(columns as unknown as BoardColumn[], ctx.teamContext, board);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating board columns: ${errorMessage}` }], isError: true };
+        return toolError("updating board columns", error);
       }
     }
   );
@@ -1477,10 +1308,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.updateBoardRows(rows as unknown as BoardRow[], ctx.teamContext, board);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating board rows: ${errorMessage}` }], isError: true };
+        return toolError("updating board rows", error);
       }
     }
   );
@@ -1503,10 +1333,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const settings = await workApi.getBoardCardSettings(ctx.teamContext, board);
 
-        return { content: [{ type: "text", text: JSON.stringify(settings, null, 2) }] };
+        return jsonResult(settings);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching board card settings: ${errorMessage}` }], isError: true };
+        return toolError("fetching board card settings", error);
       }
     }
   );
@@ -1530,10 +1359,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.updateBoardCardSettings(cardSettings as unknown as BoardCardSettings, ctx.teamContext, board);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating board card settings: ${errorMessage}` }], isError: true };
+        return toolError("updating board card settings", error);
       }
     }
   );
@@ -1556,10 +1384,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const settings = await workApi.getBoardCardRuleSettings(ctx.teamContext, board);
 
-        return { content: [{ type: "text", text: JSON.stringify(settings, null, 2) }] };
+        return jsonResult(settings);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching board card rule settings: ${errorMessage}` }], isError: true };
+        return toolError("fetching board card rule settings", error);
       }
     }
   );
@@ -1583,10 +1410,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.updateBoardCardRuleSettings(ruleSettings as unknown as BoardCardRuleSettings, ctx.teamContext, board);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating board card rule settings: ${errorMessage}` }], isError: true };
+        return toolError("updating board card rule settings", error);
       }
     }
   );
@@ -1612,10 +1438,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         if (!charts || charts.length === 0) {
           return { content: [{ type: "text", text: "No board charts found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(charts, null, 2) }] };
+        return jsonResult(charts);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching board charts: ${errorMessage}` }], isError: true };
+        return toolError("fetching board charts", error);
       }
     }
   );
@@ -1639,10 +1464,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const chart = await workApi.getBoardChart(ctx.teamContext, board, name);
 
-        return { content: [{ type: "text", text: JSON.stringify(chart, null, 2) }] };
+        return jsonResult(chart);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching board chart: ${errorMessage}` }], isError: true };
+        return toolError("fetching board chart", error);
       }
     }
   );
@@ -1667,10 +1491,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.updateBoardChart(chart as unknown as BoardChart, ctx.teamContext, board, name);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating board chart: ${errorMessage}` }], isError: true };
+        return toolError("updating board chart", error);
       }
     }
   );
@@ -1695,10 +1518,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         if (!backlogs || backlogs.length === 0) {
           return { content: [{ type: "text", text: "No backlogs found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(backlogs, null, 2) }] };
+        return jsonResult(backlogs);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching backlogs: ${errorMessage}` }], isError: true };
+        return toolError("fetching backlogs", error);
       }
     }
   );
@@ -1721,10 +1543,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const backlog = await workApi.getBacklog(ctx.teamContext, id);
 
-        return { content: [{ type: "text", text: JSON.stringify(backlog, null, 2) }] };
+        return jsonResult(backlog);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching backlog: ${errorMessage}` }], isError: true };
+        return toolError("fetching backlog", error);
       }
     }
   );
@@ -1747,10 +1568,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const workItems = await workApi.getBacklogLevelWorkItems(ctx.teamContext, backlogId);
 
-        return { content: [{ type: "text", text: JSON.stringify(workItems, null, 2) }] };
+        return jsonResult(workItems);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching backlog work items: ${errorMessage}` }], isError: true };
+        return toolError("fetching backlog work items", error);
       }
     }
   );
@@ -1773,10 +1593,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const workItems = await workApi.getIterationWorkItems(ctx.teamContext, iterationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(workItems, null, 2) }] };
+        return jsonResult(workItems);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching iteration work items: ${errorMessage}` }], isError: true };
+        return toolError("fetching iteration work items", error);
       }
     }
   );
@@ -1801,8 +1620,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return { content: [{ type: "text", text: `Iteration ${id} removed from team` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing team iteration: ${errorMessage}` }], isError: true };
+        return toolError("removing team iteration", error);
       }
     }
   );
@@ -1834,10 +1652,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.reorderBacklogWorkItems(operation, ctx.teamContext);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error reordering backlog work items: ${errorMessage}` }], isError: true };
+        return toolError("reordering backlog work items", error);
       }
     }
   );
@@ -1862,10 +1679,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.reorderIterationWorkItems(operation, ctx.teamContext, iterationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error reordering iteration work items: ${errorMessage}` }], isError: true };
+        return toolError("reordering iteration work items", error);
       }
     }
   );
@@ -1888,10 +1704,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const board = await workApi.getBoard(ctx.teamContext, id);
 
-        return { content: [{ type: "text", text: JSON.stringify(board, null, 2) }] };
+        return jsonResult(board);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching board: ${errorMessage}` }], isError: true };
+        return toolError("fetching board", error);
       }
     }
   );
@@ -1914,10 +1729,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const settings = await workApi.getBoardUserSettings(ctx.teamContext, board);
 
-        return { content: [{ type: "text", text: JSON.stringify(settings, null, 2) }] };
+        return jsonResult(settings);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching board user settings: ${errorMessage}` }], isError: true };
+        return toolError("fetching board user settings", error);
       }
     }
   );
@@ -1947,10 +1761,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const timeline = await workApi.getDeliveryTimelineData(resolvedProject, id, revision, startDate ? new Date(startDate) : undefined, endDate ? new Date(endDate) : undefined);
 
-        return { content: [{ type: "text", text: JSON.stringify(timeline, null, 2) }] };
+        return jsonResult(timeline);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching delivery timeline: ${errorMessage}` }], isError: true };
+        return toolError("fetching delivery timeline", error);
       }
     }
   );
@@ -1976,10 +1789,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const config = await workApi.getProcessConfiguration(resolvedProject);
 
-        return { content: [{ type: "text", text: JSON.stringify(config, null, 2) }] };
+        return jsonResult(config);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching process configuration: ${errorMessage}` }], isError: true };
+        return toolError("fetching process configuration", error);
       }
     }
   );
@@ -2008,10 +1820,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         if (!queries || queries.length === 0) {
           return { content: [{ type: "text", text: "No predefined queries found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(queries, null, 2) }] };
+        return jsonResult(queries);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching predefined queries: ${errorMessage}` }], isError: true };
+        return toolError("fetching predefined queries", error);
       }
     }
   );
@@ -2040,10 +1851,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const results = await workApi.getPredefinedQueryResults(resolvedProject, id, top, includeCompleted);
 
-        return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+        return jsonResult(results);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching predefined query results: ${errorMessage}` }], isError: true };
+        return toolError("fetching predefined query results", error);
       }
     }
   );
@@ -2065,10 +1875,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const columns = await workApi.getColumns(ctx.teamContext);
 
-        return { content: [{ type: "text", text: JSON.stringify(columns, null, 2) }] };
+        return jsonResult(columns);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching taskboard columns: ${errorMessage}` }], isError: true };
+        return toolError("fetching taskboard columns", error);
       }
     }
   );
@@ -2108,10 +1917,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.updateColumns(columns as UpdateTaskboardColumn[], ctx.teamContext);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating taskboard columns: ${errorMessage}` }], isError: true };
+        return toolError("updating taskboard columns", error);
       }
     }
   );
@@ -2134,10 +1942,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const columns = await workApi.getWorkItemColumns(ctx.teamContext, iterationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(columns, null, 2) }] };
+        return jsonResult(columns);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching taskboard work item columns: ${errorMessage}` }], isError: true };
+        return toolError("fetching taskboard work item columns", error);
       }
     }
   );
@@ -2165,8 +1972,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return { content: [{ type: "text", text: `Work item ${workItemId} moved to taskboard column '${newColumn}'` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating taskboard work item column: ${errorMessage}` }], isError: true };
+        return toolError("updating taskboard work item column", error);
       }
     }
   );
@@ -2191,8 +1997,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return { content: [{ type: "text", text: "Taskboard card settings updated" }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating taskboard card settings: ${errorMessage}` }], isError: true };
+        return toolError("updating taskboard card settings", error);
       }
     }
   );
@@ -2217,8 +2022,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return { content: [{ type: "text", text: "Taskboard card rule settings updated" }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating taskboard card rule settings: ${errorMessage}` }], isError: true };
+        return toolError("updating taskboard card rule settings", error);
       }
     }
   );
@@ -2244,10 +2048,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const values = await workApi.getColumnSuggestedValues(resolvedProject);
 
-        return { content: [{ type: "text", text: JSON.stringify(values, null, 2) }] };
+        return jsonResult(values);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching column suggested values: ${errorMessage}` }], isError: true };
+        return toolError("fetching column suggested values", error);
       }
     }
   );
@@ -2273,10 +2076,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const values = await workApi.getRowSuggestedValues(resolvedProject);
 
-        return { content: [{ type: "text", text: JSON.stringify(values, null, 2) }] };
+        return jsonResult(values);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching row suggested values: ${errorMessage}` }], isError: true };
+        return toolError("fetching row suggested values", error);
       }
     }
   );
@@ -2300,10 +2102,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const mappings = await workApi.getBoardMappingParentItems(ctx.teamContext, childBacklogContextCategoryRefName, workItemIds);
 
-        return { content: [{ type: "text", text: JSON.stringify(mappings, null, 2) }] };
+        return jsonResult(mappings);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching board mapping parent items: ${errorMessage}` }], isError: true };
+        return toolError("fetching board mapping parent items", error);
       }
     }
   );
@@ -2327,10 +2128,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const capacity = await workApi.getCapacityWithIdentityRef(ctx.teamContext, iterationId, teamMemberId);
 
-        return { content: [{ type: "text", text: JSON.stringify(capacity, null, 2) }] };
+        return jsonResult(capacity);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching team member capacity: ${errorMessage}` }], isError: true };
+        return toolError("fetching team member capacity", error);
       }
     }
   );
@@ -2383,10 +2183,9 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const result = await workApi.replaceCapacitiesWithIdentityRef(payload, ctx.teamContext, iterationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error replacing team capacities: ${errorMessage}` }], isError: true };
+        return toolError("replacing team capacities", error);
       }
     }
   );
@@ -2413,8 +2212,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
 
         return { content: [{ type: "text", text: "Automation rules updated" }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating automation rule: ${errorMessage}` }], isError: true };
+        return toolError("updating automation rule", error);
       }
     }
   );

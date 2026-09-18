@@ -21,6 +21,7 @@ import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
 import { optionalProjectWith } from "../shared/common-params.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { registerTool } from "../shared/tool-registration.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const ANALYTICS_TOOLS = {
   list_entity_sets: "analytics_list_entity_sets",
@@ -73,9 +74,9 @@ function configureAnalyticsTools(server: McpServer, tokenProvider: () => Promise
           return { content: [{ type: "text", text: `Error listing entity sets: ${result.message}` }], isError: true };
         }
         const names = (JSON.parse(result.body).value ?? []).map((entry: { name: string }) => entry.name);
-        return { content: [{ type: "text", text: JSON.stringify(names, null, 2) }] };
+        return jsonResult(names);
       } catch (error) {
-        return { content: [{ type: "text", text: `Error listing entity sets: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+        return toolError("listing entity sets", error);
       }
     }
   );
@@ -117,7 +118,7 @@ function configureAnalyticsTools(server: McpServer, tokenProvider: () => Promise
         // Rows carry titles, names and other text people typed into Azure DevOps.
         return createExternalContentResponse(JSON.parse(result.body), `analytics ${entitySet}`);
       } catch (error) {
-        return { content: [{ type: "text", text: `Error querying ${entitySet}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+        return toolError(`querying ${entitySet}`, error);
       }
     }
   );

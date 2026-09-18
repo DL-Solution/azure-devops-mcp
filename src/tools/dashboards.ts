@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Dashboard, Widget, WidgetScope } from "azure-devops-node-api/interfaces/DashboardInterfaces.js";
 import { elicitProject } from "../shared/elicitations.js";
 import { optionalProject, optionalTeamWith } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const DASHBOARD_TOOLS = {
   list_dashboards: "dashboard_list_dashboards",
@@ -58,10 +59,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         if (!dashboards || dashboards.length === 0) {
           return { content: [{ type: "text", text: "No dashboards found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(dashboards, null, 2) }] };
+        return jsonResult(dashboards);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching dashboards: ${errorMessage}` }], isError: true };
+        return toolError("fetching dashboards", error);
       }
     }
   );
@@ -84,10 +84,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const dashboard = await dashboardApi.getDashboard(ctx.teamContext, dashboardId);
 
-        return { content: [{ type: "text", text: JSON.stringify(dashboard, null, 2) }] };
+        return jsonResult(dashboard);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching dashboard: ${errorMessage}` }], isError: true };
+        return toolError("fetching dashboard", error);
       }
     }
   );
@@ -110,10 +109,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const result = await dashboardApi.createDashboard(dashboard as unknown as Dashboard, ctx.teamContext);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating dashboard: ${errorMessage}` }], isError: true };
+        return toolError("creating dashboard", error);
       }
     }
   );
@@ -137,10 +135,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const result = await dashboardApi.replaceDashboard(dashboard as unknown as Dashboard, ctx.teamContext, dashboardId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error replacing dashboard: ${errorMessage}` }], isError: true };
+        return toolError("replacing dashboard", error);
       }
     }
   );
@@ -165,8 +162,7 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
 
         return { content: [{ type: "text", text: `Dashboard ${dashboardId} deleted` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting dashboard: ${errorMessage}` }], isError: true };
+        return toolError("deleting dashboard", error);
       }
     }
   );
@@ -190,10 +186,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const widget = await dashboardApi.getWidget(ctx.teamContext, dashboardId, widgetId);
 
-        return { content: [{ type: "text", text: JSON.stringify(widget, null, 2) }] };
+        return jsonResult(widget);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching widget: ${errorMessage}` }], isError: true };
+        return toolError("fetching widget", error);
       }
     }
   );
@@ -217,10 +212,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const result = await dashboardApi.createWidget(widget as unknown as Widget, ctx.teamContext, dashboardId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating widget: ${errorMessage}` }], isError: true };
+        return toolError("creating widget", error);
       }
     }
   );
@@ -245,10 +239,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const result = await dashboardApi.updateWidget(widget as unknown as Widget, ctx.teamContext, dashboardId, widgetId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating widget: ${errorMessage}` }], isError: true };
+        return toolError("updating widget", error);
       }
     }
   );
@@ -272,10 +265,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const result = await dashboardApi.deleteWidget(ctx.teamContext, dashboardId, widgetId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting widget: ${errorMessage}` }], isError: true };
+        return toolError("deleting widget", error);
       }
     }
   );
@@ -306,10 +298,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const types = await dashboardApi.getWidgetTypes(widgetScope, resolvedProject);
 
-        return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+        return jsonResult(types);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching widget types: ${errorMessage}` }], isError: true };
+        return toolError("fetching widget types", error);
       }
     }
   );
@@ -336,10 +327,9 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
         const dashboardApi = await connection.getDashboardApi();
         const metadata = await dashboardApi.getWidgetMetadata(contributionId, resolvedProject);
 
-        return { content: [{ type: "text", text: JSON.stringify(metadata, null, 2) }] };
+        return jsonResult(metadata);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching widget metadata: ${errorMessage}` }], isError: true };
+        return toolError("fetching widget metadata", error);
       }
     }
   );

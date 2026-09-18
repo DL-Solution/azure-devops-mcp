@@ -472,7 +472,7 @@ describe("configureTestPlanTools", () => {
         },
         "proj1"
       );
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 1, name: "New Test Plan" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 1, name: "New Test Plan" }));
     });
 
     it("should handle API errors when creating test plan", async () => {
@@ -524,7 +524,7 @@ describe("configureTestPlanTools", () => {
         "proj1",
         1
       );
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 10, name: "New Test Suite" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 10, name: "New Test Suite" }));
     });
 
     it("should handle API errors when creating test suite", async () => {
@@ -580,15 +580,11 @@ describe("configureTestPlanTools", () => {
         2
       );
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 15,
-            name: "Child Test Suite",
-            parentSuite: { id: 10 },
-          },
-          null,
-          2
-        )
+        JSON.stringify({
+          id: 15,
+          name: "Child Test Suite",
+          parentSuite: { id: 10 },
+        })
       );
     });
 
@@ -607,7 +603,7 @@ describe("configureTestPlanTools", () => {
       };
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe(JSON.stringify(null, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(null));
     });
   });
 
@@ -638,7 +634,7 @@ describe("configureTestPlanTools", () => {
       const result = await handler({ project: "proj1", planid: 1, suiteid: 2 });
 
       expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining("proj1/_apis/testplan/Plans/1/Suites/2/TestCase"), expect.objectContaining({ method: "GET" }));
-      expect(result.content[0].text).toBe(JSON.stringify({ testCases: [{ id: 1, name: "Test Case 1" }] }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ testCases: [{ id: 1, name: "Test Case 1" }] }));
     });
 
     it("should handle API errors when listing test cases", async () => {
@@ -981,17 +977,13 @@ describe("configureTestPlanTools", () => {
 
       expect(mockWitApi.createWorkItem).toHaveBeenCalledWith({}, expect.any(Array), "proj1", "Test Case");
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1001,
-            fields: {
-              "System.Title": "New Test Case",
-              "System.WorkItemType": "Test Case",
-            },
+        JSON.stringify({
+          id: 1001,
+          fields: {
+            "System.Title": "New Test Case",
+            "System.WorkItemType": "Test Case",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1018,17 +1010,13 @@ describe("configureTestPlanTools", () => {
 
       expect(mockWitApi.createWorkItem).toHaveBeenCalledWith({}, expect.any(Array), "proj1", "Test Case");
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1001,
-            fields: {
-              "System.Title": "New Test Case",
-              "System.WorkItemType": "Test Case",
-            },
+        JSON.stringify({
+          id: 1001,
+          fields: {
+            "System.Title": "New Test Case",
+            "System.WorkItemType": "Test Case",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1053,16 +1041,12 @@ describe("configureTestPlanTools", () => {
       const result = await handler(params);
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1002,
-            fields: {
-              "System.Title": "Multi-step Test Case",
-            },
+        JSON.stringify({
+          id: 1002,
+          fields: {
+            "System.Title": "Multi-step Test Case",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1137,19 +1121,15 @@ describe("configureTestPlanTools", () => {
       );
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1004,
-            fields: {
-              "System.Title": "Full Test Case",
-              "Microsoft.VSTS.Common.Priority": 1,
-              "System.AreaPath": "MyProject\\Feature",
-              "System.IterationPath": "MyProject\\Sprint 1",
-            },
+        JSON.stringify({
+          id: 1004,
+          fields: {
+            "System.Title": "Full Test Case",
+            "Microsoft.VSTS.Common.Priority": 1,
+            "System.AreaPath": "MyProject\\Feature",
+            "System.IterationPath": "MyProject\\Sprint 1",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1197,16 +1177,12 @@ describe("configureTestPlanTools", () => {
         "Test Case"
       );
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1005,
-            fields: {
-              "System.Title": "Non-numbered Test Case",
-            },
+        JSON.stringify({
+          id: 1005,
+          fields: {
+            "System.Title": "Non-numbered Test Case",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1232,16 +1208,12 @@ describe("configureTestPlanTools", () => {
 
       expect(mockWitApi.createWorkItem).toHaveBeenCalledWith({}, expect.any(Array), "proj1", "Test Case");
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1006,
-            fields: {
-              "System.Title": "Empty Lines Test Case",
-            },
+        JSON.stringify({
+          id: 1006,
+          fields: {
+            "System.Title": "Empty Lines Test Case",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1277,16 +1249,12 @@ describe("configureTestPlanTools", () => {
         "Test Case"
       );
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1007,
-            fields: {
-              "System.Title": "No Steps Test Case",
-            },
+        JSON.stringify({
+          id: 1007,
+          fields: {
+            "System.Title": "No Steps Test Case",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1322,16 +1290,12 @@ describe("configureTestPlanTools", () => {
         "Test Case"
       );
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 1008,
-            fields: {
-              "System.Title": "Edge Case XML Test",
-            },
+        JSON.stringify({
+          id: 1008,
+          fields: {
+            "System.Title": "Edge Case XML Test",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1838,22 +1802,18 @@ describe("configureTestPlanTools", () => {
         "Test Case"
       );
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 2001,
-            fields: {
-              "System.Title": "Test Case with Link",
-            },
-            relations: [
-              {
-                rel: "Microsoft.VSTS.Common.TestedBy-Reverse",
-                url: "https://dev.azure.com/testorg/proj1/_apis/wit/workItems/115304",
-              },
-            ],
+        JSON.stringify({
+          id: 2001,
+          fields: {
+            "System.Title": "Test Case with Link",
           },
-          null,
-          2
-        )
+          relations: [
+            {
+              rel: "Microsoft.VSTS.Common.TestedBy-Reverse",
+              url: "https://dev.azure.com/testorg/proj1/_apis/wit/workItems/115304",
+            },
+          ],
+        })
       );
     });
 
@@ -1894,16 +1854,12 @@ describe("configureTestPlanTools", () => {
         "Test Case"
       );
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 2002,
-            fields: {
-              "System.Title": "Test Case without Link",
-            },
+        JSON.stringify({
+          id: 2002,
+          fields: {
+            "System.Title": "Test Case without Link",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -1999,18 +1955,14 @@ describe("configureTestPlanTools", () => {
 
       expect(mockWitApi.updateWorkItem).toHaveBeenCalledWith({}, expect.any(Array), 136717);
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          {
-            id: 136717,
-            rev: 2,
-            fields: {
-              "System.Title": "Updated Test Case",
-              "System.WorkItemType": "Test Case",
-            },
+        JSON.stringify({
+          id: 136717,
+          rev: 2,
+          fields: {
+            "System.Title": "Updated Test Case",
+            "System.WorkItemType": "Test Case",
           },
-          null,
-          2
-        )
+        })
       );
     });
 
@@ -2490,7 +2442,7 @@ describe("configureTestPlanTools", () => {
       const result = await handler(params);
 
       expect(mockTestApi.addTestCasesToSuite).toHaveBeenCalledWith("proj1", 1, 2, "1001,1002");
-      expect(result.content[0].text).toBe(JSON.stringify([{ testCase: { id: 1001 } }, { testCase: { id: 1002 } }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ testCase: { id: 1001 } }, { testCase: { id: 1002 } }]));
     });
 
     it("should add test cases to suite with comma-separated string", async () => {
@@ -2510,7 +2462,7 @@ describe("configureTestPlanTools", () => {
       const result = await handler(params);
 
       expect(mockTestApi.addTestCasesToSuite).toHaveBeenCalledWith("proj1", 1, 2, "1003,1004");
-      expect(result.content[0].text).toBe(JSON.stringify([{ testCase: { id: 1003 } }, { testCase: { id: 1004 } }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ testCase: { id: 1003 } }, { testCase: { id: 1004 } }]));
     });
 
     it("should handle empty results when adding test cases", async () => {
@@ -2529,7 +2481,7 @@ describe("configureTestPlanTools", () => {
       };
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe(JSON.stringify([], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([]));
     });
 
     it("should handle API errors when adding test cases to suite", async () => {
@@ -2568,7 +2520,7 @@ describe("configureTestPlanTools", () => {
       const result = await pointHandler("testplan_list_test_points")({ project: "Proj", planId: 3, suiteId: 4, includePointDetails: true, isRecursive: false });
 
       expect(mockTestPlanApi.getPointsList).toHaveBeenCalledWith("Proj", 3, 4, undefined, undefined, undefined, true, true, false);
-      expect(result.content[0].text).toContain('"id": 1');
+      expect(result.content[0].text).toContain('"id":1');
     });
 
     it("list_test_points can recurse into child suites and filter by test case", async () => {
@@ -2585,7 +2537,7 @@ describe("configureTestPlanTools", () => {
       const result = await pointHandler("testplan_get_test_point")({ project: "Proj", planId: 3, suiteId: 4, pointId: 7, includePointDetails: true });
 
       expect(mockTestPlanApi.getPoints).toHaveBeenCalledWith("Proj", 3, 4, "7", true, true);
-      expect(result.content[0].text).toContain('"id": 7');
+      expect(result.content[0].text).toContain('"id":7');
     });
 
     it("get_test_point errors when the point does not exist", async () => {

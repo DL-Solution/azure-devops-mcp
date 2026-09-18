@@ -7,6 +7,7 @@ import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
 import { requiredProject } from "../shared/common-params.js";
+import { toolError } from "../shared/tool-results.js";
 
 const SERVICE_ENDPOINT_TOOLS = {
   list_service_endpoints: "serviceendpoint_list_service_endpoints",
@@ -54,8 +55,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing service endpoints: ${errorMessage}` }], isError: true };
+        return toolError("listing service endpoints", error);
       }
     }
   );
@@ -80,8 +80,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching service endpoint: ${errorMessage}` }], isError: true };
+        return toolError("fetching service endpoint", error);
       }
     }
   );
@@ -102,8 +101,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating service endpoint: ${errorMessage}` }], isError: true };
+        return toolError("creating service endpoint", error);
       }
     }
   );
@@ -126,8 +124,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
 
         return { content: [{ type: "text", text: `Service endpoint '${endpointId}' deleted from project(s): ${projectIds.join(", ")}.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting service endpoint: ${errorMessage}` }], isError: true };
+        return toolError("deleting service endpoint", error);
       }
     }
   );

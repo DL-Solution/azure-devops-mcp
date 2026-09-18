@@ -6,6 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { NotificationSubscriptionCreateParameters, NotificationSubscriptionUpdateParameters } from "azure-devops-node-api/interfaces/NotificationInterfaces.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const NOTIFICATION_TOOLS = {
   list_subscriptions: "notification_list_subscriptions",
@@ -36,10 +37,9 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
         if (!subscriptions || subscriptions.length === 0) {
           return { content: [{ type: "text", text: "No notification subscriptions found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(subscriptions, null, 2) }] };
+        return jsonResult(subscriptions);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching notification subscriptions: ${errorMessage}` }], isError: true };
+        return toolError("fetching notification subscriptions", error);
       }
     }
   );
@@ -57,10 +57,9 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
         const notificationApi = await connection.getNotificationApi();
         const subscription = await notificationApi.getSubscription(subscriptionId);
 
-        return { content: [{ type: "text", text: JSON.stringify(subscription, null, 2) }] };
+        return jsonResult(subscription);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching notification subscription: ${errorMessage}` }], isError: true };
+        return toolError("fetching notification subscription", error);
       }
     }
   );
@@ -78,10 +77,9 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
         const notificationApi = await connection.getNotificationApi();
         const result = await notificationApi.createSubscription(subscription as unknown as NotificationSubscriptionCreateParameters);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating notification subscription: ${errorMessage}` }], isError: true };
+        return toolError("creating notification subscription", error);
       }
     }
   );
@@ -100,10 +98,9 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
         const notificationApi = await connection.getNotificationApi();
         const result = await notificationApi.updateSubscription(subscription as unknown as NotificationSubscriptionUpdateParameters, subscriptionId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating notification subscription: ${errorMessage}` }], isError: true };
+        return toolError("updating notification subscription", error);
       }
     }
   );
@@ -123,8 +120,7 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
 
         return { content: [{ type: "text", text: `Notification subscription ${subscriptionId} deleted` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting notification subscription: ${errorMessage}` }], isError: true };
+        return toolError("deleting notification subscription", error);
       }
     }
   );
@@ -145,10 +141,9 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
         if (!eventTypes || eventTypes.length === 0) {
           return { content: [{ type: "text", text: "No notification event types found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(eventTypes, null, 2) }] };
+        return jsonResult(eventTypes);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching notification event types: ${errorMessage}` }], isError: true };
+        return toolError("fetching notification event types", error);
       }
     }
   );
@@ -166,10 +161,9 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
         const notificationApi = await connection.getNotificationApi();
         const result = await notificationApi.getEventType(eventType);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching notification event type: ${errorMessage}` }], isError: true };
+        return toolError("fetching notification event type", error);
       }
     }
   );
@@ -183,10 +177,9 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
       if (!templates || templates.length === 0) {
         return { content: [{ type: "text", text: "No notification subscription templates found" }], isError: true };
       }
-      return { content: [{ type: "text", text: JSON.stringify(templates, null, 2) }] };
+      return jsonResult(templates);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      return { content: [{ type: "text", text: `Error fetching notification subscription templates: ${errorMessage}` }], isError: true };
+      return toolError("fetching notification subscription templates", error);
     }
   });
 }

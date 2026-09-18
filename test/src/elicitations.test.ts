@@ -4,7 +4,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
-import { elicitProject, elicitTeam } from "../../src/shared/elicitations";
+import { elicitProject, elicitTeam, resolveProject } from "../../src/shared/elicitations";
 import { createToolServer } from "../mocks/tool-server";
 
 describe("elicitations", () => {
@@ -148,6 +148,45 @@ describe("elicitations", () => {
       expect(mockCoreApi.getTeams).toHaveBeenCalled();
       expect(elicitMock).toHaveBeenCalled();
       expect(result).toEqual({ resolved: "Team One" });
+    });
+  });
+
+  describe("resolveProject", () => {
+    const originalProjectEnv = process.env.ado_mcp_project;
+
+    afterEach(() => {
+      if (originalProjectEnv === undefined) {
+        delete process.env.ado_mcp_project;
+      } else {
+        process.env.ado_mcp_project = originalProjectEnv;
+      }
+    });
+
+    it("returns the given argument without calling getCoreApi", async () => {
+      delete process.env.ado_mcp_project;
+
+      const result = await resolveProject(server, mockConnection as unknown as WebApi, "Contoso");
+
+      expect(result).toEqual({ project: "Contoso" });
+      expect(mockConnection.getCoreApi).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the ado_mcp_project env default when omitted", async () => {
+      process.env.ado_mcp_project = "P";
+
+      const result = await resolveProject(server, mockConnection as unknown as WebApi, undefined);
+
+      expect(result).toEqual({ project: "P" });
+      expect(mockConnection.getCoreApi).not.toHaveBeenCalled();
+    });
+
+    it("returns the elicitation's response when there is nothing to select from", async () => {
+      delete process.env.ado_mcp_project;
+      (mockCoreApi.getProjects as jest.Mock).mockResolvedValue([]);
+
+      const result = await resolveProject(server, mockConnection as unknown as WebApi, undefined);
+
+      expect(result).toEqual({ response: { content: [{ type: "text", text: "No projects found to select from." }], isError: true } });
     });
   });
 });

@@ -6,6 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { errorMessage, toolError } from "../shared/tool-results.js";
 
 const ARTIFACTS_TOOLS = {
   list_feeds: "artifacts_list_feeds",
@@ -183,8 +184,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing feeds: ${errorMessage}` }], isError: true };
+        return toolError("listing feeds", error);
       }
     }
   );
@@ -209,8 +209,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching feed: ${errorMessage}` }], isError: true };
+        return toolError("fetching feed", error);
       }
     }
   );
@@ -233,8 +232,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating feed: ${errorMessage}` }], isError: true };
+        return toolError("creating feed", error);
       }
     }
   );
@@ -263,8 +261,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing packages: ${errorMessage}` }], isError: true };
+        return toolError("listing packages", error);
       }
     }
   );
@@ -636,7 +633,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
     try {
       return { route: build() };
     } catch (error) {
-      return { error: { content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }], isError: true } };
+      return { error: { content: [{ type: "text", text: errorMessage(error) }], isError: true } };
     }
   }
 

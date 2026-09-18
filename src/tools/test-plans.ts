@@ -7,7 +7,8 @@ import { WebApi } from "azure-devops-node-api";
 import { Outcome, SuiteEntryTypes, TestPlanCreateParams, TestPlanReference, TestPlanUpdateParams, TestSuiteUpdateParams } from "azure-devops-node-api/interfaces/TestPlanInterfaces.js";
 import { z } from "zod";
 import { apiVersion, safeEnumConvert } from "../utils.js";
-import { requiredProject, requiredProjectWith } from "../shared/common-params.js";
+import { requiredProject, requiredProjectWith, continuationTokenParam } from "../shared/common-params.js";
+import { jsonResult, toolError, errorMessage } from "../shared/tool-results.js";
 
 const Test_Plan_Tools = {
   create_test_plan: "testplan_create_test_plan",
@@ -84,7 +85,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
       project: requiredProject,
       filterActivePlans: z.boolean().default(true).describe("Filter to include only active test plans. Defaults to true."),
       includePlanDetails: z.boolean().default(false).describe("Include detailed information about each test plan."),
-      continuationToken: z.string().optional().describe("Token to continue fetching test plans from a previous request."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, filterActivePlans, includePlanDetails, continuationToken }) => {
       try {
@@ -125,15 +126,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           result.continuationToken = nextToken;
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error listing test plans: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing test plans", error);
       }
     }
   );
@@ -167,15 +162,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
 
         const createdTestPlan = await testPlanApi.createTestPlan(testPlanToCreate, project);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(createdTestPlan, null, 2) }],
-        };
+        return jsonResult(createdTestPlan);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error creating test plan: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating test plan", error);
       }
     }
   );
@@ -210,14 +199,12 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
 
           const createdTestSuite = await testPlanApi.createTestSuite(testSuiteToCreate, project, planId);
 
-          return {
-            content: [{ type: "text", text: JSON.stringify(createdTestSuite, null, 2) }],
-          };
+          return jsonResult(createdTestSuite);
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+          const message = errorMessage(error);
 
           // Check if it's a concurrency conflict error
-          const isConcurrencyError = errorMessage.includes("TF26071") || errorMessage.includes("got update") || errorMessage.includes("changed by someone else");
+          const isConcurrencyError = message.includes("TF26071") || message.includes("got update") || message.includes("changed by someone else");
 
           // If it's a concurrency error and we have retries left, wait and retry
           if (isConcurrencyError && attempt < maxRetries) {
@@ -227,10 +214,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           }
 
           // If not a concurrency error or out of retries, return error
-          return {
-            content: [{ type: "text", text: `Error creating test suite: ${errorMessage}` }],
-            isError: true,
-          };
+          return toolError("creating test suite", error);
         }
       }
 
@@ -262,15 +246,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
 
         const addedTestCases = await testApi.addTestCasesToSuite(project, planId, suiteId, testCaseIdsString);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(addedTestCases, null, 2) }],
-        };
+        return jsonResult(addedTestCases);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error adding test cases to suite: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("adding test cases to suite", error);
       }
     }
   );
@@ -357,15 +335,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
 
         const workItem = await witClient.createWorkItem({}, patchDocument, project, "Test Case");
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workItem, null, 2) }],
-        };
+        return jsonResult(workItem);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error creating test case: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating test case", error);
       }
     }
   );
@@ -405,15 +377,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
 
         const workItem = await witClient.updateWorkItem({}, patchDocument, id);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workItem, null, 2) }],
-        };
+        return jsonResult(workItem);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error updating test case steps: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating test case steps", error);
       }
     }
   );
@@ -426,7 +392,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
       project: requiredProject,
       planid: z.coerce.number().min(1).describe("The ID of the test plan."),
       suiteid: z.coerce.number().min(1).describe("The ID of the test suite."),
-      continuationToken: z.string().optional().describe("Token to continue fetching test cases from a previous request."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, planid, suiteid, continuationToken }) => {
       try {
@@ -465,15 +431,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           result.continuationToken = nextToken;
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error listing test cases: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing test cases", error);
       }
     }
   );
@@ -534,15 +494,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           runId: r.testRun?.id,
         }));
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(formattedResults, null, 2) }],
-        };
+        return jsonResult(formattedResults);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error fetching test results: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching test results", error);
       }
     }
   );
@@ -554,7 +508,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     {
       project: requiredProject,
       planId: z.coerce.number().min(1).describe("The ID of the test plan."),
-      continuationToken: z.string().optional().describe("Token to continue fetching test plans from a previous request."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, planId, continuationToken }) => {
       try {
@@ -634,24 +588,12 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           result.continuationToken = nextToken;
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error listing test suites: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing test suites", error);
       }
     }
   );
-
-  const failed = (action: string, error: unknown) => ({
-    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
-    isError: true,
-  });
-  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
   registerTool(
     server,
@@ -664,16 +606,16 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
       testCaseId: z.string().optional().describe("Return only the points for this test case ID."),
       includePointDetails: z.boolean().default(true).describe("Include the outcome, tester and configuration of each point."),
       isRecursive: z.boolean().default(false).describe("Include the points of child suites."),
-      continuationToken: z.string().optional().describe("Token from a previous response, to fetch the next page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, planId, suiteId, testCaseId, includePointDetails, isRecursive, continuationToken }) => {
       try {
         const connection = await connectionProvider();
         const testPlanApi = await connection.getTestPlanApi();
         const points = await testPlanApi.getPointsList(project, planId, suiteId, undefined, testCaseId, continuationToken, true, includePointDetails, isRecursive);
-        return ok(points);
+        return jsonResult(points);
       } catch (error) {
-        return failed(`listing test points of suite ${suiteId}`, error);
+        return toolError(`listing test points of suite ${suiteId}`, error);
       }
     }
   );
@@ -697,9 +639,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
         if (!points || points.length === 0) {
           return { content: [{ type: "text", text: `Test point ${pointId} not found in suite ${suiteId}` }], isError: true };
         }
-        return ok(points[0]);
+        return jsonResult(points[0]);
       } catch (error) {
-        return failed(`getting test point ${pointId}`, error);
+        return toolError(`getting test point ${pointId}`, error);
       }
     }
   );
@@ -733,9 +675,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
         }));
 
         const updated = await testPlanApi.updateTestPoints(updates, project, planId, suiteId, true, true);
-        return ok(updated);
+        return jsonResult(updated);
       } catch (error) {
-        return failed(`updating test points of suite ${suiteId}`, error);
+        return toolError(`updating test points of suite ${suiteId}`, error);
       }
     }
   );
@@ -750,9 +692,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
       if (notFound && (result === null || result === undefined)) {
         return { content: [{ type: "text" as const, text: notFound }], isError: true };
       }
-      return { content: [{ type: "text" as const, text: JSON.stringify(result ?? { done: true }, null, 2) }] };
+      return jsonResult(result ?? { done: true });
     } catch (error) {
-      return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+      return toolError(action, error);
     }
   }
 
@@ -812,7 +754,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     server,
     Test_Plan_Tools.list_deleted_test_plans,
     "List the deleted test plans of a project that can still be restored.",
-    { project: requiredProject, continuationToken: z.string().optional().describe("Token from a previous page.") },
+    { project: requiredProject, continuationToken: continuationTokenParam },
     async ({ project, continuationToken }) => call("listing deleted test plans", async (api) => (await api.getDeletedTestPlans(project, continuationToken)) ?? [])
   );
 
@@ -925,7 +867,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     {
       project: requiredProject,
       planId: z.coerce.number().min(1).optional().describe("Only suites deleted from this plan."),
-      continuationToken: z.string().optional().describe("Token from a previous page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, planId, continuationToken }) =>
       call(
@@ -1093,7 +1035,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     server,
     Test_Plan_Tools.list_test_configurations,
     "List the test configurations of a project — the combinations (e.g. 'Windows 11 + Edge') each test case is run against.",
-    { project: requiredProject, continuationToken: z.string().optional().describe("Token from a previous page.") },
+    { project: requiredProject, continuationToken: continuationTokenParam },
     async ({ project, continuationToken }) => call("listing test configurations", async (api) => (await api.getTestConfigurations(project, continuationToken)) ?? [])
   );
 
@@ -1150,7 +1092,7 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
     server,
     Test_Plan_Tools.list_test_variables,
     "List the test variables of a project — the dimensions, like 'Browser' or 'Operating System', that configurations combine.",
-    { project: requiredProject, continuationToken: z.string().optional().describe("Token from a previous page.") },
+    { project: requiredProject, continuationToken: continuationTokenParam },
     async ({ project, continuationToken }) => call("listing test variables", async (api) => (await api.getTestVariables(project, continuationToken)) ?? [])
   );
 

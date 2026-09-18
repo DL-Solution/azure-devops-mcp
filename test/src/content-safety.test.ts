@@ -116,7 +116,7 @@ describe("content-safety", () => {
       const text = response.content[0].text;
 
       expect(text).toContain("UNTRUSTED BUILD LOG CONTENT");
-      expect(text).toContain(JSON.stringify(data, null, 2));
+      expect(text).toContain(JSON.stringify(data));
     });
 
     it("should JSON.stringify and spotlight array content", () => {
@@ -125,7 +125,7 @@ describe("content-safety", () => {
       const text = response.content[0].text;
 
       expect(text).toContain("UNTRUSTED BUILD LOG CONTENT");
-      expect(text).toContain(JSON.stringify(logLines, null, 2));
+      expect(text).toContain(JSON.stringify(logLines));
     });
 
     it("should handle null content", () => {
@@ -143,7 +143,7 @@ describe("content-safety", () => {
 
       // The text should NOT be just the raw dangerous content
       expect(text).not.toBe(dangerousContent);
-      expect(text).not.toBe(JSON.stringify(dangerousContent, null, 2));
+      expect(text).not.toBe(JSON.stringify(dangerousContent));
       // It should be wrapped with spotlighting
       expect(text).toContain("UNTRUSTED WIKI PAGE CONTENT");
     });
@@ -238,7 +238,7 @@ describe("content-safety", () => {
       const response = createExternalContentResponse(nestedObj, "api response");
       const text = response.content[0].text;
 
-      expect(text).toContain(JSON.stringify(nestedObj, null, 2));
+      expect(text).toContain(JSON.stringify(nestedObj));
       expect(text).toContain("UNTRUSTED API RESPONSE CONTENT");
     });
 

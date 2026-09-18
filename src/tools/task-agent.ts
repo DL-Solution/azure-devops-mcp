@@ -14,9 +14,10 @@ import {
   TaskGroupUpdateParameter,
   KubernetesResourceCreateParametersExistingEndpoint,
 } from "azure-devops-node-api/interfaces/TaskAgentInterfaces.js";
-import { elicitProject } from "../shared/elicitations.js";
-import { optionalProject } from "../shared/common-params.js";
+import { resolveProject } from "../shared/elicitations.js";
+import { optionalProject, continuationTokenParam } from "../shared/common-params.js";
 import { adoFetch } from "../shared/ado-rest.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 import { Readable } from "stream";
 
 const TASKAGENT_TOOLS = {
@@ -78,14 +79,6 @@ const TASKAGENT_TOOLS = {
 };
 
 function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string = () => "") {
-  // Resolve the project (eliciting if not supplied).
-  const resolveProject = async (connection: WebApi, project: string | undefined) => {
-    if (project) return { project };
-    const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
-    if ("response" in result) return result;
-    return { project: result.resolved };
-  };
-
   const projectField = optionalProject;
 
   registerTool(
@@ -100,7 +93,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, groupName, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
@@ -109,10 +102,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if (!groups || groups.length === 0) {
           return { content: [{ type: "text", text: "No variable groups found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(groups, null, 2) }] };
+        return jsonResult(groups);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching variable groups: ${errorMessage}` }], isError: true };
+        return toolError("fetching variable groups", error);
       }
     }
   );
@@ -128,16 +120,15 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, groupId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const group = await taskAgentApi.getVariableGroup(ctx.project, groupId);
 
-        return { content: [{ type: "text", text: JSON.stringify(group, null, 2) }] };
+        return jsonResult(group);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching variable group: ${errorMessage}` }], isError: true };
+        return toolError("fetching variable group", error);
       }
     }
   );
@@ -159,10 +150,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         const taskAgentApi = await connection.getTaskAgentApi();
         const result = await taskAgentApi.addVariableGroup(variableGroup as unknown as VariableGroupParameters);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating variable group: ${errorMessage}` }], isError: true };
+        return toolError("creating variable group", error);
       }
     }
   );
@@ -181,10 +171,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         const taskAgentApi = await connection.getTaskAgentApi();
         const result = await taskAgentApi.updateVariableGroup(variableGroup as unknown as VariableGroupParameters, groupId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating variable group: ${errorMessage}` }], isError: true };
+        return toolError("updating variable group", error);
       }
     }
   );
@@ -205,8 +194,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: `Variable group ${groupId} deleted` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting variable group: ${errorMessage}` }], isError: true };
+        return toolError("deleting variable group", error);
       }
     }
   );
@@ -227,8 +215,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: `Variable group ${variableGroupId} shared` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error sharing variable group: ${errorMessage}` }], isError: true };
+        return toolError("sharing variable group", error);
       }
     }
   );
@@ -249,10 +236,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if (!pools || pools.length === 0) {
           return { content: [{ type: "text", text: "No agent pools found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(pools, null, 2) }] };
+        return jsonResult(pools);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching agent pools: ${errorMessage}` }], isError: true };
+        return toolError("fetching agent pools", error);
       }
     }
   );
@@ -268,7 +254,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, queueName }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
@@ -277,10 +263,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if (!queues || queues.length === 0) {
           return { content: [{ type: "text", text: "No agent queues found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(queues, null, 2) }] };
+        return jsonResult(queues);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching agent queues: ${errorMessage}` }], isError: true };
+        return toolError("fetching agent queues", error);
       }
     }
   );
@@ -297,7 +282,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, name, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
@@ -306,10 +291,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if (!environments || environments.length === 0) {
           return { content: [{ type: "text", text: "No environments found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(environments, null, 2) }] };
+        return jsonResult(environments);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching environments: ${errorMessage}` }], isError: true };
+        return toolError("fetching environments", error);
       }
     }
   );
@@ -325,16 +309,15 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, environmentId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const environment = await taskAgentApi.getEnvironmentById(ctx.project, environmentId);
 
-        return { content: [{ type: "text", text: JSON.stringify(environment, null, 2) }] };
+        return jsonResult(environment);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching environment: ${errorMessage}` }], isError: true };
+        return toolError("fetching environment", error);
       }
     }
   );
@@ -351,17 +334,16 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, name, description }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const parameter: EnvironmentCreateParameter = { name, description };
         const taskAgentApi = await connection.getTaskAgentApi();
         const environment = await taskAgentApi.addEnvironment(parameter, ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(environment, null, 2) }] };
+        return jsonResult(environment);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating environment: ${errorMessage}` }], isError: true };
+        return toolError("creating environment", error);
       }
     }
   );
@@ -379,17 +361,16 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, environmentId, name, description }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const parameter: EnvironmentUpdateParameter = { name, description };
         const taskAgentApi = await connection.getTaskAgentApi();
         const environment = await taskAgentApi.updateEnvironment(parameter, ctx.project, environmentId);
 
-        return { content: [{ type: "text", text: JSON.stringify(environment, null, 2) }] };
+        return jsonResult(environment);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating environment: ${errorMessage}` }], isError: true };
+        return toolError("updating environment", error);
       }
     }
   );
@@ -405,7 +386,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, environmentId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
@@ -413,17 +394,10 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: `Environment ${environmentId} deleted` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting environment: ${errorMessage}` }], isError: true };
+        return toolError("deleting environment", error);
       }
     }
   );
-
-  const failed = (action: string, error: unknown) => ({
-    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
-    isError: true,
-  });
-  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
   // ---- Agents in a pool (organization-scoped, so no project) ----
 
@@ -442,9 +416,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
         const agents = await taskAgentApi.getAgents(poolId, agentName, includeCapabilities, includeAssignedRequest);
-        return ok(agents);
+        return jsonResult(agents);
       } catch (error) {
-        return failed(`listing agents in pool ${poolId}`, error);
+        return toolError(`listing agents in pool ${poolId}`, error);
       }
     }
   );
@@ -465,9 +439,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
         const agent = await taskAgentApi.getAgent(poolId, agentId, includeCapabilities, includeAssignedRequest, includeLastCompletedRequest);
-        return ok(agent);
+        return jsonResult(agent);
       } catch (error) {
-        return failed(`getting agent ${agentId} in pool ${poolId}`, error);
+        return toolError(`getting agent ${agentId} in pool ${poolId}`, error);
       }
     }
   );
@@ -485,9 +459,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteAgent(poolId, agentId);
-        return ok({ removed: agentId, poolId });
+        return jsonResult({ removed: agentId, poolId });
       } catch (error) {
-        return failed(`removing agent ${agentId} from pool ${poolId}`, error);
+        return toolError(`removing agent ${agentId} from pool ${poolId}`, error);
       }
     }
   );
@@ -506,9 +480,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
         const requests = await taskAgentApi.getAgentRequestsForAgent(poolId, agentId, completedRequestCount);
-        return ok(requests);
+        return jsonResult(requests);
       } catch (error) {
-        return failed(`listing job requests for agent ${agentId}`, error);
+        return toolError(`listing job requests for agent ${agentId}`, error);
       }
     }
   );
@@ -528,14 +502,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, expanded, deleted, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const groups = await taskAgentApi.getTaskGroups(ctx.project, undefined, expanded, undefined, deleted, top);
-        return ok(groups);
+        return jsonResult(groups);
       } catch (error) {
-        return failed("listing task groups", error);
+        return toolError("listing task groups", error);
       }
     }
   );
@@ -552,15 +526,15 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, taskGroupId, versionSpec }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         // The typed client requires a version spec; "*" means the latest.
         const group = await taskAgentApi.getTaskGroup(ctx.project, taskGroupId, versionSpec ?? "*");
-        return ok(group);
+        return jsonResult(group);
       } catch (error) {
-        return failed(`getting task group ${taskGroupId}`, error);
+        return toolError(`getting task group ${taskGroupId}`, error);
       }
     }
   );
@@ -577,14 +551,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, taskGroupId, comment }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteTaskGroup(ctx.project, taskGroupId, comment);
-        return ok({ deleted: taskGroupId, note: "Recoverable with taskagent_undelete_task_group." });
+        return jsonResult({ deleted: taskGroupId, note: "Recoverable with taskagent_undelete_task_group." });
       } catch (error) {
-        return failed(`deleting task group ${taskGroupId}`, error);
+        return toolError(`deleting task group ${taskGroupId}`, error);
       }
     }
   );
@@ -600,14 +574,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, taskGroupId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const restored = await taskAgentApi.undeleteTaskGroup({ id: taskGroupId }, ctx.project);
-        return ok(restored);
+        return jsonResult(restored);
       } catch (error) {
-        return failed(`restoring task group ${taskGroupId}`, error);
+        return toolError(`restoring task group ${taskGroupId}`, error);
       }
     }
   );
@@ -630,14 +604,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, namePattern }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const files = await taskAgentApi.getSecureFiles(ctx.project, namePattern, false);
-        return ok(files);
+        return jsonResult(files);
       } catch (error) {
-        return failed("listing secure files", error);
+        return toolError("listing secure files", error);
       }
     }
   );
@@ -653,14 +627,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, secureFileId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const file = await taskAgentApi.getSecureFile(ctx.project, secureFileId, false);
-        return ok(file);
+        return jsonResult(file);
       } catch (error) {
-        return failed(`getting secure file ${secureFileId}`, error);
+        return toolError(`getting secure file ${secureFileId}`, error);
       }
     }
   );
@@ -677,14 +651,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, secureFileId, name }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const updated = await taskAgentApi.updateSecureFile({ id: secureFileId, name }, ctx.project, secureFileId);
-        return ok(updated);
+        return jsonResult(updated);
       } catch (error) {
-        return failed(`renaming secure file ${secureFileId}`, error);
+        return toolError(`renaming secure file ${secureFileId}`, error);
       }
     }
   );
@@ -700,14 +674,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, secureFileId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteSecureFile(ctx.project, secureFileId);
-        return ok({ deleted: secureFileId, note: "Permanent — secure files have no recycle bin." });
+        return jsonResult({ deleted: secureFileId, note: "Permanent — secure files have no recycle bin." });
       } catch (error) {
-        return failed(`deleting secure file ${secureFileId}`, error);
+        return toolError(`deleting secure file ${secureFileId}`, error);
       }
     }
   );
@@ -723,7 +697,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       }
       return { content: [{ type: "text" as const, text: text || "Done." }] };
     } catch (error) {
-      return failed(action, error);
+      return toolError(action, error);
     }
   }
 
@@ -742,15 +716,15 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, name, contentBase64, authorizePipelines }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const content = Readable.from([Buffer.from(contentBase64, "base64")]);
         const file = await taskAgentApi.uploadSecureFile({ "Content-Type": "application/octet-stream" }, content, ctx.project, name, authorizePipelines);
-        return ok(file);
+        return jsonResult(file);
       } catch (error) {
-        return failed(`uploading secure file '${name}'`, error);
+        return toolError(`uploading secure file '${name}'`, error);
       }
     }
   );
@@ -772,9 +746,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if (!pool) {
           return { content: [{ type: "text", text: `Agent pool ${poolId} not found` }], isError: true };
         }
-        return ok(pool);
+        return jsonResult(pool);
       } catch (error) {
-        return failed(`getting agent pool ${poolId}`, error);
+        return toolError(`getting agent pool ${poolId}`, error);
       }
     }
   );
@@ -792,9 +766,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       try {
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.addAgentPool({ name, autoProvision, autoUpdate }));
+        return jsonResult(await taskAgentApi.addAgentPool({ name, autoProvision, autoUpdate }));
       } catch (error) {
-        return failed(`creating agent pool '${name}'`, error);
+        return toolError(`creating agent pool '${name}'`, error);
       }
     }
   );
@@ -816,9 +790,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       try {
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.updateAgentPool({ name, autoProvision, autoUpdate }, poolId));
+        return jsonResult(await taskAgentApi.updateAgentPool({ name, autoProvision, autoUpdate }, poolId));
       } catch (error) {
-        return failed(`updating agent pool ${poolId}`, error);
+        return toolError(`updating agent pool ${poolId}`, error);
       }
     }
   );
@@ -833,9 +807,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteAgentPool(poolId);
-        return ok({ deleted: poolId });
+        return jsonResult({ deleted: poolId });
       } catch (error) {
-        return failed(`deleting agent pool ${poolId}`, error);
+        return toolError(`deleting agent pool ${poolId}`, error);
       }
     }
   );
@@ -845,7 +819,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
   registerTool(server, TASKAGENT_TOOLS.get_agent_queue, "Get one agent queue of a project and the pool behind it.", { project: projectField, queueId: queueIdParam }, async ({ project, queueId }) => {
     try {
       const connection = await connectionProvider();
-      const ctx = await resolveProject(connection, project);
+      const ctx = await resolveProject(server, connection, project);
       if ("response" in ctx) return ctx.response;
 
       const taskAgentApi = await connection.getTaskAgentApi();
@@ -853,9 +827,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       if (!queue) {
         return { content: [{ type: "text", text: `Agent queue ${queueId} not found` }], isError: true };
       }
-      return ok(queue);
+      return jsonResult(queue);
     } catch (error) {
-      return failed(`getting agent queue ${queueId}`, error);
+      return toolError(`getting agent queue ${queueId}`, error);
     }
   });
 
@@ -872,13 +846,13 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, poolId, name, authorizePipelines }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.addAgentQueue({ name, pool: { id: poolId } }, ctx.project, authorizePipelines));
+        return jsonResult(await taskAgentApi.addAgentQueue({ name, pool: { id: poolId } }, ctx.project, authorizePipelines));
       } catch (error) {
-        return failed(`adding a queue for agent pool ${poolId}`, error);
+        return toolError(`adding a queue for agent pool ${poolId}`, error);
       }
     }
   );
@@ -891,14 +865,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, queueId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteAgentQueue(queueId, ctx.project);
-        return ok({ deleted: queueId });
+        return jsonResult({ deleted: queueId });
       } catch (error) {
-        return failed(`removing agent queue ${queueId}`, error);
+        return toolError(`removing agent queue ${queueId}`, error);
       }
     }
   );
@@ -916,9 +890,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       try {
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.updateAgent({ id: agentId, enabled }, poolId, agentId));
+        return jsonResult(await taskAgentApi.updateAgent({ id: agentId, enabled }, poolId, agentId));
       } catch (error) {
-        return failed(`updating agent ${agentId}`, error);
+        return toolError(`updating agent ${agentId}`, error);
       }
     }
   );
@@ -936,13 +910,13 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, taskGroup }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.addTaskGroup(taskGroup as TaskGroupCreateParameter, ctx.project));
+        return jsonResult(await taskAgentApi.addTaskGroup(taskGroup as TaskGroupCreateParameter, ctx.project));
       } catch (error) {
-        return failed("creating task group", error);
+        return toolError("creating task group", error);
       }
     }
   );
@@ -959,13 +933,13 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, taskGroupId, taskGroup }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.updateTaskGroup({ ...(taskGroup as TaskGroupUpdateParameter), id: taskGroupId }, ctx.project, taskGroupId));
+        return jsonResult(await taskAgentApi.updateTaskGroup({ ...(taskGroup as TaskGroupUpdateParameter), id: taskGroupId }, ctx.project, taskGroupId));
       } catch (error) {
-        return failed(`updating task group ${taskGroupId}`, error);
+        return toolError(`updating task group ${taskGroupId}`, error);
       }
     }
   );
@@ -986,13 +960,13 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, name, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok((await taskAgentApi.getDeploymentGroups(ctx.project, name, undefined, undefined, undefined, top)) ?? []);
+        return jsonResult((await taskAgentApi.getDeploymentGroups(ctx.project, name, undefined, undefined, undefined, top)) ?? []);
       } catch (error) {
-        return failed("listing deployment groups", error);
+        return toolError("listing deployment groups", error);
       }
     }
   );
@@ -1005,7 +979,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, deploymentGroupId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
@@ -1013,9 +987,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if (!group) {
           return { content: [{ type: "text", text: `Deployment group ${deploymentGroupId} not found` }], isError: true };
         }
-        return ok(group);
+        return jsonResult(group);
       } catch (error) {
-        return failed(`getting deployment group ${deploymentGroupId}`, error);
+        return toolError(`getting deployment group ${deploymentGroupId}`, error);
       }
     }
   );
@@ -1032,13 +1006,13 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, name, description }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.addDeploymentGroup({ name, description }, ctx.project));
+        return jsonResult(await taskAgentApi.addDeploymentGroup({ name, description }, ctx.project));
       } catch (error) {
-        return failed(`creating deployment group '${name}'`, error);
+        return toolError(`creating deployment group '${name}'`, error);
       }
     }
   );
@@ -1059,13 +1033,13 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       }
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.updateDeploymentGroup({ name, description }, ctx.project, deploymentGroupId));
+        return jsonResult(await taskAgentApi.updateDeploymentGroup({ name, description }, ctx.project, deploymentGroupId));
       } catch (error) {
-        return failed(`updating deployment group ${deploymentGroupId}`, error);
+        return toolError(`updating deployment group ${deploymentGroupId}`, error);
       }
     }
   );
@@ -1078,14 +1052,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, deploymentGroupId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteDeploymentGroup(ctx.project, deploymentGroupId);
-        return ok({ deleted: deploymentGroupId });
+        return jsonResult({ deleted: deploymentGroupId });
       } catch (error) {
-        return failed(`deleting deployment group ${deploymentGroupId}`, error);
+        return toolError(`deleting deployment group ${deploymentGroupId}`, error);
       }
     }
   );
@@ -1104,14 +1078,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, deploymentGroupId, tags, name, top }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         const targets = await taskAgentApi.getDeploymentTargets(ctx.project, deploymentGroupId, tags, name, name !== undefined, undefined, undefined, undefined, undefined, top);
-        return ok(targets ?? []);
+        return jsonResult(targets ?? []);
       } catch (error) {
-        return failed(`listing targets of deployment group ${deploymentGroupId}`, error);
+        return toolError(`listing targets of deployment group ${deploymentGroupId}`, error);
       }
     }
   );
@@ -1131,13 +1105,13 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, deploymentGroupId, targets }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(await taskAgentApi.updateDeploymentTargets(targets, ctx.project, deploymentGroupId));
+        return jsonResult(await taskAgentApi.updateDeploymentTargets(targets, ctx.project, deploymentGroupId));
       } catch (error) {
-        return failed(`updating tags in deployment group ${deploymentGroupId}`, error);
+        return toolError(`updating tags in deployment group ${deploymentGroupId}`, error);
       }
     }
   );
@@ -1154,14 +1128,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, deploymentGroupId, targetId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteDeploymentTarget(ctx.project, deploymentGroupId, targetId);
-        return ok({ deleted: targetId, deploymentGroupId });
+        return jsonResult({ deleted: targetId, deploymentGroupId });
       } catch (error) {
-        return failed(`removing target ${targetId}`, error);
+        return toolError(`removing target ${targetId}`, error);
       }
     }
   );
@@ -1233,18 +1207,18 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       project: projectField,
       environmentId: environmentIdParam,
       top: z.coerce.number().min(1).optional().describe("Maximum number of deployments to return."),
-      continuationToken: z.string().optional().describe("Token from a previous page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, environmentId, top, continuationToken }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok((await taskAgentApi.getEnvironmentDeploymentExecutionRecords(ctx.project, environmentId, continuationToken, top)) ?? []);
+        return jsonResult((await taskAgentApi.getEnvironmentDeploymentExecutionRecords(ctx.project, environmentId, continuationToken, top)) ?? []);
       } catch (error) {
-        return failed(`listing deployments of environment ${environmentId}`, error);
+        return toolError(`listing deployments of environment ${environmentId}`, error);
       }
     }
   );
@@ -1256,7 +1230,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     { project: projectField, environmentId: environmentIdParam },
     async ({ project, environmentId }) => {
       const connection = await connectionProvider();
-      const ctx = await resolveProject(connection, project);
+      const ctx = await resolveProject(server, connection, project);
       if ("response" in ctx) return ctx.response;
       return rest(
         `listing virtual machines of environment ${environmentId}`,
@@ -1277,7 +1251,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     },
     async ({ project, environmentId, resourceId }) => {
       const connection = await connectionProvider();
-      const ctx = await resolveProject(connection, project);
+      const ctx = await resolveProject(server, connection, project);
       if ("response" in ctx) return ctx.response;
       return rest(
         `removing virtual machine ${resourceId}`,
@@ -1297,7 +1271,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, environmentId, resourceId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
@@ -1305,9 +1279,9 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if (!resource) {
           return { content: [{ type: "text", text: `Kubernetes resource ${resourceId} not found in environment ${environmentId}` }], isError: true };
         }
-        return ok(resource);
+        return jsonResult(resource);
       } catch (error) {
-        return failed(`getting Kubernetes resource ${resourceId}`, error);
+        return toolError(`getting Kubernetes resource ${resourceId}`, error);
       }
     }
   );
@@ -1328,15 +1302,15 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, environmentId, name, namespace, clusterName, serviceEndpointId, tags }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return ok(
+        return jsonResult(
           await taskAgentApi.addKubernetesResource({ name, namespace, clusterName, serviceEndpointId, tags } as KubernetesResourceCreateParametersExistingEndpoint, ctx.project, environmentId)
         );
       } catch (error) {
-        return failed(`adding Kubernetes resource '${name}'`, error);
+        return toolError(`adding Kubernetes resource '${name}'`, error);
       }
     }
   );
@@ -1349,14 +1323,14 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
     async ({ project, environmentId, resourceId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
         await taskAgentApi.deleteKubernetesResource(ctx.project, environmentId, resourceId);
-        return ok({ deleted: resourceId, environmentId });
+        return jsonResult({ deleted: resourceId, environmentId });
       } catch (error) {
-        return failed(`removing Kubernetes resource ${resourceId}`, error);
+        return toolError(`removing Kubernetes resource ${resourceId}`, error);
       }
     }
   );

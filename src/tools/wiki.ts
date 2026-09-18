@@ -10,7 +10,8 @@ import { GitVersionType } from "azure-devops-node-api/interfaces/GitInterfaces.j
 import { apiVersion, extractAdoStreamError, getOrgFromUrl } from "../utils.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { adoFetch } from "../shared/ado-rest.js";
-import { requiredProject } from "../shared/common-params.js";
+import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const WIKI_TOOLS = {
   list_wikis: "wiki_list_wikis",
@@ -47,16 +48,9 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "No wiki found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(wiki, null, 2) }],
-        };
+        return jsonResult(wiki);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching wiki: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching wiki", error);
       }
     }
   );
@@ -78,16 +72,9 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "No wikis found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(wikis, null, 2) }],
-        };
+        return jsonResult(wikis);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching wikis: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching wikis", error);
       }
     }
   );
@@ -100,7 +87,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
       wikiIdentifier: z.string().describe("The unique identifier of the wiki."),
       project: z.string().describe("The project name or ID where the wiki is located."),
       top: z.coerce.number().default(20).describe("The maximum number of pages to return, up to 100. Defaults to 20."),
-      continuationToken: z.string().optional().describe("Token for pagination to retrieve the next set of pages."),
+      continuationToken: continuationTokenParam,
       pageViewsForDays: z.coerce.number().optional().describe("Number of days to retrieve page views for. If not specified, page views are not included."),
     },
     async ({ wikiIdentifier, project, top = 20, continuationToken, pageViewsForDays }) => {
@@ -120,16 +107,9 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "No wiki pages found" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(pages, null, 2) }],
-        };
+        return jsonResult(pages);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching wiki pages: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching wiki pages", error);
       }
     }
   );
@@ -183,16 +163,9 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const pageData = await response.json();
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(pageData, null, 2) }],
-        };
+        return jsonResult(pageData);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching wiki page metadata: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching wiki page metadata", error);
       }
     }
   );
@@ -312,12 +285,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
 
         return createExternalContentResponse(pageContent, "wiki page");
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error fetching wiki page content: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("fetching wiki page content", error);
       }
     }
   );
@@ -366,7 +334,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
               content: [
                 {
                   type: "text",
-                  text: `Successfully created wiki page at path: ${normalizedPath}. Response: ${JSON.stringify(result, null, 2)}`,
+                  text: `Successfully created wiki page at path: ${normalizedPath}. Response: ${JSON.stringify(result)}`,
                 },
               ],
             };
@@ -418,7 +386,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
                 content: [
                   {
                     type: "text",
-                    text: `Successfully updated wiki page at path: ${normalizedPath}. Response: ${JSON.stringify(result, null, 2)}`,
+                    text: `Successfully updated wiki page at path: ${normalizedPath}. Response: ${JSON.stringify(result)}`,
                   },
                 ],
               };
@@ -434,12 +402,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           throw fetchError;
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating/updating wiki page: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating/updating wiki page", error);
       }
     }
   );
@@ -495,16 +458,9 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "Wiki was not created" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(wiki, null, 2) }],
-        };
+        return jsonResult(wiki);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating wiki: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating wiki", error);
       }
     }
   );
@@ -513,7 +469,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     try {
       return { content: [{ type: "text" as const, text: (await run()) || "Done." }] };
     } catch (error) {
-      return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+      return toolError(action, error);
     }
   }
 

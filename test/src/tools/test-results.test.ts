@@ -71,7 +71,7 @@ describe("configureTestResultsTools", () => {
 
       // getTestRuns(project, buildUri, owner, tmiRunId, planId, includeRunDetails, automated, skip, top)
       expect(mockTestApi.getTestRuns).toHaveBeenCalledWith("proj", undefined, undefined, undefined, 42, true, true, 5, 25);
-      expect(result.content[0].text).toContain('"id": 1');
+      expect(result.content[0].text).toContain('"id":1');
     });
 
     it("handles API errors", async () => {

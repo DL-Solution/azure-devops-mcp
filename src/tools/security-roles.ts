@@ -6,6 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { UserRoleAssignmentRef } from "azure-devops-node-api/interfaces/SecurityRolesInterfaces.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const SECURITY_ROLES_TOOLS = {
   list_definitions: "securityrole_list_definitions",
@@ -37,10 +38,9 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
         if (!definitions || definitions.length === 0) {
           return { content: [{ type: "text", text: "No role definitions found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(definitions, null, 2) }] };
+        return jsonResult(definitions);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching role definitions: ${errorMessage}` }], isError: true };
+        return toolError("fetching role definitions", error);
       }
     }
   );
@@ -62,10 +62,9 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
         if (!assignments || assignments.length === 0) {
           return { content: [{ type: "text", text: "No role assignments found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(assignments, null, 2) }] };
+        return jsonResult(assignments);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching role assignments: ${errorMessage}` }], isError: true };
+        return toolError("fetching role assignments", error);
       }
     }
   );
@@ -87,10 +86,9 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
         const securityRolesApi = await connection.getSecurityRolesApi();
         const result = await securityRolesApi.setRoleAssignment(roleAssignment, scopeId, resourceId, identityId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error setting role assignment: ${errorMessage}` }], isError: true };
+        return toolError("setting role assignment", error);
       }
     }
   );
@@ -118,10 +116,9 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
         const securityRolesApi = await connection.getSecurityRolesApi();
         const result = await securityRolesApi.setRoleAssignments(roleAssignments, scopeId, resourceId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error setting role assignments: ${errorMessage}` }], isError: true };
+        return toolError("setting role assignments", error);
       }
     }
   );
@@ -143,8 +140,7 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
 
         return { content: [{ type: "text", text: `Role assignment for ${identityId} removed` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing role assignment: ${errorMessage}` }], isError: true };
+        return toolError("removing role assignment", error);
       }
     }
   );
@@ -166,8 +162,7 @@ function configureSecurityRolesTools(server: McpServer, _: () => Promise<string>
 
         return { content: [{ type: "text", text: `Removed ${identityIds.length} role assignment(s)` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing role assignments: ${errorMessage}` }], isError: true };
+        return toolError("removing role assignments", error);
       }
     }
   );

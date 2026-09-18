@@ -38,6 +38,7 @@ import { GitRepository } from "azure-devops-node-api/interfaces/TfvcInterfaces.j
 import { WebApiTagDefinition } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
 import { extractAdoStreamError, getEnumKeys, safeEnumConvert, streamToString } from "../utils.js";
 import { requiredProject } from "../shared/common-params.js";
+import { errorMessage, jsonResult, toolError } from "../shared/tool-results.js";
 
 const REPO_TOOLS = {
   list_repos_by_project: "repo_list_repos_by_project",
@@ -358,16 +359,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(trimmedPullRequest, null, 2) }],
-        };
+        return jsonResult(trimmedPullRequest);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating pull request: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating pull request", error);
       }
     }
   );
@@ -411,15 +405,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
             }
             commitId = branch.objectId;
           } catch (error) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Error retrieving source branch '${sourceBranchName}': ${error instanceof Error ? error.message : String(error)}`,
-                },
-              ],
-              isError: true,
-            };
+            return toolError(`retrieving source branch '${sourceBranchName}'`, error);
           }
         }
 
@@ -457,23 +443,10 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
             };
           }
         } catch (error) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error creating branch '${branchName}': ${error instanceof Error ? error.message : String(error)}`,
-              },
-            ],
-            isError: true,
-          };
+          return toolError(`creating branch '${branchName}'`, error);
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating branch: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating branch", error);
       }
     }
   );
@@ -611,16 +584,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(trimmedUpdatedPullRequest, null, 2) }],
-        };
+        return jsonResult(trimmedUpdatedPullRequest);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating pull request: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating pull request", error);
       }
     }
   );
@@ -659,9 +625,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
             isFlagged: item.isFlagged,
           }));
 
-          return {
-            content: [{ type: "text", text: JSON.stringify(trimmedResponse, null, 2) }],
-          };
+          return jsonResult(trimmedResponse);
         } else {
           for (const reviewerId of reviewerIds) {
             await gitApi.deletePullRequestReviewer(repositoryId, pullRequestId, reviewerId, project);
@@ -672,12 +636,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           };
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating pull request reviewers: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating pull request reviewers", error);
       }
     }
   );
@@ -713,16 +672,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           size: repo.size,
         }));
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(trimmedRepositories, null, 2) }],
-        };
+        return jsonResult(trimmedRepositories);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error listing repositories: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing repositories", error);
       }
     }
   );
@@ -799,15 +751,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
             const userId = await getUserIdFromEmail(created_by_user, tokenProvider, connectionProvider, userAgentProvider);
             searchCriteria.creatorId = userId;
           } catch (error) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Error finding user with email ${created_by_user}: ${error instanceof Error ? error.message : String(error)}`,
-                },
-              ],
-              isError: true,
-            };
+            return toolError(`finding user with email ${created_by_user}`, error);
           }
         } else if (created_by_me) {
           const data = await getCurrentUserDetails(tokenProvider, connectionProvider, userAgentProvider);
@@ -820,15 +764,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
             const reviewerUserId = await getUserIdFromEmail(user_is_reviewer, tokenProvider, connectionProvider, userAgentProvider);
             searchCriteria.reviewerId = reviewerUserId;
           } catch (error) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Error finding reviewer with email ${user_is_reviewer}: ${error instanceof Error ? error.message : String(error)}`,
-                },
-              ],
-              isError: true,
-            };
+            return toolError(`finding reviewer with email ${user_is_reviewer}`, error);
           }
         } else if (i_am_reviewer) {
           const data = await getCurrentUserDetails(tokenProvider, connectionProvider, userAgentProvider);
@@ -870,16 +806,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const filteredPullRequests = pullRequests?.map((pr) => trimPullRequest(pr));
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(filteredPullRequests, null, 2) }],
-        };
+        return jsonResult(filteredPullRequests);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error listing pull requests: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing pull requests", error);
       }
     }
   );
@@ -915,10 +844,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         try {
           identity = await pullRequestIdentityFilters({ created_by_me, created_by_user, i_am_reviewer, user_is_reviewer }, tokenProvider, connectionProvider, userAgentProvider);
         } catch (error) {
-          return {
-            content: [{ type: "text", text: `Error resolving the user filter: ${error instanceof Error ? error.message : String(error)}` }],
-            isError: true,
-          };
+          return toolError("resolving the user filter", error);
         }
 
         const url = new URL(`${connection.serverUrl.replace(/\/$/, "")}/_apis/git/pullrequests`);
@@ -941,14 +867,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           url: pr.url,
         }));
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(pullRequests, null, 2) }],
-        };
+        return jsonResult(pullRequests);
       } catch (error) {
-        return {
-          content: [{ type: "text", text: `Error listing organization pull requests: ${error instanceof Error ? error.message : "Unknown error occurred"}` }],
-          isError: true,
-        };
+        return toolError("listing organization pull requests", error);
       }
     }
   );
@@ -1007,24 +928,15 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const paginatedThreads = filteredThreads.sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).slice(skip, skip + top);
 
         if (fullResponse) {
-          return {
-            content: [{ type: "text", text: JSON.stringify(paginatedThreads, null, 2) }],
-          };
+          return jsonResult(paginatedThreads);
         }
 
         // Return trimmed thread data focusing on essential information
         const trimmedThreads = paginatedThreads.map((thread) => trimPullRequestThread(thread));
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(trimmedThreads, null, 2) }],
-        };
+        return jsonResult(trimmedThreads);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error listing pull request threads: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing pull request threads", error);
       }
     }
   );
@@ -1055,24 +967,15 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const paginatedComments = comments?.sort((a, b) => (a.id ?? 0) - (b.id ?? 0)).slice(skip, skip + top);
 
         if (fullResponse) {
-          return {
-            content: [{ type: "text", text: JSON.stringify(paginatedComments, null, 2) }],
-          };
+          return jsonResult(paginatedComments);
         }
 
         // Return trimmed comment data focusing on essential information
         const trimmedComments = trimComments(paginatedComments);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(trimmedComments, null, 2) }],
-        };
+        return jsonResult(trimmedComments);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error listing pull request thread comments: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing pull request thread comments", error);
       }
     }
   );
@@ -1097,16 +1000,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const filteredBranches = branchesFilterOutIrrelevantProperties(branches, top);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(filteredBranches, null, 2) }],
-        };
+        return jsonResult(filteredBranches);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error listing branches: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing branches", error);
       }
     }
   );
@@ -1131,16 +1027,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const filteredBranches = branchesFilterOutIrrelevantProperties(branches, top);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(filteredBranches, null, 2) }],
-        };
+        return jsonResult(filteredBranches);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error listing my branches: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing my branches", error);
       }
     }
   );
@@ -1168,16 +1057,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(repository, null, 2) }],
-        };
+        return jsonResult(repository);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error getting repository: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("getting repository", error);
       }
     }
   );
@@ -1208,16 +1090,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
             isError: true,
           };
         }
-        return {
-          content: [{ type: "text", text: JSON.stringify(branch, null, 2) }],
-        };
+        return jsonResult(branch);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error getting branch: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("getting branch", error);
       }
     }
   );
@@ -1260,7 +1135,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
               },
             };
           } catch (error) {
-            console.warn(`Error fetching PR labels: ${error instanceof Error ? error.message : "Unknown error"}`);
+            console.warn(`Error fetching PR labels: ${errorMessage(error)}`);
             enhancedResponse = {
               ...enhancedResponse,
               labelSummary: {},
@@ -1303,7 +1178,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
               };
             }
           } catch (error) {
-            console.warn(`Error fetching PR changed files: ${error instanceof Error ? error.message : "Unknown error"}`);
+            console.warn(`Error fetching PR changed files: ${errorMessage(error)}`);
             enhancedResponse = {
               ...enhancedResponse,
               changedFilesSummary: {},
@@ -1311,16 +1186,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           }
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(enhancedResponse, null, 2) }],
-        };
+        return jsonResult(enhancedResponse);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error getting pull request: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("getting pull request", error);
       }
     }
   );
@@ -1389,9 +1257,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         // If includeDiffs is false, just return the metadata
         if (!includeDiffs) {
-          return {
-            content: [{ type: "text", text: JSON.stringify(changes, null, 2) }],
-          };
+          return jsonResult(changes);
         }
 
         // Get actual diff content using getFileDiffs
@@ -1515,7 +1381,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
                         } catch (addError) {
                           return {
                             ...entry,
-                            _contentFetchError: `Failed to fetch added file content: ${addError instanceof Error ? addError.message : "Unknown error"}`,
+                            _contentFetchError: `Failed to fetch added file content: ${errorMessage(addError)}`,
                           };
                         }
                         return entry;
@@ -1553,7 +1419,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
                         } catch (delError) {
                           return {
                             ...entry,
-                            _contentFetchError: `Failed to fetch deleted file content: ${delError instanceof Error ? delError.message : "Unknown error"}`,
+                            _contentFetchError: `Failed to fetch deleted file content: ${errorMessage(delError)}`,
                           };
                         }
                         return entry;
@@ -1637,7 +1503,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
                         // If content fetch fails, return entry with error
                         return {
                           ...entry,
-                          _contentFetchError: `Failed to fetch line content: ${contentError instanceof Error ? contentError.message : "Unknown error"}`,
+                          _contentFetchError: `Failed to fetch line content: ${errorMessage(contentError)}`,
                         };
                       }
                     })
@@ -1651,42 +1517,22 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
                 enrichedChanges.changeEntries = entriesWithContent;
               }
 
-              return {
-                content: [{ type: "text", text: JSON.stringify(enrichedChanges, null, 2) }],
-              };
+              return jsonResult(enrichedChanges);
             } catch (diffError) {
               // If diff fetching fails, return metadata with error info
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: JSON.stringify(
-                      {
-                        ...changes,
-                        _diffError: `Failed to fetch diff content: ${diffError instanceof Error ? diffError.message : "Unknown error"}`,
-                        _note: "Returned metadata only",
-                      },
-                      null,
-                      2
-                    ),
-                  },
-                ],
-              };
+              return jsonResult({
+                ...changes,
+                _diffError: `Failed to fetch diff content: ${errorMessage(diffError)}`,
+                _note: "Returned metadata only",
+              });
             }
           }
         }
 
         // Fallback: return metadata if we couldn't get diffs
-        return {
-          content: [{ type: "text", text: JSON.stringify(changes, null, 2) }],
-        };
+        return jsonResult(changes);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error getting pull request changes: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("getting pull request changes", error);
       }
     }
   );
@@ -1720,21 +1566,14 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         }
 
         if (fullResponse) {
-          return {
-            content: [{ type: "text", text: JSON.stringify(comment, null, 2) }],
-          };
+          return jsonResult(comment);
         }
 
         return {
           content: [{ type: "text", text: `Comment successfully added to thread ${threadId}.` }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error replying to comment: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("replying to comment", error);
       }
     }
   );
@@ -1916,16 +1755,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const trimmedThread = trimPullRequestThread(thread);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(trimmedThread, null, 2) }],
-        };
+        return jsonResult(trimmedThread);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating pull request thread: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating pull request thread", error);
       }
     }
   );
@@ -1953,11 +1785,11 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: `Error: Failed to update comment ${commentId} in thread ${threadId}. The comment was not updated.` }], isError: true };
         }
         if (fullResponse) {
-          return { content: [{ type: "text", text: JSON.stringify(comment, null, 2) }] };
+          return jsonResult(comment);
         }
         return { content: [{ type: "text", text: `Comment ${commentId} updated in thread ${threadId}.` }] };
       } catch (error) {
-        return { content: [{ type: "text", text: `Error updating pull request comment: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
+        return toolError("updating pull request comment", error);
       }
     }
   );
@@ -2006,16 +1838,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const trimmedThread = trimPullRequestThread(thread);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(trimmedThread, null, 2) }],
-        };
+        return jsonResult(trimmedThread);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error updating pull request thread: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating pull request thread", error);
       }
     }
   );
@@ -2105,18 +1930,16 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
               }
             } catch (error) {
               // Log error but continue with other commits
-              console.warn(`Failed to retrieve commit ${commitId}: ${error instanceof Error ? error.message : String(error)}`);
+              console.warn(`Failed to retrieve commit ${commitId}: ${errorMessage(error)}`);
               // Add error information to result instead of failing completely
               commits.push({
                 commitId: commitId,
-                error: `Failed to retrieve: ${error instanceof Error ? error.message : String(error)}`,
+                error: `Failed to retrieve: ${errorMessage(error)}`,
               });
             }
           }
 
-          return {
-            content: [{ type: "text", text: JSON.stringify(commits, null, 2) }],
-          };
+          return jsonResult(commits);
         }
 
         const searchCriteria: GitQueryCommitsCriteria = {
@@ -2182,19 +2005,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           filteredCommits = filteredCommits.filter((commit) => commit.committer?.email?.toLowerCase() === committerEmail.toLowerCase());
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(filteredCommits, null, 2) }],
-        };
+        return jsonResult(filteredCommits);
       } catch (error) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error searching commits: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-          isError: true,
-        };
+        return toolError("searching commits", error);
       }
     }
   );
@@ -2231,16 +2044,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const queryResult = await gitApi.getPullRequestQuery(query, repository, project);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(queryResult, null, 2) }],
-        };
+        return jsonResult(queryResult);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error querying pull requests by commits: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("querying pull requests by commits", error);
       }
     }
   );
@@ -2371,16 +2177,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           items: formattedItems,
         };
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
-        };
+        return jsonResult(response);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error listing directory: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing directory", error);
       }
     }
   );
@@ -2449,17 +2248,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           content: [{ type: "text", text: content }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error getting file content for '${path}': ${errorMessage}`,
-            },
-          ],
-          isError: true,
-        };
+        return toolError(`getting file content for '${path}'`, error);
       }
     }
   );
@@ -2537,26 +2326,14 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "Push did not return a result" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error pushing changes: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("pushing changes", error);
       }
     }
   );
 
   const repositoryIdParam = z.string().describe("The ID or name of the repository. When using a name instead of a GUID, pass 'project' too.");
-  const failed = (action: string, error: unknown) => ({
-    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
-    isError: true,
-  });
-  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
   registerTool(
     server,
@@ -2573,9 +2350,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const refs = await gitApi.getRefs(repositoryId, project, "tags/", false, false, undefined, false, peelTags, nameFilter);
-        return ok(refs.map((ref) => ({ name: tagNameFromRef(ref.name), objectId: ref.objectId, peeledObjectId: ref.peeledObjectId })));
+        return jsonResult(refs.map((ref) => ({ name: tagNameFromRef(ref.name), objectId: ref.objectId, peeledObjectId: ref.peeledObjectId })));
       } catch (error) {
-        return failed("listing tags", error);
+        return toolError("listing tags", error);
       }
     }
   );
@@ -2608,7 +2385,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           annotation = undefined;
         }
 
-        return ok({
+        return jsonResult({
           name: tagName,
           objectId: ref.objectId,
           commitId: ref.peeledObjectId ?? ref.objectId,
@@ -2617,7 +2394,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           taggedBy: annotation?.taggedBy,
         });
       } catch (error) {
-        return failed(`getting tag '${tagName}'`, error);
+        return toolError(`getting tag '${tagName}'`, error);
       }
     }
   );
@@ -2638,9 +2415,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const tag = await gitApi.createAnnotatedTag({ name: tagName, message, taggedObject: { objectId: commitId } }, project, repositoryId);
-        return ok(tag);
+        return jsonResult(tag);
       } catch (error) {
-        return failed(`creating tag '${tagName}'`, error);
+        return toolError(`creating tag '${tagName}'`, error);
       }
     }
   );
@@ -2669,9 +2446,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!result?.success) {
           return { content: [{ type: "text", text: `Failed to delete tag '${tagName}': ${JSON.stringify(result)}` }], isError: true };
         }
-        return ok({ deleted: tagName, previousObjectId: ref.objectId });
+        return jsonResult({ deleted: tagName, previousObjectId: ref.objectId });
       } catch (error) {
-        return failed(`deleting tag '${tagName}'`, error);
+        return toolError(`deleting tag '${tagName}'`, error);
       }
     }
   );
@@ -2693,9 +2470,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const statuses = await gitApi.getStatuses(commitId, repositoryId, project, top, skip, latestOnly);
-        return ok(statuses);
+        return jsonResult(statuses);
       } catch (error) {
-        return failed(`listing statuses for commit ${commitId}`, error);
+        return toolError(`listing statuses for commit ${commitId}`, error);
       }
     }
   );
@@ -2729,9 +2506,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           repositoryId,
           project
         );
-        return ok(status);
+        return jsonResult(status);
       } catch (error) {
-        return failed(`creating a status on commit ${commitId}`, error);
+        return toolError(`creating a status on commit ${commitId}`, error);
       }
     }
   );
@@ -2758,9 +2535,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           project,
           sourceRef
         );
-        return ok(repository);
+        return jsonResult(repository);
       } catch (error) {
-        return failed(`creating repository '${name}'`, error);
+        return toolError(`creating repository '${name}'`, error);
       }
     }
   );
@@ -2778,9 +2555,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         await gitApi.deleteRepository(repositoryId, project);
-        return ok({ deleted: repositoryId, note: "Moved to the project's recycle bin." });
+        return jsonResult({ deleted: repositoryId, note: "Moved to the project's recycle bin." });
       } catch (error) {
-        return failed(`deleting repository ${repositoryId}`, error);
+        return toolError(`deleting repository ${repositoryId}`, error);
       }
     }
   );
@@ -2799,9 +2576,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const labels = await gitApi.getPullRequestLabels(repositoryId, pullRequestId, project);
-        return ok(labels.map((label) => ({ id: label.id, name: label.name, active: label.active })));
+        return jsonResult(labels.map((label) => ({ id: label.id, name: label.name, active: label.active })));
       } catch (error) {
-        return failed(`listing labels on pull request ${pullRequestId}`, error);
+        return toolError(`listing labels on pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -2821,9 +2598,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const created = await gitApi.createPullRequestLabel({ name: label }, repositoryId, pullRequestId, project);
-        return ok(created);
+        return jsonResult(created);
       } catch (error) {
-        return failed(`adding label '${label}' to pull request ${pullRequestId}`, error);
+        return toolError(`adding label '${label}' to pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -2843,9 +2620,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         await gitApi.deletePullRequestLabels(repositoryId, pullRequestId, label, project);
-        return ok({ removed: label, pullRequestId });
+        return jsonResult({ removed: label, pullRequestId });
       } catch (error) {
-        return failed(`removing label '${label}' from pull request ${pullRequestId}`, error);
+        return toolError(`removing label '${label}' from pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -2892,9 +2669,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const cherryPick = await gitApi.createCherryPick(parameters, project, repositoryId);
-        return ok(summarizeAsyncRefOperation(cherryPick.cherryPickId, cherryPick));
+        return jsonResult(summarizeAsyncRefOperation(cherryPick.cherryPickId, cherryPick));
       } catch (error) {
-        return failed(`cherry-picking onto '${ontoBranch}'`, error);
+        return toolError(`cherry-picking onto '${ontoBranch}'`, error);
       }
     }
   );
@@ -2917,9 +2694,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!cherryPick) {
           return { content: [{ type: "text", text: `Cherry-pick ${cherryPickId} not found in repository ${repositoryId}` }], isError: true };
         }
-        return ok(summarizeAsyncRefOperation(cherryPick.cherryPickId ?? cherryPickId, cherryPick));
+        return jsonResult(summarizeAsyncRefOperation(cherryPick.cherryPickId ?? cherryPickId, cherryPick));
       } catch (error) {
-        return failed(`getting cherry-pick ${cherryPickId}`, error);
+        return toolError(`getting cherry-pick ${cherryPickId}`, error);
       }
     }
   );
@@ -2938,9 +2715,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const revert = await gitApi.createRevert(parameters, project, repositoryId);
-        return ok(summarizeAsyncRefOperation(revert.revertId, revert));
+        return jsonResult(summarizeAsyncRefOperation(revert.revertId, revert));
       } catch (error) {
-        return failed(`reverting onto '${ontoBranch}'`, error);
+        return toolError(`reverting onto '${ontoBranch}'`, error);
       }
     }
   );
@@ -2963,9 +2740,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!revert) {
           return { content: [{ type: "text", text: `Revert ${revertId} not found in repository ${repositoryId}` }], isError: true };
         }
-        return ok(summarizeAsyncRefOperation(revert.revertId ?? revertId, revert));
+        return jsonResult(summarizeAsyncRefOperation(revert.revertId ?? revertId, revert));
       } catch (error) {
-        return failed(`getting revert ${revertId}`, error);
+        return toolError(`getting revert ${revertId}`, error);
       }
     }
   );
@@ -2988,9 +2765,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           iterationId !== undefined
             ? await gitApi.getPullRequestIterationStatuses(repositoryId, pullRequestId, iterationId, project)
             : await gitApi.getPullRequestStatuses(repositoryId, pullRequestId, project);
-        return ok(statuses);
+        return jsonResult(statuses);
       } catch (error) {
-        return failed(`listing statuses on pull request ${pullRequestId}`, error);
+        return toolError(`listing statuses on pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -3029,9 +2806,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           pullRequestId,
           project
         );
-        return ok(status);
+        return jsonResult(status);
       } catch (error) {
-        return failed(`creating a status on pull request ${pullRequestId}`, error);
+        return toolError(`creating a status on pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -3051,9 +2828,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         await gitApi.deletePullRequestStatus(repositoryId, pullRequestId, statusId, project);
-        return ok({ deleted: statusId, pullRequestId });
+        return jsonResult({ deleted: statusId, pullRequestId });
       } catch (error) {
-        return failed(`deleting status ${statusId} from pull request ${pullRequestId}`, error);
+        return toolError(`deleting status ${statusId} from pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -3070,7 +2847,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const repositories = await gitApi.getRecycleBinRepositories(project);
-        return ok(
+        return jsonResult(
           repositories.map((repository) => ({
             id: repository.id,
             name: repository.name,
@@ -3080,7 +2857,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           }))
         );
       } catch (error) {
-        return failed("listing deleted repositories", error);
+        return toolError("listing deleted repositories", error);
       }
     }
   );
@@ -3098,9 +2875,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const repository = await gitApi.restoreRepositoryFromRecycleBin({ deleted: false }, project, repositoryId);
-        return ok(repository);
+        return jsonResult(repository);
       } catch (error) {
-        return failed(`restoring repository ${repositoryId}`, error);
+        return toolError(`restoring repository ${repositoryId}`, error);
       }
     }
   );
@@ -3109,7 +2886,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
     const connection = await connectionProvider();
     const gitApi = await connection.getGitApi();
     const ref = await gitApi.updateRef({ isLocked }, repositoryId, branchRef(branch).replace(/^refs\//, ""), project);
-    return ok({ name: ref.name, isLocked: ref.isLocked, isLockedBy: ref.isLockedBy?.displayName });
+    return jsonResult({ name: ref.name, isLocked: ref.isLocked, isLockedBy: ref.isLockedBy?.displayName });
   };
 
   registerTool(
@@ -3125,7 +2902,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         return await setBranchLock(repositoryId, project, branch, true);
       } catch (error) {
-        return failed(`locking branch '${branch}'`, error);
+        return toolError(`locking branch '${branch}'`, error);
       }
     }
   );
@@ -3143,7 +2920,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         return await setBranchLock(repositoryId, project, branch, false);
       } catch (error) {
-        return failed(`unlocking branch '${branch}'`, error);
+        return toolError(`unlocking branch '${branch}'`, error);
       }
     }
   );
@@ -3172,9 +2949,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!commit) {
           return { content: [{ type: "text", text: `Commit ${commitId} not found in repository ${repositoryId}` }], isError: true };
         }
-        return ok(commit);
+        return jsonResult(commit);
       } catch (error) {
-        return failed(`getting commit ${commitId}`, error);
+        return toolError(`getting commit ${commitId}`, error);
       }
     }
   );
@@ -3194,9 +2971,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
-        return ok(await gitApi.getChanges(commitId, repositoryId, project, top, skip));
+        return jsonResult(await gitApi.getChanges(commitId, repositoryId, project, top, skip));
       } catch (error) {
-        return failed(`listing changes of commit ${commitId}`, error);
+        return toolError(`listing changes of commit ${commitId}`, error);
       }
     }
   );
@@ -3232,9 +3009,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         );
         // changeCounts arrives keyed by the numeric change type; name the keys ("Edit", "Add", …).
         const changeCounts = diffs?.changeCounts && Object.fromEntries(Object.entries(diffs.changeCounts).map(([type, count]) => [VersionControlChangeType[Number(type)] ?? type, count]));
-        return ok({ ...diffs, changeCounts });
+        return jsonResult({ ...diffs, changeCounts });
       } catch (error) {
-        return failed(`comparing ${baseVersion} with ${targetVersion}`, error);
+        return toolError(`comparing ${baseVersion} with ${targetVersion}`, error);
       }
     }
   );
@@ -3254,9 +3031,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
-        return ok(await gitApi.getMergeBases(repositoryId, commitId, otherCommitId, project, undefined, otherRepositoryId));
+        return jsonResult(await gitApi.getMergeBases(repositoryId, commitId, otherCommitId, project, undefined, otherRepositoryId));
       } catch (error) {
-        return failed(`finding the merge base of ${commitId} and ${otherCommitId}`, error);
+        return toolError(`finding the merge base of ${commitId} and ${otherCommitId}`, error);
       }
     }
   );
@@ -3280,9 +3057,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
-        return ok(await gitApi.getPushes(repositoryId, project, skip, top, { refName, pusherId, fromDate, toDate, includeRefUpdates }));
+        return jsonResult(await gitApi.getPushes(repositoryId, project, skip, top, { refName, pusherId, fromDate, toDate, includeRefUpdates }));
       } catch (error) {
-        return failed("listing pushes", error);
+        return toolError("listing pushes", error);
       }
     }
   );
@@ -3305,9 +3082,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!push) {
           return { content: [{ type: "text", text: `Push ${pushId} not found in repository ${repositoryId}` }], isError: true };
         }
-        return ok(push);
+        return jsonResult(push);
       } catch (error) {
-        return failed(`getting push ${pushId}`, error);
+        return toolError(`getting push ${pushId}`, error);
       }
     }
   );
@@ -3327,9 +3104,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const base = baseBranch ? { version: baseBranch, versionType: GitVersionType.Branch } : undefined;
-        return ok(branch ? await gitApi.getBranch(repositoryId, branch, project, base) : await gitApi.getBranches(repositoryId, project, base));
+        return jsonResult(branch ? await gitApi.getBranch(repositoryId, branch, project, base) : await gitApi.getBranches(repositoryId, project, base));
       } catch (error) {
-        return failed("getting branch statistics", error);
+        return toolError("getting branch statistics", error);
       }
     }
   );
@@ -3346,9 +3123,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
-        return ok(await gitApi.getSuggestions(repositoryId, project));
+        return jsonResult(await gitApi.getSuggestions(repositoryId, project));
       } catch (error) {
-        return failed("getting pull request suggestions", error);
+        return toolError("getting pull request suggestions", error);
       }
     }
   );
@@ -3377,9 +3154,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
           iterationId !== undefined
             ? await gitApi.getPullRequestIterationCommits(repositoryId, pullRequestId, iterationId, project, top, skip)
             : await gitApi.getPullRequestCommits(repositoryId, pullRequestId, project);
-        return ok(commits);
+        return jsonResult(commits);
       } catch (error) {
-        return failed(`listing commits of pull request ${pullRequestId}`, error);
+        return toolError(`listing commits of pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -3398,9 +3175,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const refs = await gitApi.getPullRequestWorkItemRefs(repositoryId, pullRequestId, project);
-        return ok((refs ?? []).map((ref) => ({ id: ref.id, url: ref.url })));
+        return jsonResult((refs ?? []).map((ref) => ({ id: ref.id, url: ref.url })));
       } catch (error) {
-        return failed(`listing work items of pull request ${pullRequestId}`, error);
+        return toolError(`listing work items of pull request ${pullRequestId}`, error);
       }
     }
   );
@@ -3423,9 +3200,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         await gitApi.deleteComment(repositoryId, pullRequestId, threadId, commentId, project);
-        return ok({ deleted: commentId, threadId, pullRequestId });
+        return jsonResult({ deleted: commentId, threadId, pullRequestId });
       } catch (error) {
-        return failed(`deleting comment ${commentId}`, error);
+        return toolError(`deleting comment ${commentId}`, error);
       }
     }
   );
@@ -3440,9 +3217,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const likes = await gitApi.getLikes(repositoryId, pullRequestId, threadId, commentId, project);
-        return ok((likes ?? []).map((identity) => ({ id: identity.id, displayName: identity.displayName, uniqueName: identity.uniqueName })));
+        return jsonResult((likes ?? []).map((identity) => ({ id: identity.id, displayName: identity.displayName, uniqueName: identity.uniqueName })));
       } catch (error) {
-        return failed(`listing likes of comment ${commentId}`, error);
+        return toolError(`listing likes of comment ${commentId}`, error);
       }
     }
   );
@@ -3452,9 +3229,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       const connection = await connectionProvider();
       const gitApi = await connection.getGitApi();
       await gitApi.createLike(repositoryId, pullRequestId, threadId, commentId, project);
-      return ok({ liked: commentId, threadId, pullRequestId });
+      return jsonResult({ liked: commentId, threadId, pullRequestId });
     } catch (error) {
-      return failed(`liking comment ${commentId}`, error);
+      return toolError(`liking comment ${commentId}`, error);
     }
   });
 
@@ -3468,9 +3245,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         await gitApi.deleteLike(repositoryId, pullRequestId, threadId, commentId, project);
-        return ok({ unliked: commentId, threadId, pullRequestId });
+        return jsonResult({ unliked: commentId, threadId, pullRequestId });
       } catch (error) {
-        return failed(`unliking comment ${commentId}`, error);
+        return toolError(`unliking comment ${commentId}`, error);
       }
     }
   );
@@ -3495,9 +3272,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const update = { name, defaultBranch: defaultBranch === undefined ? undefined : branchRef(defaultBranch) };
-        return ok(await gitApi.updateRepository(update, repositoryId, project));
+        return jsonResult(await gitApi.updateRepository(update, repositoryId, project));
       } catch (error) {
-        return failed(`updating repository ${repositoryId}`, error);
+        return toolError(`updating repository ${repositoryId}`, error);
       }
     }
   );
@@ -3515,9 +3292,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         await gitApi.deleteRepositoryFromRecycleBin(project, repositoryId);
-        return ok({ destroyed: repositoryId });
+        return jsonResult({ destroyed: repositoryId });
       } catch (error) {
-        return failed(`erasing repository ${repositoryId}`, error);
+        return toolError(`erasing repository ${repositoryId}`, error);
       }
     }
   );
@@ -3546,9 +3323,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const request = await gitApi.createImportRequest({ parameters: { gitSource: { url: sourceUrl }, serviceEndpointId, deleteServiceEndpointAfterImportIsDone } }, project, repositoryId);
-        return ok(describeImport(request));
+        return jsonResult(describeImport(request));
       } catch (error) {
-        return failed(`importing ${sourceUrl}`, error);
+        return toolError(`importing ${sourceUrl}`, error);
       }
     }
   );
@@ -3567,9 +3344,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
         const requests = await gitApi.queryImportRequests(project, repositoryId, includeAbandoned);
-        return ok((requests ?? []).map(describeImport));
+        return jsonResult((requests ?? []).map(describeImport));
       } catch (error) {
-        return failed("listing import requests", error);
+        return toolError("listing import requests", error);
       }
     }
   );
@@ -3593,9 +3370,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!request) {
           return { content: [{ type: "text", text: `Import request ${importRequestId} not found in repository ${repositoryId}` }], isError: true };
         }
-        return ok(describeImport(request));
+        return jsonResult(describeImport(request));
       } catch (error) {
-        return failed(`getting import request ${importRequestId}`, error);
+        return toolError(`getting import request ${importRequestId}`, error);
       }
     }
   );
@@ -3617,9 +3394,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         // The REST API documents the status by name ("queued" retries, "abandoned" gives up).
         const status = (action === "retry" ? "queued" : "abandoned") as unknown as GitAsyncOperationStatus;
         const request = await gitApi.updateImportRequest({ status }, project, repositoryId, importRequestId);
-        return ok(describeImport(request));
+        return jsonResult(describeImport(request));
       } catch (error) {
-        return failed(`updating import request ${importRequestId}`, error);
+        return toolError(`updating import request ${importRequestId}`, error);
       }
     }
   );
@@ -3644,9 +3421,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!collection?.id) {
           return { content: [{ type: "text", text: "Could not determine the organization's collection ID." }], isError: true };
         }
-        return ok(await gitApi.getForks(repositoryId, collection.id, project));
+        return jsonResult(await gitApi.getForks(repositoryId, collection.id, project));
       } catch (error) {
-        return failed(`listing forks of repository ${repositoryId}`, error);
+        return toolError(`listing forks of repository ${repositoryId}`, error);
       }
     }
   );
@@ -3669,9 +3446,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
-        return ok(await gitApi.createForkSyncRequest({ source: { repositoryId: sourceRepositoryId, projectId: sourceProjectId }, sourceToTargetRefs: refs }, repositoryId, project));
+        return jsonResult(await gitApi.createForkSyncRequest({ source: { repositoryId: sourceRepositoryId, projectId: sourceProjectId }, sourceToTargetRefs: refs }, repositoryId, project));
       } catch (error) {
-        return failed(`syncing repository ${repositoryId}`, error);
+        return toolError(`syncing repository ${repositoryId}`, error);
       }
     }
   );
@@ -3689,9 +3466,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       try {
         const connection = await connectionProvider();
         const gitApi = await connection.getGitApi();
-        return ok(await gitApi.getForkSyncRequests(repositoryId, project, includeAbandoned));
+        return jsonResult(await gitApi.getForkSyncRequests(repositoryId, project, includeAbandoned));
       } catch (error) {
-        return failed("listing fork sync requests", error);
+        return toolError("listing fork sync requests", error);
       }
     }
   );
@@ -3713,9 +3490,9 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         if (!request) {
           return { content: [{ type: "text", text: `Fork sync operation ${forkSyncOperationId} not found` }], isError: true };
         }
-        return ok(request);
+        return jsonResult(request);
       } catch (error) {
-        return failed(`getting fork sync operation ${forkSyncOperationId}`, error);
+        return toolError(`getting fork sync operation ${forkSyncOperationId}`, error);
       }
     }
   );

@@ -76,7 +76,7 @@ describe("configurePolicyTools", () => {
     const result = await handler({ project: "Proj", scope: "repo-1", policyType: "type-1" });
 
     expect(mockPolicyApi.getPolicyConfigurations).toHaveBeenCalledWith("Proj", "repo-1", "type-1");
-    expect(result.content[0].text).toContain('"id": 1');
+    expect(result.content[0].text).toContain('"id":1');
   });
 
   it("list_configurations reports when none found", async () => {
@@ -96,7 +96,7 @@ describe("configurePolicyTools", () => {
     const result = await handler({ project: "Proj", configurationId: 7 });
 
     expect(mockPolicyApi.getPolicyConfiguration).toHaveBeenCalledWith("Proj", 7);
-    expect(result.content[0].text).toContain('"id": 7');
+    expect(result.content[0].text).toContain('"id":7');
   });
 
   it("create_configuration passes the configuration object", async () => {
@@ -107,7 +107,7 @@ describe("configurePolicyTools", () => {
     const result = await handler({ project: "Proj", configuration });
 
     expect(mockPolicyApi.createPolicyConfiguration).toHaveBeenCalledWith(configuration, "Proj");
-    expect(result.content[0].text).toContain('"id": 9');
+    expect(result.content[0].text).toContain('"id":9');
   });
 
   it("update_configuration passes id and object", async () => {
@@ -118,7 +118,7 @@ describe("configurePolicyTools", () => {
     const result = await handler({ project: "Proj", configurationId: 9, configuration });
 
     expect(mockPolicyApi.updatePolicyConfiguration).toHaveBeenCalledWith(configuration, "Proj", 9);
-    expect(result.content[0].text).toContain('"isEnabled": false');
+    expect(result.content[0].text).toContain('"isEnabled":false');
   });
 
   it("delete_configuration deletes by id", async () => {
@@ -168,7 +168,7 @@ describe("configurePolicyTools", () => {
     const result = await handler({ project: "Proj", configurationId: 9, revisionId: 2 });
 
     expect(mockPolicyApi.getPolicyConfigurationRevision).toHaveBeenCalledWith("Proj", 9, 2);
-    expect(result.content[0].text).toContain('"revision": 2');
+    expect(result.content[0].text).toContain('"revision":2');
   });
 
   it("list_evaluations passes artifact and options", async () => {

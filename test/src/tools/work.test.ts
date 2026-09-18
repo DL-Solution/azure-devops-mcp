@@ -216,21 +216,17 @@ describe("configureWorkTools", () => {
 
       expect(result.content[0].text).toBe("Project: fabrikam, Team: Fabrikam Team");
       expect(result.content[1].text).toBe(
-        JSON.stringify(
-          [
-            {
-              id: "a589a806-bf11-4d4f-a031-c19813331553",
-              name: "Sprint 2",
-              attributes: {
-                startDate: null,
-                finishDate: null,
-              },
-              url: "https://dev.azure.com/fabrikam/6d823a47-2d51-4f31-acff-74927f88ee1e/748b18b6-4b3c-425a-bcae-ff9b3e703012/_apis/work/teamsettings/iterations/a589a806-bf11-4d4f-a031-c19813331553",
+        JSON.stringify([
+          {
+            id: "a589a806-bf11-4d4f-a031-c19813331553",
+            name: "Sprint 2",
+            attributes: {
+              startDate: null,
+              finishDate: null,
             },
-          ],
-          null,
-          2
-        )
+            url: "https://dev.azure.com/fabrikam/6d823a47-2d51-4f31-acff-74927f88ee1e/748b18b6-4b3c-425a-bcae-ff9b3e703012/_apis/work/teamsettings/iterations/a589a806-bf11-4d4f-a031-c19813331553",
+          },
+        ])
       );
     });
 
@@ -298,7 +294,7 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.getTeamIterations).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching team iterations: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching team iterations: string error");
     });
 
     it("should elicit project and team when not provided and user accepts", async () => {
@@ -490,7 +486,7 @@ describe("configureWorkTools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should use default depth of 1 when depth parameter is not provided", async () => {
@@ -534,7 +530,7 @@ describe("configureWorkTools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should filter out non-iteration nodes and return only iteration nodes", async () => {
@@ -590,7 +586,7 @@ describe("configureWorkTools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle case when no iteration nodes are found", async () => {
@@ -708,7 +704,7 @@ describe("configureWorkTools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle API errors correctly", async () => {
@@ -751,7 +747,7 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkItemTrackingApi.getClassificationNodes).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching iterations: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching iterations: string error");
     });
 
     it("should properly map child iterations with all expected properties", async () => {
@@ -897,7 +893,7 @@ describe("configureWorkTools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should recursively filter out iterations and their children by excludedIds", async () => {
@@ -1276,22 +1272,18 @@ describe("configureWorkTools", () => {
       );
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            {
-              id: "a589a806-bf11-4d4f-a031-c19813331553",
-              name: "Sprint 2",
-              path: "Fabrikam-Fiber\\Release 1\\Sprint 2",
-              attributes: {
-                startDate: null,
-                finishDate: null,
-              },
-              url: "https://dev.azure.com/fabrikam/6d823a47-2d51-4f31-acff-74927f88ee1e/748b18b6-4b3c-425a-bcae-ff9b3e703012/_apis/work/teamsettings/iterations/a589a806-bf11-4d4f-a031-c19813331553",
+        JSON.stringify([
+          {
+            id: "a589a806-bf11-4d4f-a031-c19813331553",
+            name: "Sprint 2",
+            path: "Fabrikam-Fiber\\Release 1\\Sprint 2",
+            attributes: {
+              startDate: null,
+              finishDate: null,
             },
-          ],
-          null,
-          2
-        )
+            url: "https://dev.azure.com/fabrikam/6d823a47-2d51-4f31-acff-74927f88ee1e/748b18b6-4b3c-425a-bcae-ff9b3e703012/_apis/work/teamsettings/iterations/a589a806-bf11-4d4f-a031-c19813331553",
+          },
+        ])
       );
     });
 
@@ -1377,7 +1369,7 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.postTeamIteration).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error assigning iterations: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error assigning iterations: string error");
     });
   });
 
@@ -1434,29 +1426,25 @@ describe("configureWorkTools", () => {
       );
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            {
-              id: 126391,
-              identifier: "a5c68379-3258-4d62-971c-71c1c459336e",
-              name: "Web",
-              structureType: "area",
-              hasChildren: false,
-              path: "\\fabrikam\\fiber\\tfvc\\area",
-              _links: {
-                self: {
-                  href: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas/Web",
-                },
-                parent: {
-                  href: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas",
-                },
+        JSON.stringify([
+          {
+            id: 126391,
+            identifier: "a5c68379-3258-4d62-971c-71c1c459336e",
+            name: "Web",
+            structureType: "area",
+            hasChildren: false,
+            path: "\\fabrikam\\fiber\\tfvc\\area",
+            _links: {
+              self: {
+                href: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas/Web",
               },
-              url: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas/Web",
+              parent: {
+                href: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas",
+              },
             },
-          ],
-          null,
-          2
-        )
+            url: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas/Web",
+          },
+        ])
       );
     });
 
@@ -1542,7 +1530,7 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error creating iterations: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error creating iterations: string error");
     });
 
     it("should handle iterations without start and finish dates", async () => {
@@ -1586,20 +1574,16 @@ describe("configureWorkTools", () => {
       );
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            {
-              id: 126391,
-              identifier: "a5c68379-3258-4d62-971c-71c1c459336e",
-              name: "Sprint 3",
-              structureType: "iteration",
-              hasChildren: false,
-              path: "\\fabrikam\\fiber\\tfvc\\iteration",
-            },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          {
+            id: 126391,
+            identifier: "a5c68379-3258-4d62-971c-71c1c459336e",
+            name: "Sprint 3",
+            structureType: "iteration",
+            hasChildren: false,
+            path: "\\fabrikam\\fiber\\tfvc\\iteration",
+          },
+        ])
       );
     });
   });
@@ -1720,7 +1704,7 @@ describe("configureWorkTools", () => {
         totalDaysOff: 1,
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle team with no capacity assigned", async () => {
@@ -1802,7 +1786,7 @@ describe("configureWorkTools", () => {
         totalDaysOff: 0,
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle team member with undefined teamMember property", async () => {
@@ -1857,7 +1841,7 @@ describe("configureWorkTools", () => {
         totalDaysOff: 0,
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle API errors correctly", async () => {
@@ -1902,7 +1886,7 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.getCapacitiesWithIdentityRefAndTotals).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error getting team capacity: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error getting team capacity: string error");
     });
 
     it("should properly simplify team member data by removing unwanted fields", async () => {
@@ -2141,7 +2125,7 @@ describe("configureWorkTools", () => {
         ],
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle updating capacity without daysOff", async () => {
@@ -2211,7 +2195,7 @@ describe("configureWorkTools", () => {
         daysOff: [],
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle updating capacity with multiple activities", async () => {
@@ -2313,7 +2297,7 @@ describe("configureWorkTools", () => {
         daysOff: [],
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle updating capacity with unassigned activity (empty name)", async () => {
@@ -2404,7 +2388,7 @@ describe("configureWorkTools", () => {
         ],
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle null API results correctly", async () => {
@@ -2480,7 +2464,7 @@ describe("configureWorkTools", () => {
         daysOff: [],
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle API errors correctly", async () => {
@@ -2539,7 +2523,7 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.updateCapacityWithIdentityRef).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error updating team capacity: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error updating team capacity: string error");
     });
   });
 
@@ -2618,7 +2602,7 @@ describe("configureWorkTools", () => {
         totalDaysOff: 3,
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle iteration with no teams assigned", async () => {
@@ -2745,7 +2729,7 @@ describe("configureWorkTools", () => {
         totalDaysOff: 0,
       };
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should handle API errors correctly", async () => {
@@ -2788,7 +2772,7 @@ describe("configureWorkTools", () => {
 
       expect(mockWorkApi.getTotalIterationCapacities).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error getting iteration capacities: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error getting iteration capacities: string error");
     });
 
     it("should elicit project when not provided and user accepts", async () => {
@@ -2924,7 +2908,7 @@ describe("configureWorkTools", () => {
       };
 
       expect(result.content[0].text).toBe("Project: Fabrikam, Team: Team A");
-      expect(result.content[1].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[1].text).toBe(JSON.stringify(expectedResult));
     });
 
     it("should use default team when team is not provided", async () => {
@@ -3111,7 +3095,7 @@ describe("configureWorkTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching team settings: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching team settings: string error");
     });
 
     it("should elicit project and team when not provided and user accepts", async () => {
@@ -3197,7 +3181,7 @@ describe("configureWorkTools", () => {
       const result = await handler({ project: "Proj" });
 
       expect(mockWorkApi.getPlans).toHaveBeenCalledWith("Proj");
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: "plan-1", name: "Plan One" }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: "plan-1", name: "Plan One" }]));
     });
 
     it("returns an error when no plans are found", async () => {
@@ -3221,7 +3205,7 @@ describe("configureWorkTools", () => {
       const result = await handler({ project: "Proj", id: "plan-1" });
 
       expect(mockWorkApi.getPlan).toHaveBeenCalledWith("Proj", "plan-1");
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-1", name: "Plan One" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-1", name: "Plan One" }));
     });
   });
 
@@ -3234,7 +3218,7 @@ describe("configureWorkTools", () => {
       const result = await handler({ project: "Proj", name: "New Plan", description: "desc" });
 
       expect(mockWorkApi.createPlan).toHaveBeenCalledWith({ name: "New Plan", description: "desc", type: 0, properties: undefined }, "Proj");
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-2", name: "New Plan" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-2", name: "New Plan" }));
     });
 
     it("handles API errors", async () => {
@@ -3261,7 +3245,7 @@ describe("configureWorkTools", () => {
       expect(mockWorkApi.getPlan).toHaveBeenCalledWith("Proj", "plan-1");
       // description and properties were not supplied, so the existing values are preserved.
       expect(mockWorkApi.updatePlan).toHaveBeenCalledWith({ name: "Updated", description: "old desc", revision: 3, type: 0, properties: { team: "A" } }, "Proj", "plan-1");
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-1", name: "Updated" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "plan-1", name: "Updated" }));
     });
 
     it("returns an error when the plan does not exist", async () => {
@@ -3312,7 +3296,7 @@ describe("configureWorkTools", () => {
       const result = await handler({ project: "Proj", depth: 2 });
 
       expect(mockWorkItemTrackingApi.getClassificationNodes).toHaveBeenCalledWith("Proj", [], 2);
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, name: "AreaRoot", structureType: TreeNodeStructureType.Area }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, name: "AreaRoot", structureType: TreeNodeStructureType.Area }]));
     });
 
     it("returns an error when no areas are found", async () => {
@@ -3340,7 +3324,7 @@ describe("configureWorkTools", () => {
       expect(mockConnection.vsoClient.resolveUrl).toHaveBeenCalledWith("/Proj/_apis/wit/classificationNodes/areas/Parent?api-version=7.1");
       expect(mockConnection.rest.create).toHaveBeenCalledWith("https://dev.azure.com/org/Proj/_apis/wit/classificationNodes/areas/Parent?api-version=7.1", { name: "NewArea" });
       expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "NewArea" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "NewArea" }));
     });
 
     it("creates an area at the project root when no parent path is given", async () => {
@@ -3375,7 +3359,7 @@ describe("configureWorkTools", () => {
 
       expect(mockConnection.rest.update).toHaveBeenCalledWith("https://dev.azure.com/org/Proj/_apis/wit/classificationNodes/areas/Parent/Child?api-version=7.1", { name: "Renamed" });
       expect(mockWorkItemTrackingApi.updateClassificationNode).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "Renamed" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 5, name: "Renamed" }));
     });
   });
 
@@ -3418,7 +3402,7 @@ describe("configureWorkTools", () => {
         TreeStructureGroup.Iterations,
         "Sprint 1"
       );
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 9, name: "Sprint 1b" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 9, name: "Sprint 1b" }));
     });
 
     it("returns an error when no fields are provided", async () => {
@@ -3467,7 +3451,7 @@ describe("configureWorkTools", () => {
         },
         { project: "Proj", team: "Team" }
       );
-      expect(result.content[1].text).toBe(JSON.stringify({ defaultValue: "Proj\\A" }, null, 2));
+      expect(result.content[1].text).toBe(JSON.stringify({ defaultValue: "Proj\\A" }));
     });
 
     it("returns an error when no fields are provided", async () => {

@@ -6,6 +6,8 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { toolError } from "../shared/tool-results.js";
+import { continuationTokenParam } from "../shared/common-params.js";
 
 const AUDIT_TOOLS = {
   query_log: "audit_query_log",
@@ -30,7 +32,7 @@ function configureAuditTools(server: McpServer, tokenProvider: () => Promise<str
       startTime: z.string().optional().describe("Start of the time range (ISO 8601, e.g. '2026-01-01T00:00:00Z'). Optional."),
       endTime: z.string().optional().describe("End of the time range (ISO 8601). Optional."),
       batchSize: z.coerce.number().optional().describe("Maximum number of events to return in this batch."),
-      continuationToken: z.string().optional().describe("Continuation token from a previous response to fetch the next batch."),
+      continuationToken: continuationTokenParam,
       skipAggregation: z.boolean().optional().describe("If true, return raw events without aggregating related ones."),
     },
     async ({ startTime, endTime, batchSize, continuationToken, skipAggregation }) => {
@@ -49,8 +51,7 @@ function configureAuditTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error querying audit log: ${errorMessage}` }], isError: true };
+        return toolError("querying audit log", error);
       }
     }
   );
@@ -64,8 +65,7 @@ function configureAuditTools(server: McpServer, tokenProvider: () => Promise<str
 
       return { content: [{ type: "text", text: await response.text() }] };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      return { content: [{ type: "text", text: `Error listing audit actions: ${errorMessage}` }], isError: true };
+      return toolError("listing audit actions", error);
     }
   });
 }

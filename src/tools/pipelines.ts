@@ -12,7 +12,8 @@ import { ConfigurationType, RepositoryType } from "azure-devops-node-api/interfa
 import { mkdirSync, createWriteStream } from "fs";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { join, posix, resolve, win32 } from "path";
-import { requiredProject } from "../shared/common-params.js";
+import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const PIPELINE_TOOLS = {
   pipelines_get_builds: "pipelines_get_builds",
@@ -94,7 +95,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         .optional()
         .describe("Order in which build definitions are returned"),
       top: z.number().optional().describe("Maximum number of build definitions to return"),
-      continuationToken: z.string().optional().describe("Token for continuing paged results"),
+      continuationToken: continuationTokenParam,
       minMetricsTime: z.coerce.date().optional().describe("Minimum metrics time to filter build definitions"),
       definitionIds: z.array(z.coerce.number().min(1)).optional().describe("Array of build definition IDs to filter"),
       builtAfter: z.coerce.date().optional().describe("Return definitions that have builds after this date"),
@@ -165,9 +166,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         yamlFilename
       );
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(buildDefinitions, null, 2) }],
-      };
+      return jsonResult(buildDefinitions);
     }
   );
 
@@ -225,9 +224,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       };
 
       const newPipeline = await pipelinesApi.createPipeline(createPipelineParams, project);
-      return {
-        content: [{ type: "text", text: JSON.stringify(newPipeline, null, 2) }],
-      };
+      return jsonResult(newPipeline);
     }
   );
 
@@ -244,9 +241,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const buildApi = await connection.getBuildApi();
       const revisions = await buildApi.getDefinitionRevisions(project, definitionId);
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(revisions, null, 2) }],
-      };
+      return jsonResult(revisions);
     }
   );
 
@@ -268,7 +263,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       tagFilters: z.array(z.string()).optional().describe("Array of tags to filter builds"),
       properties: z.array(z.string()).optional().describe("Array of property names to include in the results"),
       top: z.number().optional().describe("Maximum number of builds to return"),
-      continuationToken: z.string().optional().describe("Token for continuing paged results"),
+      continuationToken: continuationTokenParam,
       maxBuildsPerDefinition: z.number().optional().describe("Maximum number of builds per definition"),
       deletedFilter: z.number().optional().describe("Filter for deleted builds (see QueryDeletedOption enum)"),
       queryOrder: z
@@ -330,9 +325,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         repositoryType
       );
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(builds, null, 2) }],
-      };
+      return jsonResult(builds);
     }
   );
 
@@ -349,9 +342,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const buildApi = await connection.getBuildApi();
       const logs = await buildApi.getBuildLogs(project, buildId);
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(logs, null, 2) }],
-      };
+      return jsonResult(logs);
     }
   );
 
@@ -382,7 +373,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     {
       project: z.string().describe("Project ID or name to get the build changes for"),
       buildId: z.coerce.number().min(1).describe("ID of the build to get changes for"),
-      continuationToken: z.string().optional().describe("Continuation token for pagination"),
+      continuationToken: continuationTokenParam,
       top: z.number().default(100).describe("Number of changes to retrieve, defaults to 100"),
       includeSourceChange: z.boolean().optional().describe("Whether to include source changes in the results, defaults to false"),
     },
@@ -391,9 +382,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const buildApi = await connection.getBuildApi();
       const changes = await buildApi.getBuildChanges(project, buildId, continuationToken, top, includeSourceChange);
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(changes, null, 2) }],
-      };
+      return jsonResult(changes);
     }
   );
 
@@ -434,10 +423,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
           return true;
         });
 
-        return { content: [{ type: "text", text: JSON.stringify({ ...timeline, records }, null, 2) }] };
+        return jsonResult({ ...timeline, records });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching build timeline: ${errorMessage}` }], isError: true };
+        return toolError("fetching build timeline", error);
       }
     }
   );
@@ -456,9 +444,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const pipelinesApi = await connection.getPipelinesApi();
       const pipelineRun = await pipelinesApi.getRun(project, pipelineId, runId);
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(pipelineRun, null, 2) }],
-      };
+      return jsonResult(pipelineRun);
     }
   );
 
@@ -475,9 +461,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const pipelinesApi = await connection.getPipelinesApi();
       const pipelineRuns = await pipelinesApi.listRuns(project, pipelineId);
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(pipelineRuns, null, 2) }],
-      };
+      return jsonResult(pipelineRuns);
     }
   );
 
@@ -567,9 +551,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         throw new Error("Failed to get build ID from pipeline run");
       }
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(pipelineRun, null, 2) }],
-      };
+      return jsonResult(pipelineRun);
     }
   );
 
@@ -586,9 +568,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const buildApi = await connection.getBuildApi();
       const build = await buildApi.getBuildReport(project, buildId);
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(build, null, 2) }],
-      };
+      return jsonResult(build);
     }
   );
 
@@ -631,9 +611,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
 
       const updatedBuild = await response.text();
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(updatedBuild, null, 2) }],
-      };
+      return jsonResult(updatedBuild);
     }
   );
 
@@ -650,9 +628,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const buildApi = await connection.getBuildApi();
       const artifacts = await buildApi.getArtifacts(project, buildId);
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(artifacts, null, 2) }],
-      };
+      return jsonResult(artifacts);
     }
   );
 
@@ -755,10 +731,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: `Build ${buildId} not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(build, null, 2) }] };
+        return jsonResult(build);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching build: ${errorMessage}` }], isError: true };
+        return toolError("fetching build", error);
       }
     }
   );
@@ -783,10 +758,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: `Build definition ${definitionId} not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(definition, null, 2) }] };
+        return jsonResult(definition);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching build definition: ${errorMessage}` }], isError: true };
+        return toolError("fetching build definition", error);
       }
     }
   );
@@ -808,10 +782,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const build: Build = { definition: { id: definitionId }, sourceBranch, parameters };
         const queued = await buildApi.queueBuild(build, project);
 
-        return { content: [{ type: "text", text: JSON.stringify(queued, null, 2) }] };
+        return jsonResult(queued);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error queueing build: ${errorMessage}` }], isError: true };
+        return toolError("queueing build", error);
       }
     }
   );
@@ -831,10 +804,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const build: Build = { status: BuildStatus.Cancelling };
         const updated = await buildApi.updateBuild(build, project, buildId);
 
-        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+        return jsonResult(updated);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error cancelling build: ${errorMessage}` }], isError: true };
+        return toolError("cancelling build", error);
       }
     }
   );
@@ -853,10 +825,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const buildApi = await connection.getBuildApi();
         const tags = await buildApi.getBuildTags(project, buildId);
 
-        return { content: [{ type: "text", text: JSON.stringify(tags, null, 2) }] };
+        return jsonResult(tags);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching build tags: ${errorMessage}` }], isError: true };
+        return toolError("fetching build tags", error);
       }
     }
   );
@@ -876,10 +847,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const buildApi = await connection.getBuildApi();
         const tags = await buildApi.addBuildTag(project, buildId, tag);
 
-        return { content: [{ type: "text", text: JSON.stringify(tags, null, 2) }] };
+        return jsonResult(tags);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error adding build tag: ${errorMessage}` }], isError: true };
+        return toolError("adding build tag", error);
       }
     }
   );
@@ -899,19 +869,13 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const buildApi = await connection.getBuildApi();
         const tags = await buildApi.deleteBuildTag(project, buildId, tag);
 
-        return { content: [{ type: "text", text: JSON.stringify(tags, null, 2) }] };
+        return jsonResult(tags);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting build tag: ${errorMessage}` }], isError: true };
+        return toolError("deleting build tag", error);
       }
     }
   );
 
-  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
-  const failed = (action: string, error: unknown) => ({
-    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
-    isError: true,
-  });
   const definitionParam = z
     .record(z.string(), z.unknown())
     .describe("The complete build definition as JSON, in the shape pipelines_get_build_definition returns (name, path, process, repository, queue, variables, triggers, …).");
@@ -929,9 +893,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const created = await buildApi.createDefinition(definition as BuildDefinition, project);
-        return ok(created);
+        return jsonResult(created);
       } catch (error) {
-        return failed("creating build definition", error);
+        return toolError("creating build definition", error);
       }
     }
   );
@@ -950,9 +914,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const updated = await buildApi.updateDefinition(definition as BuildDefinition, project, definitionId);
-        return ok(updated);
+        return jsonResult(updated);
       } catch (error) {
-        return failed(`updating build definition ${definitionId}`, error);
+        return toolError(`updating build definition ${definitionId}`, error);
       }
     }
   );
@@ -973,9 +937,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const leases = buildId !== undefined ? await buildApi.getRetentionLeasesForBuild(project, buildId) : await buildApi.getRetentionLeasesByOwnerId(project, ownerId, definitionId, runId);
-        return ok(leases);
+        return jsonResult(leases);
       } catch (error) {
-        return failed("listing retention leases", error);
+        return toolError("listing retention leases", error);
       }
     }
   );
@@ -997,9 +961,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const leases = await buildApi.addRetentionLeases([{ definitionId, runId, ownerId, daysValid, protectPipeline }], project);
-        return ok(leases);
+        return jsonResult(leases);
       } catch (error) {
-        return failed(`adding a retention lease on run ${runId}`, error);
+        return toolError(`adding a retention lease on run ${runId}`, error);
       }
     }
   );
@@ -1022,9 +986,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const lease = await buildApi.updateRetentionLease({ daysValid, protectPipeline }, project, leaseId);
-        return ok(lease);
+        return jsonResult(lease);
       } catch (error) {
-        return failed(`updating retention lease ${leaseId}`, error);
+        return toolError(`updating retention lease ${leaseId}`, error);
       }
     }
   );
@@ -1042,9 +1006,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         await buildApi.deleteRetentionLeasesById(project, leaseIds);
-        return ok({ deleted: leaseIds });
+        return jsonResult({ deleted: leaseIds });
       } catch (error) {
-        return failed("deleting retention leases", error);
+        return toolError("deleting retention leases", error);
       }
     }
   );
@@ -1068,9 +1032,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const folders = await buildApi.getFolders(project, path === undefined ? undefined : folderPath(path), safeEnumConvert(FolderQueryOrder, queryOrder));
-        return ok(folders);
+        return jsonResult(folders);
       } catch (error) {
-        return failed("listing pipeline folders", error);
+        return toolError("listing pipeline folders", error);
       }
     }
   );
@@ -1090,9 +1054,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const folder = await buildApi.createFolder({ path: fullPath, description }, project, fullPath);
-        return ok(folder);
+        return jsonResult(folder);
       } catch (error) {
-        return failed(`creating pipeline folder '${fullPath}'`, error);
+        return toolError(`creating pipeline folder '${fullPath}'`, error);
       }
     }
   );
@@ -1113,9 +1077,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const folder = await buildApi.updateFolder({ path: newPath === undefined ? fullPath : folderPath(newPath), description }, project, fullPath);
-        return ok(folder);
+        return jsonResult(folder);
       } catch (error) {
-        return failed(`updating pipeline folder '${fullPath}'`, error);
+        return toolError(`updating pipeline folder '${fullPath}'`, error);
       }
     }
   );
@@ -1137,9 +1101,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         await buildApi.deleteFolder(project, fullPath);
-        return ok({ deleted: fullPath });
+        return jsonResult({ deleted: fullPath });
       } catch (error) {
-        return failed(`deleting pipeline folder '${fullPath}'`, error);
+        return toolError(`deleting pipeline folder '${fullPath}'`, error);
       }
     }
   );
@@ -1159,9 +1123,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         await buildApi.deleteBuild(project, buildId);
-        return ok({ deleted: buildId });
+        return jsonResult({ deleted: buildId });
       } catch (error) {
-        return failed(`deleting build ${buildId}`, error);
+        return toolError(`deleting build ${buildId}`, error);
       }
     }
   );
@@ -1183,9 +1147,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         if (!build) {
           return { content: [{ type: "text", text: `No build found for pipeline '${definition}'${branchName ? ` on ${branchName}` : ""}` }], isError: true };
         }
-        return ok(build);
+        return jsonResult(build);
       } catch (error) {
-        return failed(`getting the latest build of '${definition}'`, error);
+        return toolError(`getting the latest build of '${definition}'`, error);
       }
     }
   );
@@ -1205,9 +1169,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         const refs = fromBuildId !== undefined ? await buildApi.getWorkItemsBetweenBuilds(project, fromBuildId, buildId, top) : await buildApi.getBuildWorkItemsRefs(project, buildId, top);
-        return ok((refs ?? []).map((ref) => ({ id: ref.id, url: ref.url })));
+        return jsonResult((refs ?? []).map((ref) => ({ id: ref.id, url: ref.url })));
       } catch (error) {
-        return failed(`listing work items of build ${buildId}`, error);
+        return toolError(`listing work items of build ${buildId}`, error);
       }
     }
   );
@@ -1226,9 +1190,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.getChangesBetweenBuilds(project, fromBuildId, toBuildId, top));
+        return jsonResult(await buildApi.getChangesBetweenBuilds(project, fromBuildId, toBuildId, top));
       } catch (error) {
-        return failed(`listing changes between builds ${fromBuildId} and ${toBuildId}`, error);
+        return toolError(`listing changes between builds ${fromBuildId} and ${toBuildId}`, error);
       }
     }
   );
@@ -1237,9 +1201,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     try {
       const connection = await connectionProvider();
       const buildApi = await connection.getBuildApi();
-      return ok((await buildApi.getTags(project)) ?? []);
+      return jsonResult((await buildApi.getTags(project)) ?? []);
     } catch (error) {
-      return failed("listing build tags", error);
+      return toolError("listing build tags", error);
     }
   });
 
@@ -1253,9 +1217,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
         await buildApi.deleteDefinition(project, definitionId);
-        return ok({ deleted: definitionId });
+        return jsonResult({ deleted: definitionId });
       } catch (error) {
-        return failed(`deleting build definition ${definitionId}`, error);
+        return toolError(`deleting build definition ${definitionId}`, error);
       }
     }
   );
@@ -1269,9 +1233,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.restoreDefinition(project, definitionId, false));
+        return jsonResult(await buildApi.restoreDefinition(project, definitionId, false));
       } catch (error) {
-        return failed(`restoring build definition ${definitionId}`, error);
+        return toolError(`restoring build definition ${definitionId}`, error);
       }
     }
   );
@@ -1295,7 +1259,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         }
         return { content: [{ type: "text", text: exported.yaml }] };
       } catch (error) {
-        return failed(`exporting build definition ${definitionId} as YAML`, error);
+        return toolError(`exporting build definition ${definitionId} as YAML`, error);
       }
     }
   );
@@ -1313,9 +1277,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok((await buildApi.getDefinitionTags(project, definitionId, revision)) ?? []);
+        return jsonResult((await buildApi.getDefinitionTags(project, definitionId, revision)) ?? []);
       } catch (error) {
-        return failed(`listing tags of build definition ${definitionId}`, error);
+        return toolError(`listing tags of build definition ${definitionId}`, error);
       }
     }
   );
@@ -1333,9 +1297,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.addDefinitionTags(tags, project, definitionId));
+        return jsonResult(await buildApi.addDefinitionTags(tags, project, definitionId));
       } catch (error) {
-        return failed(`tagging build definition ${definitionId}`, error);
+        return toolError(`tagging build definition ${definitionId}`, error);
       }
     }
   );
@@ -1353,9 +1317,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.deleteDefinitionTag(project, definitionId, tag));
+        return jsonResult(await buildApi.deleteDefinitionTag(project, definitionId, tag));
       } catch (error) {
-        return failed(`removing tag '${tag}' from build definition ${definitionId}`, error);
+        return toolError(`removing tag '${tag}' from build definition ${definitionId}`, error);
       }
     }
   );
@@ -1376,9 +1340,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const buildApi = await connection.getBuildApi();
         const metrics =
           definitionId !== undefined ? await buildApi.getDefinitionMetrics(project, definitionId, minMetricsTime) : await buildApi.getProjectMetrics(project, aggregation, minMetricsTime);
-        return ok(metrics);
+        return jsonResult(metrics);
       } catch (error) {
-        return failed("getting build metrics", error);
+        return toolError("getting build metrics", error);
       }
     }
   );
@@ -1392,9 +1356,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.getDefinitionResources(project, definitionId));
+        return jsonResult(await buildApi.getDefinitionResources(project, definitionId));
       } catch (error) {
-        return failed(`listing resources of build definition ${definitionId}`, error);
+        return toolError(`listing resources of build definition ${definitionId}`, error);
       }
     }
   );
@@ -1421,9 +1385,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.authorizeDefinitionResources(resources, project, definitionId));
+        return jsonResult(await buildApi.authorizeDefinitionResources(resources, project, definitionId));
       } catch (error) {
-        return failed(`authorizing resources for build definition ${definitionId}`, error);
+        return toolError(`authorizing resources for build definition ${definitionId}`, error);
       }
     }
   );
@@ -1439,9 +1403,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.getRetentionSettings(project));
+        return jsonResult(await buildApi.getRetentionSettings(project));
       } catch (error) {
-        return failed("getting retention settings", error);
+        return toolError("getting retention settings", error);
       }
     }
   );
@@ -1471,9 +1435,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.updateRetentionSettings(update, project));
+        return jsonResult(await buildApi.updateRetentionSettings(update, project));
       } catch (error) {
-        return failed("updating retention settings", error);
+        return toolError("updating retention settings", error);
       }
     }
   );
@@ -1487,9 +1451,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.getBuildGeneralSettings(project));
+        return jsonResult(await buildApi.getBuildGeneralSettings(project));
       } catch (error) {
-        return failed("getting pipeline general settings", error);
+        return toolError("getting pipeline general settings", error);
       }
     }
   );
@@ -1511,9 +1475,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const buildApi = await connection.getBuildApi();
-        return ok(await buildApi.updateBuildGeneralSettings(settings, project));
+        return jsonResult(await buildApi.updateBuildGeneralSettings(settings, project));
       } catch (error) {
-        return failed("updating pipeline general settings", error);
+        return toolError("updating pipeline general settings", error);
       }
     }
   );

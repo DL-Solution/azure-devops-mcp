@@ -31,7 +31,7 @@ export function spotlightContent(content: string, source: string): string {
  * Use this for any tool that returns content fetched from Azure DevOps APIs.
  */
 export function createExternalContentResponse(content: unknown, source: string): { content: { type: "text"; text: string }[] } {
-  const serialized = typeof content === "string" ? content : JSON.stringify(content, null, 2);
+  const serialized = typeof content === "string" ? content : JSON.stringify(content);
   const spotlighted = spotlightContent(serialized, source);
   const response: { content: { type: "text"; text: string }[] } & SpotlightedResponse = { content: [{ type: "text", text: spotlighted }] };
   response[spotlightedResponse] = true;

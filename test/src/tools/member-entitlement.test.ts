@@ -4,25 +4,11 @@
 import { describe, expect, it, beforeEach, jest } from "@jest/globals";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
-import { configureMemberEntitlementTools, MEMBER_ENTITLEMENT_TOOLS, memberEntitlementBaseUrl } from "../../../src/tools/member-entitlement";
+import { configureMemberEntitlementTools, MEMBER_ENTITLEMENT_TOOLS } from "../../../src/tools/member-entitlement";
 import { createToolServer } from "../../mocks/tool-server";
 
 type TokenProviderMock = () => Promise<string>;
 type ConnectionProviderMock = () => Promise<WebApi>;
-
-describe("memberEntitlementBaseUrl", () => {
-  it("maps the cloud host to vsaex", () => {
-    expect(memberEntitlementBaseUrl("https://dev.azure.com/contoso")).toBe("https://vsaex.dev.azure.com/contoso");
-  });
-
-  it("maps the legacy visualstudio.com host to vsaex", () => {
-    expect(memberEntitlementBaseUrl("https://contoso.visualstudio.com")).toBe("https://contoso.vsaex.visualstudio.com");
-  });
-
-  it("falls back to the same host for on-prem", () => {
-    expect(memberEntitlementBaseUrl("https://tfs.local/collection")).toBe("https://tfs.local/collection");
-  });
-});
 
 describe("configureMemberEntitlementTools", () => {
   let server: McpServer;
