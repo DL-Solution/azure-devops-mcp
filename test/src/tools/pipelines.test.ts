@@ -88,7 +88,7 @@ describe("configurePipelineTools", () => {
           state: StageUpdateType.Retry.valueOf(),
         }),
       });
-      expect(result.content[0].text).toBe(JSON.stringify(JSON.stringify(mockUpdateBuildStageResponse), null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(JSON.stringify(mockUpdateBuildStageResponse)));
       expect(result.isError).toBeUndefined();
     });
 
@@ -411,14 +411,10 @@ describe("configurePipelineTools", () => {
       );
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            { id: 1, name: "Build Definition 1" },
-            { id: 2, name: "Build Definition 2" },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          { id: 1, name: "Build Definition 1" },
+          { id: 2, name: "Build Definition 2" },
+        ])
       );
     });
 
@@ -640,14 +636,10 @@ describe("configurePipelineTools", () => {
 
       expect(mockBuildApi.getDefinitionRevisions).toHaveBeenCalledWith("test-project", 123);
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            { revision: 1, comment: "Initial revision" },
-            { revision: 2, comment: "Updated build steps" },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          { revision: 1, comment: "Initial revision" },
+          { revision: 2, comment: "Updated build steps" },
+        ])
       );
     });
 
@@ -720,14 +712,10 @@ describe("configurePipelineTools", () => {
       );
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            { id: 1, buildNumber: "20241201.1", status: "completed" },
-            { id: 2, buildNumber: "20241201.2", status: "inProgress" },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          { id: 1, buildNumber: "20241201.1", status: "completed" },
+          { id: 2, buildNumber: "20241201.2", status: "inProgress" },
+        ])
       );
     });
 
@@ -772,14 +760,10 @@ describe("configurePipelineTools", () => {
 
       expect(mockBuildApi.getBuildLogs).toHaveBeenCalledWith("test-project", 123);
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            { id: 1, lineCount: 100 },
-            { id: 2, lineCount: 50 },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          { id: 1, lineCount: 100 },
+          { id: 2, lineCount: 50 },
+        ])
       );
     });
 
@@ -876,7 +860,7 @@ describe("configurePipelineTools", () => {
         expect(responseText).toContain("Starting build...");
         expect(responseText).toContain("Build completed successfully");
         // Must NOT be raw JSON.stringify of log lines without spotlighting
-        expect(responseText).not.toBe(JSON.stringify(logLines, null, 2));
+        expect(responseText).not.toBe(JSON.stringify(logLines));
       });
 
       it("should wrap build log content containing IPI payloads with spotlighting", async () => {
@@ -908,7 +892,7 @@ describe("configurePipelineTools", () => {
         expect(nonce).toBeDefined();
         expect(responseText).toContain(`<</${nonce}>>`);
         // Must NOT be just the raw content
-        expect(responseText).not.toBe(JSON.stringify(maliciousLogLines, null, 2));
+        expect(responseText).not.toBe(JSON.stringify(maliciousLogLines));
       });
 
       it("should use unique nonces for different log responses", async () => {
@@ -1120,14 +1104,10 @@ describe("configurePipelineTools", () => {
 
       expect(mockBuildApi.getBuildChanges).toHaveBeenCalledWith("test-project", 123, "token123", 50, true);
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            { id: "abc123", message: "Fixed bug in login" },
-            { id: "def456", message: "Added new feature" },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          { id: "abc123", message: "Fixed bug in login" },
+          { id: "def456", message: "Added new feature" },
+        ])
       );
     });
 
@@ -1193,7 +1173,7 @@ describe("configurePipelineTools", () => {
       const result = await handler(params);
 
       expect(mockPipelinesApi.getRun).toHaveBeenCalledWith("test-project", 123, 456);
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 1, name: "run-1" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 1, name: "run-1" }));
     });
 
     it("should handle API errors for pipelines_get_run", async () => {
@@ -1258,7 +1238,7 @@ describe("configurePipelineTools", () => {
         "ProjectName"
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 100, name: "Pipeline Definition Name" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 100, name: "Pipeline Definition Name" }));
     });
 
     it("should create a YAML pipeline for GitHub and return created pipeline", async () => {
@@ -1299,7 +1279,7 @@ describe("configurePipelineTools", () => {
         "ProjectName"
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 200, name: "GH Pipeline" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 200, name: "GH Pipeline" }));
     });
 
     it("should require repositoryConnectionId for GitHub repositories", async () => {
@@ -1365,7 +1345,7 @@ describe("configurePipelineTools", () => {
       const result = await handler(params);
 
       expect(mockPipelinesApi.listRuns).toHaveBeenCalledWith("test-project", 123);
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, name: "run-1" }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, name: "run-1" }]));
     });
 
     it("should handle API errors for pipelines_list_runs", async () => {
@@ -1434,7 +1414,7 @@ describe("configurePipelineTools", () => {
         123,
         undefined
       );
-      expect(result.content[0].text).toBe(JSON.stringify({ id: 456 }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: 456 }));
     });
 
     it("should handle preview run", async () => {
@@ -1839,7 +1819,7 @@ describe("configurePipelineTools", () => {
       const result = await handler({ project: "proj", buildId: 42 });
 
       expect(getBuild).toHaveBeenCalledWith("proj", 42);
-      expect(result.content[0].text).toContain('"id": 42');
+      expect(result.content[0].text).toContain('"id":42');
     });
 
     it("get_build_definition returns a definition by id", async () => {
