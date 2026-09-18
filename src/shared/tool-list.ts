@@ -13,6 +13,8 @@
 import { ListToolsRequestSchema, type Tool } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
+import { interceptRequestHandler } from "./request-interception.js";
+
 function withoutDialect<T extends object>(schema: T): T {
   const copy = { ...schema } as T & { $schema?: unknown };
   delete copy.$schema;
@@ -39,18 +41,11 @@ export function slimTool(tool: Tool): Tool {
  * and this wraps that handler as it is installed.
  */
 export function slimToolList(server: McpServer): void {
-  const lowLevel = server.server;
-  const original = lowLevel.setRequestHandler.bind(lowLevel) as (...args: unknown[]) => void;
-
-  (lowLevel as unknown as { setRequestHandler: (...args: unknown[]) => void }).setRequestHandler = (schema: unknown, handler: unknown) => {
-    if (schema !== ListToolsRequestSchema || typeof handler !== "function") {
-      original(schema, handler);
-      return;
-    }
+  interceptRequestHandler(server, ListToolsRequestSchema, (handler) => {
     const listHandler = handler as (...args: unknown[]) => Promise<{ tools: Tool[] }>;
-    original(schema, async (...args: unknown[]) => {
+    return async (...args: unknown[]) => {
       const result = await listHandler(...args);
       return { ...result, tools: result.tools.map(slimTool) };
-    });
-  };
+    };
+  });
 }
