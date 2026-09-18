@@ -7,8 +7,9 @@ import { WebApi } from "azure-devops-node-api";
 import { AlertType, AlertValidityStatus, Confidence, Severity, State } from "azure-devops-node-api/interfaces/AlertInterfaces.js";
 import { z } from "zod";
 import { getEnumKeys, mapStringArrayToEnum, mapStringToEnum } from "../utils.js";
-import { optionalProjectWith, requiredProject } from "../shared/common-params.js";
+import { continuationTokenParam, optionalProjectWith, requiredProject } from "../shared/common-params.js";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const ADVSEC_TOOLS = {
   get_alerts: "advsec_get_alerts",
@@ -84,7 +85,7 @@ function configureAdvSecTools(server: McpServer, tokenProvider: () => Promise<st
         ),
       top: z.coerce.number().optional().default(100).describe("Maximum number of alerts to return. Defaults to 100."),
       orderBy: z.enum(["id", "firstSeen", "lastSeen", "fixedOn", "severity"]).optional().default("severity").describe("Order results by specified field. Defaults to 'severity'."),
-      continuationToken: z.string().optional().describe("Continuation token for pagination."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, repository, alertType, states, severities, ruleId, ruleName, toolName, ref, onlyDefaultBranch, confidenceLevels, validity, top, orderBy, continuationToken }) => {
       try {
@@ -132,21 +133,9 @@ function configureAdvSecTools(server: McpServer, tokenProvider: () => Promise<st
           continuationToken
         );
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error fetching Advanced Security alerts: ${errorMessage}`,
-            },
-          ],
-          isError: true,
-        };
+        return toolError("fetching Advanced Security alerts", error);
       }
     }
   );
@@ -174,21 +163,9 @@ function configureAdvSecTools(server: McpServer, tokenProvider: () => Promise<st
           undefined // expand parameter
         );
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error fetching alert details: ${errorMessage}`,
-            },
-          ],
-          isError: true,
-        };
+        return toolError("fetching alert details", error);
       }
     }
   );
@@ -504,7 +481,7 @@ function configureAdvSecTools(server: McpServer, tokenProvider: () => Promise<st
       introducedDateStart: z.string().optional().describe("Only alerts introduced on or after this date."),
       introducedDateEnd: z.string().optional().describe("Only alerts introduced on or before this date."),
       top: z.coerce.number().min(1).optional().describe("Maximum number of alerts to return."),
-      continuationToken: z.string().optional().describe("The continuationToken from a previous page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ alertType, state, severities, projects, repositories, keywords, ruleNames, toolNames, componentNames, componentTypes, introducedDateStart, introducedDateEnd, top, continuationToken }) =>
       call(

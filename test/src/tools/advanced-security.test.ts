@@ -135,7 +135,7 @@ describe("configureAdvSecTools", () => {
 
       expect(result.isError).toBeUndefined();
       const returnedAlerts = JSON.parse(result.content[0].text);
-      expect(result.content[0].text).toBe(JSON.stringify(returnedAlerts, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(returnedAlerts));
       expect(returnedAlerts).toHaveLength(3);
       expect(returnedAlerts[0].alertId).toBe(1);
       expect(returnedAlerts[0].title).toBe("SQL Injection vulnerability");
@@ -688,7 +688,7 @@ describe("configureAdvSecTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching Advanced Security alerts: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching Advanced Security alerts: String error");
     });
 
     // The following tests drive the real Zod schema (schema = call[2]) instead of calling the
@@ -866,7 +866,7 @@ describe("configureAdvSecTools", () => {
         undefined // expand
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockResult));
       expect(result.isError).toBeUndefined();
     });
 
@@ -904,7 +904,7 @@ describe("configureAdvSecTools", () => {
         undefined // expand
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockResult));
       expect(result.isError).toBeUndefined();
     });
 
@@ -950,7 +950,7 @@ describe("configureAdvSecTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching alert details: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching alert details: String error");
     });
 
     it("should handle null API results correctly", async () => {
