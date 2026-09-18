@@ -150,16 +150,16 @@ az account get-access-token \
 
 ### Tool presets (a smaller tool list per endpoint)
 
-The full server registers 620 tools, whose schemas cost roughly **115k tokens**
+The full server registers 630 tools, whose schemas cost roughly **117k tokens**
 of the model's context on every request. Appending a preset name to the MCP path
 serves only the domains that preset covers — same deployment, same sign-in, no
 extra resources, and no state kept between requests:
 
 | URL          | Tools | ~Tokens | Covers                                                          |
 | ------------ | ----: | ------: | --------------------------------------------------------------- |
-| `/mcp`       |   620 |    115k | everything (or whatever `MCP_DOMAINS` sets)                     |
-| `/mcp/dev`   |   227 |     47k | repos, pull requests, work items, pipelines, wiki, search       |
-| `/mcp/plan`  |   225 |     40k | boards, backlogs, sprints, capacity, dashboards, test plans     |
+| `/mcp`       |   630 |    117k | everything (or whatever `MCP_DOMAINS` sets)                     |
+| `/mcp/dev`   |   237 |     50k | repos, pull requests, work items, pipelines, wiki, search       |
+| `/mcp/plan`  |   235 |     43k | boards, backlogs, sprints, capacity, dashboards, test plans     |
 | `/mcp/ops`   |   237 |     42k | pipelines, releases, agents, service connections, feeds, alerts |
 | `/mcp/admin` |   135 |     24k | process customization, identity, licences, access, audit        |
 

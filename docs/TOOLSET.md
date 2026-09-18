@@ -285,11 +285,21 @@
 | Wiki               | [mcp_ado_wiki_create_or_update_page](#mcp_ado_wiki_create_or_update_page)                                     | Create or update a wiki page                                                                                                                          |
 | Wiki               | [mcp_ado_wiki_create_wiki](#mcp_ado_wiki_create_wiki)                                                         | Provision a new wiki in a project                                                                                                                     |
 | Wiki               | [mcp_ado_wiki_update_wiki](#mcp_ado_wiki_update_wiki)                                                         | Rename a wiki, or change which branches of a code wiki are published                                                                                  |
-| Wiki               | [mcp_ado_wiki_delete_wiki](#mcp_ado_wiki_delete_wiki)                                                         | Delete a wiki                                                                                                                                         |
+| Wiki               | [mcp_ado_wiki_delete_wiki](#mcp_ado_wiki_delete_wiki)                                                         | Delete (unpublish) a code wiki; a project wiki cannot be deleted                                                                                      |
 | Wiki               | [mcp_ado_wiki_delete_page](#mcp_ado_wiki_delete_page)                                                         | Delete a wiki page by path or by ID                                                                                                                   |
 | Wiki               | [mcp_ado_wiki_move_page](#mcp_ado_wiki_move_page)                                                             | Move or rename a wiki page, or change its position among its siblings                                                                                 |
 | Wiki               | [mcp_ado_wiki_upload_attachment](#mcp_ado_wiki_upload_attachment)                                             | Upload a file to a wiki, e.g                                                                                                                          |
 | Wiki               | [mcp_ado_wiki_get_page_stats](#mcp_ado_wiki_get_page_stats)                                                   | Get how often a wiki page was viewed, per day                                                                                                         |
+| Wiki               | [mcp_ado_wiki_list_page_comments](#mcp_ado_wiki_list_page_comments)                                           | List the comments on a wiki page, newest first unless order is 'asc'                                                                                  |
+| Wiki               | [mcp_ado_wiki_get_page_comment](#mcp_ado_wiki_get_page_comment)                                               | Get a single wiki page comment by ID                                                                                                                  |
+| Wiki               | [mcp_ado_wiki_add_page_comment](#mcp_ado_wiki_add_page_comment)                                               | Add a comment to a wiki page                                                                                                                          |
+| Wiki               | [mcp_ado_wiki_update_page_comment](#mcp_ado_wiki_update_page_comment)                                         | Update the text of an existing wiki page comment                                                                                                      |
+| Wiki               | [mcp_ado_wiki_delete_page_comment](#mcp_ado_wiki_delete_page_comment)                                         | Delete a wiki page comment by ID                                                                                                                      |
+| Wiki               | [mcp_ado_wiki_add_page_comment_reaction](#mcp_ado_wiki_add_page_comment_reaction)                             | React to a wiki page comment as yourself, e.g. 'like'                                                                                                 |
+| Wiki               | [mcp_ado_wiki_remove_page_comment_reaction](#mcp_ado_wiki_remove_page_comment_reaction)                       | Withdraw your own reaction from a wiki page comment                                                                                                   |
+| Wiki               | [mcp_ado_wiki_list_page_comment_reaction_users](#mcp_ado_wiki_list_page_comment_reaction_users)               | List who gave a particular reaction to a wiki page comment                                                                                            |
+| Wiki               | [mcp_ado_wiki_upload_page_comment_attachment](#mcp_ado_wiki_upload_page_comment_attachment)                   | Upload a file to attach to a wiki page comment, e.g. a screenshot                                                                                     |
+| Wiki               | [mcp_ado_wiki_get_page_comment_attachment](#mcp_ado_wiki_get_page_comment_attachment)                         | Download an attachment from a wiki page comment by its ID                                                                                             |
 | Test Plans         | [mcp_ado_testplan_list_test_plans](#mcp_ado_testplan_list_test_plans)                                         | List test plans in a project                                                                                                                          |
 | Test Plans         | [mcp_ado_testplan_create_test_plan](#mcp_ado_testplan_create_test_plan)                                       | Create a new test plan                                                                                                                                |
 | Test Plans         | [mcp_ado_testplan_create_test_suite](#mcp_ado_testplan_create_test_suite)                                     | Create a test suite within a test plan                                                                                                                |
@@ -2631,6 +2641,76 @@ Get how often a wiki page was viewed, per day.
 
 - **Required**: `project`, `wikiIdentifier`, `pageId`
 - **Optional**: `pageViewsForDays`
+
+### mcp_ado_wiki_list_page_comments
+
+List the comments on a wiki page, newest first unless order is 'asc'.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`
+- **Optional**: `continuationToken`, `excludeDeleted`, `expand` (`none` \| `reactions` \| `renderedText` \| `all`), `order` (`asc` \| `desc`), `parentId`, `top`
+
+### mcp_ado_wiki_get_page_comment
+
+Get a single wiki page comment by ID.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `commentId`
+- **Optional**: `excludeDeleted`, `expand` (`none` \| `reactions` \| `renderedText` \| `all`)
+
+### mcp_ado_wiki_add_page_comment
+
+Add a comment to a wiki page.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `text`
+- **Optional**: `parentId`
+
+### mcp_ado_wiki_update_page_comment
+
+Update the text of an existing wiki page comment.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `commentId`, `text`
+- **Optional**: None
+
+### mcp_ado_wiki_delete_page_comment
+
+Delete a wiki page comment by ID.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `commentId`
+- **Optional**: None
+
+### mcp_ado_wiki_add_page_comment_reaction
+
+React to a wiki page comment as yourself, e.g. 'like'.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `commentId`, `reaction` (`like` \| `dislike` \| `heart` \| `hooray` \| `smile` \| `confused`)
+- **Optional**: None
+
+### mcp_ado_wiki_remove_page_comment_reaction
+
+Withdraw your own reaction from a wiki page comment.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `commentId`, `reaction` (`like` \| `dislike` \| `heart` \| `hooray` \| `smile` \| `confused`)
+- **Optional**: None
+
+### mcp_ado_wiki_list_page_comment_reaction_users
+
+List who gave a particular reaction to a wiki page comment.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `commentId`, `reaction` (`like` \| `dislike` \| `heart` \| `hooray` \| `smile` \| `confused`)
+- **Optional**: `skip`, `top`
+
+### mcp_ado_wiki_upload_page_comment_attachment
+
+Upload a file to attach to a wiki page comment, e.g. a screenshot.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `fileName`, `contentBase64`
+- **Optional**: None
+
+### mcp_ado_wiki_get_page_comment_attachment
+
+Download an attachment from a wiki page comment by its ID.
+
+- **Required**: `project`, `wikiIdentifier`, `pageId`, `attachmentId`
+- **Optional**: `fileName`
 
 ## Test Plans
 
