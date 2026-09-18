@@ -83,6 +83,36 @@ describe("configureSearchTools", () => {
       expect(JSON.parse(mockFetch.mock.calls[0][1].body).filters).toBeUndefined();
     });
 
+    it("adds the page path the wiki tools take next to each result's git file path", async () => {
+      const handler = getHandler(SEARCH_TOOLS.search_wiki);
+      mockFetch.mockResolvedValue(
+        ok(
+          JSON.stringify({
+            count: 3,
+            results: [
+              { path: "/Сервіси/Мікросервіс-«Адресний-класифікатор».md", wiki: { mappedPath: "/" } },
+              { path: "/Q%26A/Pre%2Dflight-check%3A-steps.md", wiki: { mappedPath: "/" } },
+              { path: "/docs/Getting-started.md", wiki: { mappedPath: "/docs" } },
+            ],
+          })
+        )
+      );
+
+      const result = await handler({ searchText: "x", includeFacets: false, skip: 0, top: 10 });
+
+      const pagePaths = JSON.parse(result.content[0].text).results.map((r: { pagePath: string }) => r.pagePath);
+      expect(pagePaths).toEqual(["/Сервіси/Мікросервіс «Адресний класифікатор»", "/Q&A/Pre-flight check: steps", "/Getting started"]);
+    });
+
+    it("keeps a malformed percent sequence as it is instead of failing", async () => {
+      const handler = getHandler(SEARCH_TOOLS.search_wiki);
+      mockFetch.mockResolvedValue(ok(JSON.stringify({ count: 1, results: [{ path: "/100%-done.md" }] })));
+
+      const result = await handler({ searchText: "x", includeFacets: false, skip: 0, top: 10 });
+
+      expect(JSON.parse(result.content[0].text).results[0].pagePath).toBe("/100% done");
+    });
+
     it("throws when the search API rejects the request", async () => {
       const handler = getHandler(SEARCH_TOOLS.search_wiki);
       mockFetch.mockResolvedValue(ok("", 403));
