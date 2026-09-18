@@ -10,7 +10,7 @@ import { GitVersionType } from "azure-devops-node-api/interfaces/GitInterfaces.j
 import { apiVersion, extractAdoStreamError, getOrgFromUrl } from "../utils.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { adoFetch } from "../shared/ado-rest.js";
-import { requiredProject } from "../shared/common-params.js";
+import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const WIKI_TOOLS = {
@@ -87,7 +87,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
       wikiIdentifier: z.string().describe("The unique identifier of the wiki."),
       project: z.string().describe("The project name or ID where the wiki is located."),
       top: z.coerce.number().default(20).describe("The maximum number of pages to return, up to 100. Defaults to 20."),
-      continuationToken: z.string().optional().describe("Token for pagination to retrieve the next set of pages."),
+      continuationToken: continuationTokenParam,
       pageViewsForDays: z.coerce.number().optional().describe("Number of days to retrieve page views for. If not specified, page views are not included."),
     },
     async ({ wikiIdentifier, project, top = 20, continuationToken, pageViewsForDays }) => {
