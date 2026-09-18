@@ -101,7 +101,9 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
     sku: {
       name: 'PerGB2018'
     }
-    retentionInDays: 30
+    // Tool usage statistics (docs/USAGE-STATS.md) need a quarter of history
+    // before an unused tool can be told from a rarely used one.
+    retentionInDays: 90
   }
 }
 
