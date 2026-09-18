@@ -4,6 +4,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const PROFILE_TOOLS = {
   get_me: "profile_get_me",
@@ -34,10 +35,9 @@ function configureProfileTools(server: McpServer, tokenProvider: () => Promise<s
           instanceId: connectionData.instanceId,
         };
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching the authenticated user: ${errorMessage}` }], isError: true };
+        return toolError("fetching the authenticated user", error);
       }
     }
   );
