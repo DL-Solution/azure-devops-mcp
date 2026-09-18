@@ -87,7 +87,7 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
   registerTool(
     server,
     SEARCH_TOOLS.search_wiki,
-    "Search Azure DevOps Wiki for a given search text",
+    "Search Azure DevOps Wiki for a given search text. Pass a result's pagePath, not its path (the .md file in the wiki's git repository), to the wiki_ tools.",
     {
       searchText: z.string().describe("Keywords to search for wiki pages"),
       project: z.array(z.string()).optional().describe("Filter by projects"),
@@ -132,7 +132,7 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
 
       const result = await response.text();
       return {
-        content: [{ type: "text", text: withInfoCodeNote(readInfoCode(result), result) }],
+        content: [{ type: "text", text: withInfoCodeNote(readInfoCode(result), withWikiPagePaths(result)) }],
       };
     }
   );
@@ -232,6 +232,43 @@ function withInfoCodeNote(infoCode: number | undefined, text: string): string {
   const meaning = INFO_CODES[infoCode] ?? "an undocumented condition reported by the search service";
   const consequence = INDEX_NOT_READY.has(infoCode) ? " The results are incomplete: an empty result does not mean nothing matches." : "";
   return `Search returned infoCode ${infoCode}: ${meaning}.${consequence}\n${text}`;
+}
+
+// Wiki search returns the page's file in the wiki's git repository ("/Q%26A/Pre%2Dflight-check.md"),
+// while the wiki API addresses pages by title path ("/Q&A/Pre-flight check"). A wiki stores a page
+// title as its file name with spaces turned into "-" and "-" and other special characters
+// percent-encoded; a code wiki's files also sit under its mappedPath.
+function wikiPagePath(filePath: string, mappedPath?: string): string {
+  let path = filePath;
+  if (mappedPath && mappedPath !== "/" && path.startsWith(`${mappedPath.replace(/\/$/, "")}/`)) {
+    path = path.slice(mappedPath.replace(/\/$/, "").length);
+  }
+  return path
+    .replace(/\.md$/i, "")
+    .split("/")
+    .map((segment) => {
+      const spaced = segment.replace(/-/g, " ");
+      try {
+        return decodeURIComponent(spaced);
+      } catch {
+        return spaced;
+      }
+    })
+    .join("/");
+}
+
+function withWikiPagePaths(body: string): string {
+  let parsed: { results?: unknown };
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return body;
+  }
+  if (!Array.isArray(parsed?.results) || parsed.results.length === 0) return body;
+  for (const result of parsed.results as { path?: unknown; pagePath?: string; wiki?: { mappedPath?: string } }[]) {
+    if (typeof result?.path === "string") result.pagePath = wikiPagePath(result.path, result.wiki?.mappedPath);
+  }
+  return JSON.stringify(parsed);
 }
 
 interface SearchResult {
