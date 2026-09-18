@@ -18,6 +18,7 @@ import { UserAgentComposer } from "./useragent.js";
 import { getCliArgs } from "./utils.js";
 import { packageVersion } from "./version.js";
 import { DomainsManager } from "./shared/domains.js";
+import { shareAdoMetadata } from "./shared/ado-metadata-cache.js";
 import { PRESET_NAMES, resolvePreset } from "./shared/presets.js";
 import { buildServerInstructions } from "./shared/server-instructions.js";
 import { instrumentToolUsage, logToolCatalog } from "./shared/usage-stats.js";
@@ -126,7 +127,9 @@ function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAg
       productVersion: packageVersion,
       userAgent: userAgentComposer.userAgent,
     });
-    return connection;
+    // A fresh WebApi per call keeps credentials per request; the service
+    // metadata it would otherwise re-fetch every time is shared instead.
+    return shareAdoMetadata(connection);
   };
 }
 
