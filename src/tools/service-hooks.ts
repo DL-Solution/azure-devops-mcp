@@ -6,6 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
+import { toolError } from "../shared/tool-results.js";
 
 const SERVICE_HOOKS_TOOLS = {
   list_subscriptions: "servicehook_list_subscriptions",
@@ -57,8 +58,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing service hook subscriptions: ${errorMessage}` }], isError: true };
+        return toolError("listing service hook subscriptions", error);
       }
     }
   );
@@ -82,8 +82,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching service hook subscription: ${errorMessage}` }], isError: true };
+        return toolError("fetching service hook subscription", error);
       }
     }
   );
@@ -104,8 +103,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating service hook subscription: ${errorMessage}` }], isError: true };
+        return toolError("creating service hook subscription", error);
       }
     }
   );
@@ -126,8 +124,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
 
         return { content: [{ type: "text", text: `Service hook subscription '${subscriptionId}' deleted.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting service hook subscription: ${errorMessage}` }], isError: true };
+        return toolError("deleting service hook subscription", error);
       }
     }
   );

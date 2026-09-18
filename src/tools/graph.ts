@@ -6,6 +6,8 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { toolError } from "../shared/tool-results.js";
+import { continuationTokenParam } from "../shared/common-params.js";
 
 const GRAPH_TOOLS = {
   list_users: "graph_list_users",
@@ -48,7 +50,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
     "List users in the organization via the Graph API. Results are paged; pass the continuationToken from a prior response to get the next page.",
     {
       subjectTypes: z.string().optional().describe("Comma-separated subject types to filter by, e.g. 'aad,msa,svc'."),
-      continuationToken: z.string().optional().describe("Continuation token from a previous response to fetch the next page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ subjectTypes, continuationToken }) => {
       try {
@@ -63,8 +65,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing users: ${errorMessage}` }], isError: true };
+        return toolError("listing users", error);
       }
     }
   );
@@ -88,8 +89,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching user: ${errorMessage}` }], isError: true };
+        return toolError("fetching user", error);
       }
     }
   );
@@ -100,7 +100,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
     "List groups in the organization via the Graph API. Results are paged; pass the continuationToken from a prior response to get the next page.",
     {
       scopeDescriptor: z.string().optional().describe("Limit to groups within this scope descriptor (e.g. a project's scope)."),
-      continuationToken: z.string().optional().describe("Continuation token from a previous response to fetch the next page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ scopeDescriptor, continuationToken }) => {
       try {
@@ -115,8 +115,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing groups: ${errorMessage}` }], isError: true };
+        return toolError("listing groups", error);
       }
     }
   );
@@ -140,8 +139,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching group: ${errorMessage}` }], isError: true };
+        return toolError("fetching group", error);
       }
     }
   );
@@ -164,8 +162,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing memberships: ${errorMessage}` }], isError: true };
+        return toolError("listing memberships", error);
       }
     }
   );
@@ -187,8 +184,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error adding membership: ${errorMessage}` }], isError: true };
+        return toolError("adding membership", error);
       }
     }
   );
@@ -210,8 +206,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
 
         return { content: [{ type: "text", text: `Membership removed: '${subjectDescriptor}' from '${containerDescriptor}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing membership: ${errorMessage}` }], isError: true };
+        return toolError("removing membership", error);
       }
     }
   );
@@ -406,7 +401,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
     "List the service principals and managed identities added to the organization. Results are paged; pass the continuationToken from a prior response to get the next page.",
     {
       scopeDescriptor: z.string().optional().describe("Limit to this scope, e.g. a project's scope descriptor."),
-      continuationToken: z.string().optional().describe("Continuation token from a previous response to fetch the next page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ scopeDescriptor, continuationToken }) => call("listing service principals", "GET", query("_apis/graph/serviceprincipals", { scopeDescriptor, continuationToken }))
   );
