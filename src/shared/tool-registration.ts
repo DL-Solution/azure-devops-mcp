@@ -13,7 +13,7 @@ import { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 export type ToolCategory = "read" | "write" | "destructive";
 
 const CATEGORY_ANNOTATIONS: Record<ToolCategory, ToolAnnotations> = {
-  read: { readOnlyHint: true, destructiveHint: false },
+  read: { readOnlyHint: true },
   write: { readOnlyHint: false, destructiveHint: false },
   destructive: { readOnlyHint: false, destructiveHint: true },
 };
