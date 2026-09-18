@@ -42,6 +42,7 @@ import { requiredProject } from "../shared/common-params.js";
 const REPO_TOOLS = {
   list_repos_by_project: "repo_list_repos_by_project",
   list_pull_requests_by_repo_or_project: "repo_list_pull_requests_by_repo_or_project",
+  list_pull_requests_by_org: "repo_list_pull_requests_by_org",
   list_branches_by_repo: "repo_list_branches_by_repo",
   list_my_branches_by_repo: "repo_list_my_branches_by_repo",
   list_pull_request_threads: "repo_list_pull_request_threads",
@@ -237,6 +238,31 @@ function trimPullRequest(pr: GitPullRequest | null | undefined, includeDescripti
     targetRefName: pr.targetRefName,
     project: pr.repository?.project?.name,
   };
+}
+
+/**
+ * Resolve the creator/reviewer filters of the organization-wide pull request
+ * listing: an explicit user wins over the "me" flag, as the parameter
+ * descriptions say. Throws when an email does not resolve to a user.
+ */
+async function pullRequestIdentityFilters(
+  args: { created_by_me: boolean; created_by_user?: string; i_am_reviewer: boolean; user_is_reviewer?: string },
+  tokenProvider: () => Promise<string>,
+  connectionProvider: () => Promise<WebApi>,
+  userAgentProvider: () => string
+): Promise<{ creatorId?: string; reviewerId?: string }> {
+  const filters: { creatorId?: string; reviewerId?: string } = {};
+  if (args.created_by_user) {
+    filters.creatorId = await getUserIdFromEmail(args.created_by_user, tokenProvider, connectionProvider, userAgentProvider);
+  } else if (args.created_by_me) {
+    filters.creatorId = (await getCurrentUserDetails(tokenProvider, connectionProvider, userAgentProvider)).authenticatedUser.id;
+  }
+  if (args.user_is_reviewer) {
+    filters.reviewerId = await getUserIdFromEmail(args.user_is_reviewer, tokenProvider, connectionProvider, userAgentProvider);
+  } else if (args.i_am_reviewer) {
+    filters.reviewerId = (await getCurrentUserDetails(tokenProvider, connectionProvider, userAgentProvider)).authenticatedUser.id;
+  }
+  return filters;
 }
 
 // Helper function to build a version descriptor from branch or commit
@@ -852,6 +878,75 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
         return {
           content: [{ type: "text", text: `Error listing pull requests: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Organization-wide pull requests. The node API only reaches a repository or
+  // a project, so this calls the collection-level route directly (upstream #1600).
+  registerTool(
+    server,
+    REPO_TOOLS.list_pull_requests_by_org,
+    "Retrieve pull requests from every project and repository in the organization at once — use it for questions like 'my pull requests' or 'pull requests waiting for my review'. For one repository or project use repo_list_pull_requests_by_repo_or_project.",
+    {
+      top: z.coerce.number().min(1).max(1000).default(100).describe("The maximum number of pull requests to return."),
+      skip: z.coerce.number().min(0).default(0).describe("The number of pull requests to skip."),
+      created_by_me: z.boolean().default(false).describe("Filter pull requests created by the current user."),
+      created_by_user: z.string().optional().describe("Filter pull requests created by a specific user (provide email or unique name). Takes precedence over created_by_me if both are provided."),
+      i_am_reviewer: z.boolean().default(false).describe("Filter pull requests where the current user is a reviewer."),
+      user_is_reviewer: z
+        .string()
+        .optional()
+        .describe("Filter pull requests where a specific user is a reviewer (provide email or unique name). Takes precedence over i_am_reviewer if both are provided."),
+      status: z
+        .enum(getEnumKeys(PullRequestStatus) as [string, ...string[]])
+        .default("Active")
+        .describe("Filter pull requests by status. Defaults to 'Active'."),
+      sourceRefName: z.string().optional().describe("Filter pull requests from this source branch (e.g., 'refs/heads/feature-branch')."),
+      targetRefName: z.string().optional().describe("Filter pull requests into this target branch (e.g., 'refs/heads/main')."),
+    },
+    async ({ top, skip, created_by_me, created_by_user, i_am_reviewer, user_is_reviewer, status, sourceRefName, targetRefName }) => {
+      try {
+        const connection = await connectionProvider();
+
+        let identity: { creatorId?: string; reviewerId?: string };
+        try {
+          identity = await pullRequestIdentityFilters({ created_by_me, created_by_user, i_am_reviewer, user_is_reviewer }, tokenProvider, connectionProvider, userAgentProvider);
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error resolving the user filter: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true,
+          };
+        }
+
+        const url = new URL(`${connection.serverUrl.replace(/\/$/, "")}/_apis/git/pullrequests`);
+        url.searchParams.set("api-version", "7.1");
+        url.searchParams.set("$top", String(top));
+        url.searchParams.set("$skip", String(skip));
+        url.searchParams.set("searchCriteria.status", String(pullRequestStatusStringToInt(status)));
+        if (identity.creatorId) url.searchParams.set("searchCriteria.creatorId", identity.creatorId);
+        if (identity.reviewerId) url.searchParams.set("searchCriteria.reviewerId", identity.reviewerId);
+        if (sourceRefName) url.searchParams.set("searchCriteria.sourceRefName", sourceRefName);
+        if (targetRefName) url.searchParams.set("searchCriteria.targetRefName", targetRefName);
+
+        const response = await connection.rest.get<{ value?: GitPullRequest[] }>(url.toString(), { deserializeDates: true });
+        // Organization-wide results span projects and repositories, so each one
+        // carries the ids needed to address it with the per-repository tools.
+        const pullRequests = (response.result?.value ?? []).map((pr) => ({
+          ...trimPullRequest(pr),
+          repositoryId: pr.repository?.id,
+          projectId: pr.repository?.project?.id,
+          url: pr.url,
+        }));
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(pullRequests, null, 2) }],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error listing organization pull requests: ${error instanceof Error ? error.message : "Unknown error occurred"}` }],
           isError: true,
         };
       }

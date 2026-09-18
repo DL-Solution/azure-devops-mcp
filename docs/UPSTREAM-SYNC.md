@@ -14,7 +14,7 @@ Then record a decision for each commit below and move the marker. You rarely nee
 
 ## Last reviewed
 
-`e24cc98` — 2026-09-16, _Add tool annotations and configure tools accordingly (#1607)_. Reviewed 2026-09-17: 92 upstream commits since the merge base `1cd5d89`.
+`aacff1e` — 2026-09-17, _Add organization-wide pull request listing tool (#1600)_. Reviewed 2026-09-18: 94 upstream commits since the merge base `1cd5d89`.
 
 ## Decisions
 
@@ -30,6 +30,8 @@ Then record a decision for each commit below and move the marker. You rarely nee
 | #1516                            | Explicit `--tenant` wins over the looked-up tenant                 | `src/index.ts`                                                                                                    |
 | #1542                            | CLI args without yargs `hideBin` (Electron hosts); `open` declared | `getCliArgs` in `src/utils.ts`, `package.json`                                                                    |
 | #1420                            | `advsec_get_alerts` no longer loses secret alerts                  | cherry-picked                                                                                                     |
+| #1600                            | Pull requests across the whole organization                        | `repo_list_pull_requests_by_org` (the node API stops at a project, so it calls `_apis/git/pullrequests` directly) |
+| #1606                            | `wiki_list_pages` states the 100-page ceiling of `top`             | `wiki_list_pages`                                                                                                 |
 | #1370                            | `commentType` on PR comments and threads                           | cherry-picked                                                                                                     |
 | #1270                            | Clearer offsets in `repo_create_pull_request_thread`               | cherry-picked                                                                                                     |
 | #1402, #1411                     | Markdown in test case steps, lowercase HTML tags                   | cherry-picked / ported                                                                                            |
