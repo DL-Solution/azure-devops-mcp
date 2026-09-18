@@ -6,10 +6,11 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { CoverageQueryFlags, ResultDetails, TestOutcome } from "azure-devops-node-api/interfaces/TestInterfaces.js";
-import { elicitProject } from "../shared/elicitations.js";
+import { resolveProject } from "../shared/elicitations.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { extractAdoStreamError } from "../utils.js";
 import { optionalProject } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const TEST_RESULTS_TOOLS = {
   list_test_runs: "testresults_list_test_runs",
@@ -48,13 +49,6 @@ const TEST_OUTCOME_MAP: Record<string, TestOutcome> = {
 };
 
 function configureTestResultsTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
-  const resolveProject = async (connection: WebApi, project: string | undefined) => {
-    if (project) return { project };
-    const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
-    if ("response" in result) return result;
-    return { project: result.resolved };
-  };
-
   const projectField = optionalProject;
 
   registerTool(
@@ -73,16 +67,15 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, planId, buildUri, automated, includeRunDetails, top, skip }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
         const runs = await testApi.getTestRuns(ctx.project, buildUri, undefined, undefined, planId, includeRunDetails, automated, skip, top);
 
-        return { content: [{ type: "text", text: JSON.stringify(runs, null, 2) }] };
+        return jsonResult(runs);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing test runs: ${errorMessage}` }], isError: true };
+        return toolError("listing test runs", error);
       }
     }
   );
@@ -99,7 +92,7 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, runId, includeDetails = true }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
@@ -109,10 +102,9 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
           return { content: [{ type: "text", text: `Test run ${runId} not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(run, null, 2) }] };
+        return jsonResult(run);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching test run: ${errorMessage}` }], isError: true };
+        return toolError("fetching test run", error);
       }
     }
   );
@@ -135,7 +127,7 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, runId, outcomes, detailsToInclude, top, skip }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
@@ -143,10 +135,9 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
         const mappedDetails = detailsToInclude ? RESULT_DETAILS_MAP[detailsToInclude] : undefined;
         const results = await testApi.getTestResults(ctx.project, runId, mappedDetails, skip, top, mappedOutcomes);
 
-        return { content: [{ type: "text", text: JSON.stringify(results, null, 2) }] };
+        return jsonResult(results);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing test results: ${errorMessage}` }], isError: true };
+        return toolError("listing test results", error);
       }
     }
   );
@@ -164,7 +155,7 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, runId, testCaseResultId, detailsToInclude }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
@@ -175,19 +166,12 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
           return { content: [{ type: "text", text: `Test result ${testCaseResultId} not found in run ${runId}` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching test result: ${errorMessage}` }], isError: true };
+        return toolError("fetching test result", error);
       }
     }
   );
-
-  const failed = (action: string, error: unknown) => ({
-    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }],
-    isError: true,
-  });
-  const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
   // The coverage APIs take a bitmask rather than named options.
   const coverageFlags = (modules: boolean, functions: boolean, blockData: boolean) =>
@@ -211,14 +195,14 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, buildId, deltaBuildId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
         const summary = await testApi.getCodeCoverageSummary(ctx.project, buildId, deltaBuildId);
-        return ok(summary);
+        return jsonResult(summary);
       } catch (error) {
-        return failed(`fetching the coverage summary for build ${buildId}`, error);
+        return toolError(`fetching the coverage summary for build ${buildId}`, error);
       }
     }
   );
@@ -235,14 +219,14 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, buildId, includeModules, includeFunctions, includeBlockData }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
         const coverage = await testApi.getBuildCodeCoverage(ctx.project, buildId, coverageFlags(includeModules, includeFunctions, includeBlockData));
-        return ok(coverage);
+        return jsonResult(coverage);
       } catch (error) {
-        return failed(`fetching code coverage for build ${buildId}`, error);
+        return toolError(`fetching code coverage for build ${buildId}`, error);
       }
     }
   );
@@ -259,14 +243,14 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, runId, includeModules, includeFunctions, includeBlockData }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
         const coverage = await testApi.getTestRunCodeCoverage(ctx.project, runId, coverageFlags(includeModules, includeFunctions, includeBlockData));
-        return ok(coverage);
+        return jsonResult(coverage);
       } catch (error) {
-        return failed(`fetching code coverage for test run ${runId}`, error);
+        return toolError(`fetching code coverage for test run ${runId}`, error);
       }
     }
   );
@@ -282,14 +266,14 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, runId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
         const attachments = await testApi.getTestRunAttachments(ctx.project, runId);
-        return ok(attachments);
+        return jsonResult(attachments);
       } catch (error) {
-        return failed(`listing attachments of test run ${runId}`, error);
+        return toolError(`listing attachments of test run ${runId}`, error);
       }
     }
   );
@@ -306,14 +290,14 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, runId, testCaseResultId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
         const attachments = await testApi.getTestResultAttachments(ctx.project, runId, testCaseResultId);
-        return ok(attachments);
+        return jsonResult(attachments);
       } catch (error) {
-        return failed(`listing attachments of test result ${testCaseResultId}`, error);
+        return toolError(`listing attachments of test result ${testCaseResultId}`, error);
       }
     }
   );
@@ -332,7 +316,7 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
     async ({ project, runId, attachmentId, testCaseResultId, maxLength }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const testApi = await connection.getTestApi();
@@ -363,7 +347,7 @@ function configureTestResultsTools(server: McpServer, _: () => Promise<string>, 
         // it is untrusted input rather than instructions.
         return createExternalContentResponse(truncated ? `${text.slice(0, maxLength)}\n\n[truncated at ${maxLength} characters of ${text.length}]` : text, `test attachment ${attachmentId}`);
       } catch (error) {
-        return failed(`reading attachment ${attachmentId}`, error);
+        return toolError(`reading attachment ${attachmentId}`, error);
       }
     }
   );
