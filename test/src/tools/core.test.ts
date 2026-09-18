@@ -114,32 +114,28 @@ describe("configureCoreTools", () => {
       expect(mockCoreApi.getProjects).toHaveBeenCalledWith("wellFormed", undefined, undefined, undefined, false);
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            {
-              id: "eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
-              name: "Fabrikam-Fiber-TFVC",
-              description: "Team Foundation Version Control projects.",
-              url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
-              state: "wellFormed",
-            },
-            {
-              id: "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
-              name: "Fabrikam-Fiber-Git",
-              description: "Git projects",
-              url: "https://dev.azure.com/fabrikam/_apis/projects/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
-              state: "wellFormed",
-            },
-            {
-              id: "281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
-              name: "TestGit",
-              url: "https://dev.azure.com/fabrikam/_apis/projects/281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
-              state: "wellFormed",
-            },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          {
+            id: "eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
+            name: "Fabrikam-Fiber-TFVC",
+            description: "Team Foundation Version Control projects.",
+            url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
+            state: "wellFormed",
+          },
+          {
+            id: "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
+            name: "Fabrikam-Fiber-Git",
+            description: "Git projects",
+            url: "https://dev.azure.com/fabrikam/_apis/projects/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
+            state: "wellFormed",
+          },
+          {
+            id: "281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
+            name: "TestGit",
+            url: "https://dev.azure.com/fabrikam/_apis/projects/281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
+            state: "wellFormed",
+          },
+        ])
       );
     });
 
@@ -213,7 +209,7 @@ describe("configureCoreTools", () => {
 
       expect(mockCoreApi.getProjects).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching projects: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching projects: string error");
     });
 
     it("should filter projects by name when projectNameFilter is provided", async () => {
@@ -344,26 +340,22 @@ describe("configureCoreTools", () => {
       expect(mockCoreApi.getTeams).toHaveBeenCalledWith("eb6e4656-77fc-42a1-9181-4c6d8e9da5d1", undefined, undefined, undefined, false);
 
       expect(result.content[0].text).toBe(
-        JSON.stringify(
-          [
-            {
-              id: "564e8204-a90b-4432-883b-d4363c6125ca",
-              name: "Quality assurance",
-              url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1/teams/564e8204-a90b-4432-883b-d4363c6125ca",
-              description: "Testing staff",
-              identityUrl: "https://vssps.dev.azure.com/fabrikam/_apis/Identities/564e8204-a90b-4432-883b-d4363c6125ca",
-            },
-            {
-              id: "66df9be7-3586-467b-9c5f-425b29afedfd",
-              name: "Fabrikam-Fiber-TFVC Team",
-              url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1/teams/66df9be7-3586-467b-9c5f-425b29afedfd",
-              description: "The default project team.",
-              identityUrl: "https://vssps.dev.azure.com/fabrikam/_apis/Identities/66df9be7-3586-467b-9c5f-425b29afedfd",
-            },
-          ],
-          null,
-          2
-        )
+        JSON.stringify([
+          {
+            id: "564e8204-a90b-4432-883b-d4363c6125ca",
+            name: "Quality assurance",
+            url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1/teams/564e8204-a90b-4432-883b-d4363c6125ca",
+            description: "Testing staff",
+            identityUrl: "https://vssps.dev.azure.com/fabrikam/_apis/Identities/564e8204-a90b-4432-883b-d4363c6125ca",
+          },
+          {
+            id: "66df9be7-3586-467b-9c5f-425b29afedfd",
+            name: "Fabrikam-Fiber-TFVC Team",
+            url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1/teams/66df9be7-3586-467b-9c5f-425b29afedfd",
+            description: "The default project team.",
+            identityUrl: "https://vssps.dev.azure.com/fabrikam/_apis/Identities/66df9be7-3586-467b-9c5f-425b29afedfd",
+          },
+        ])
       );
     });
 
@@ -437,7 +429,7 @@ describe("configureCoreTools", () => {
 
       expect(mockCoreApi.getTeams).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching project teams: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching project teams: string error");
     });
 
     it("should elicit project when project is not provided and user accepts", async () => {
@@ -615,7 +607,7 @@ describe("configureCoreTools", () => {
         },
       ];
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResult, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(expectedResult));
       expect(result.isError).toBeUndefined();
     });
 
@@ -746,7 +738,7 @@ describe("configureCoreTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toBe("Error fetching identities: Unknown error occurred");
+      expect(result.content[0].text).toBe("Error fetching identities: string error");
     });
 
     it("should handle token provider errors correctly", async () => {
@@ -795,7 +787,7 @@ describe("configureCoreTools", () => {
           processTemplate: { templateTypeId: "agile-id" },
         },
       });
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-1", status: "queued" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-1", status: "queued" }));
     });
 
     it("falls back to the default process when none is provided", async () => {
@@ -846,7 +838,7 @@ describe("configureCoreTools", () => {
       const result = await handler({ project: "Old", name: "New", description: "d", visibility: "public" });
 
       expect(mockCoreApi.updateProject).toHaveBeenCalledWith({ name: "New", description: "d", visibility: 2 }, "proj-id");
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-3", status: "queued" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-3", status: "queued" }));
     });
 
     it("returns an error when no fields are provided", async () => {
@@ -882,7 +874,7 @@ describe("configureCoreTools", () => {
       const result = await handler({ project: "Old" });
 
       expect(mockCoreApi.queueDeleteProject).toHaveBeenCalledWith("proj-id");
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-4", status: "queued" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "op-4", status: "queued" }));
     });
 
     it("returns an error when the project is not found", async () => {
@@ -906,7 +898,7 @@ describe("configureCoreTools", () => {
       const result = await handler({ project: "Proj", name: "Team A", description: "desc" });
 
       expect(mockCoreApi.createTeam).toHaveBeenCalledWith({ name: "Team A", description: "desc" }, "Proj");
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "team-id", name: "Team A" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "team-id", name: "Team A" }));
     });
 
     it("handles API errors", async () => {
@@ -930,7 +922,7 @@ describe("configureCoreTools", () => {
       const result = await handler({ project: "Proj", team: "team-id", name: "Team B" });
 
       expect(mockCoreApi.updateTeam).toHaveBeenCalledWith({ name: "Team B", description: undefined }, "Proj", "team-id");
-      expect(result.content[0].text).toBe(JSON.stringify({ id: "team-id", name: "Team B" }, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify({ id: "team-id", name: "Team B" }));
     });
 
     it("returns an error when no fields are provided", async () => {
@@ -975,7 +967,7 @@ describe("configureCoreTools", () => {
       const result = await handler({});
 
       expect(mockCoreApi.getProcesses).toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: "p1", name: "Agile", isDefault: true }], null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify([{ id: "p1", name: "Agile", isDefault: true }]));
     });
   });
 
