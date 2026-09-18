@@ -5173,7 +5173,7 @@ describe("configureWorkItemTools", () => {
       return call[3] as (params: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
     }
 
-    it("list_backlogs: should return unknown error message for non-Error throws", async () => {
+    it("list_backlogs: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_backlogs");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", team: "T" });
@@ -5181,7 +5181,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error listing backlogs: string error");
     });
 
-    it("list_backlog_work_items: should return unknown error message for non-Error throws", async () => {
+    it("list_backlog_work_items: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_backlog_work_items");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", team: "T", backlogId: "B" });
@@ -5189,7 +5189,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error listing backlog work items: string error");
     });
 
-    it("my_work_items: should return unknown error message for non-Error throws", async () => {
+    it("my_work_items: should pass a thrown string through", async () => {
       const handler = getHandler("wit_my_work_items");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", type: "assignedtome", top: 10, includeCompleted: false });
@@ -5197,7 +5197,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error retrieving work items: string error");
     });
 
-    it("get_work_items_batch_by_ids: should return unknown error message for non-Error throws", async () => {
+    it("get_work_items_batch_by_ids: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_items_batch_by_ids");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", ids: [1] });
@@ -5205,7 +5205,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error retrieving work items batch: string error");
     });
 
-    it("get_work_item: should return unknown error message for non-Error throws", async () => {
+    it("get_work_item: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_item");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ id: 1, project: "P" });
@@ -5213,7 +5213,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error retrieving work item: string error");
     });
 
-    it("list_work_item_comments: should return unknown error message for non-Error throws", async () => {
+    it("list_work_item_comments: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_work_item_comments");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, top: 10 });
@@ -5221,7 +5221,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error listing work item comments: string error");
     });
 
-    it("add_work_item_comment: should return unknown error message for non-Error throws", async () => {
+    it("add_work_item_comment: should pass a thrown string through", async () => {
       const handler = getHandler("wit_add_work_item_comment");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, comment: "test" });
@@ -5229,7 +5229,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error adding work item comment: string error");
     });
 
-    it("update_work_item_comment: should return unknown error message for non-Error throws", async () => {
+    it("update_work_item_comment: should pass a thrown string through", async () => {
       const handler = getHandler("wit_update_work_item_comment");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, commentId: 1, text: "updated" });
@@ -5259,7 +5259,7 @@ describe("configureWorkItemTools", () => {
       expect(calledUrl).toContain("format=1");
     });
 
-    it("list_work_item_revisions: should return unknown error message for non-Error throws", async () => {
+    it("list_work_item_revisions: should pass a thrown string through", async () => {
       const handler = getHandler("wit_list_work_item_revisions");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemId: 1, top: 10 });
@@ -5274,7 +5274,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe(JSON.stringify(null));
     });
 
-    it("get_work_items_for_iteration: should return unknown error message for non-Error throws", async () => {
+    it("get_work_items_for_iteration: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_items_for_iteration");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", iterationId: "iter-1" });
@@ -5282,7 +5282,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error retrieving work items for iteration: string error");
     });
 
-    it("update_work_item: should return unknown error message for non-Error throws", async () => {
+    it("update_work_item: should pass a thrown string through", async () => {
       const handler = getHandler("wit_update_work_item");
       (mockWorkItemTrackingApi.updateWorkItem as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ id: 1, updates: [{ op: "add", path: "/fields/System.Title", value: "T" }] });
@@ -5290,7 +5290,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error updating work item: string error");
     });
 
-    it("get_work_item_type: should return unknown error message for non-Error throws", async () => {
+    it("get_work_item_type: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_item_type");
       (mockWorkItemTrackingApi.getWorkItemType as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", workItemType: "Bug" });
@@ -5298,7 +5298,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error retrieving work item type: string error");
     });
 
-    it("get_query: should return unknown error message for non-Error throws", async () => {
+    it("get_query: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_query");
       (mockWorkItemTrackingApi.getQuery as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", query: "q", depth: 0, includeDeleted: false, useIsoDateFormat: false });
@@ -5306,7 +5306,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error retrieving query: string error");
     });
 
-    it("get_query_results_by_id: should return unknown error message for non-Error throws", async () => {
+    it("get_query_results_by_id: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_query_results_by_id");
       (mockWorkItemTrackingApi.queryById as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ id: "q-id", project: "P", top: 10 });
@@ -5323,7 +5323,7 @@ describe("configureWorkItemTools", () => {
       expect(parsed.count).toBe(0);
     });
 
-    it("update_work_items_batch: should return unknown error message for non-Error throws", async () => {
+    it("update_work_items_batch: should pass a thrown string through", async () => {
       const handler = getHandler("wit_update_work_items_batch");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ updates: [{ op: "replace", id: 1, path: "/fields/System.Title", value: "T" }] });
@@ -5331,7 +5331,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error updating work items in batch: string error");
     });
 
-    it("work_items_link: should return unknown error message for non-Error throws", async () => {
+    it("work_items_link: should pass a thrown string through", async () => {
       const handler = getHandler("wit_work_items_link");
       (connectionProvider as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", updates: [{ id: 1, linkToId: 2, type: "related" }] });
@@ -5339,7 +5339,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error linking work items: string error");
     });
 
-    it("get_work_item_attachment: should return unknown error message for non-Error throws", async () => {
+    it("get_work_item_attachment: should pass a thrown string through", async () => {
       const handler = getHandler("wit_get_work_item_attachment");
       (mockWorkItemTrackingApi.getAttachmentContent as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ project: "P", attachmentId: "att-id" });
@@ -5347,7 +5347,7 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Error retrieving work item attachment: string error");
     });
 
-    it("query_by_wiql: should return unknown error message for non-Error throws", async () => {
+    it("query_by_wiql: should pass a thrown string through", async () => {
       const handler = getHandler("wit_query_by_wiql");
       (mockWorkItemTrackingApi.queryByWiql as jest.Mock).mockRejectedValue("string error");
       const result = await handler({ wiql: "SELECT [System.Id] FROM WorkItems", project: "P", top: 50 });

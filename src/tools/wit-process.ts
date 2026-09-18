@@ -147,7 +147,7 @@ function configureWitProcessTools(server: McpServer, _: () => Promise<string>, c
     "Get a specific work item type in a process by its reference name.",
     {
       processId: processIdParam,
-      witRefName: witRefNameParam,
+      witRefName: witRefNameParam.describe("The reference name of the work item type (e.g. 'Agile.UserStory' or 'Microsoft.VSTS.WorkItemTypes.Bug')."),
       expand: z.enum(["none", "states", "behaviors", "layout"]).optional().describe("Optional detail to expand for the work item type."),
     },
     async ({ processId, witRefName, expand }) => {
