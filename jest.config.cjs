@@ -14,8 +14,11 @@ module.exports = {
   // Automatically clear mock calls and instances between every test
   clearMocks: true,
 
-  // Collect code coverage information
-  collectCoverage: true,
+  // Coverage (and its global thresholds) runs in CI via "npm run test:ci"; a local run of one file would otherwise always fail the thresholds.
+  collectCoverage: false,
+
+  // Kept inside the repository so CI can cache it between runs.
+  cacheDirectory: "<rootDir>/.jest-cache",
 
   // Output directory for coverage reports
   coverageDirectory: "coverage",

@@ -29,7 +29,7 @@
     "prepare": "npm run build && husky",
     "watch": "tsc --watch",
     "inspect": "ALLOWED_ORIGINS=http://127.0.0.1:6274 npx @modelcontextprotocol/inspector@0.21.0 node dist/index.js",
-    "start": "node -r tsconfig-paths/register dist/index.js",
+    "start": "node dist/index.js",
     "eslint": "eslint",
     "eslint-fix": "eslint --fix",
     "format": "prettier --write .",
@@ -38,7 +38,8 @@
     "toolset-check": "node scripts/generate-toolset.mjs --check",
     "api-coverage": "node scripts/api-coverage.mjs",
     "clean": "shx rm -rf dist",
-    "test": "jest"
+    "test": "jest",
+    "test:ci": "jest --coverage"
   },
   "dependencies": {
     "@azure/data-tables": "^13.3.2",
@@ -46,16 +47,13 @@
     "@azure/logger": "^1.4.0",
     "@azure/msal-node": "^5.6.0",
     "@modelcontextprotocol/sdk": "1.30.0",
-    "azure-devops-extension-api": "^4.264.0",
-    "azure-devops-extension-sdk": "^4.0.2",
     "azure-devops-node-api": "^15.1.2",
     "express": "^5.2.1",
     "jose": "^6.2.3",
     "open": "^10.2.0",
     "winston": "^3.18.3",
     "yargs": "^18.0.0",
-    "zod": "^3.25.63",
-    "zod-to-json-schema": "^3.24.5"
+    "zod": "^3.25.63"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -71,13 +69,13 @@
     "prettier": "3.9.5",
     "shx": "^0.4.0",
     "ts-jest": "^29.4.6",
-    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.54.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "lint-staged": {
     "**/*.(js|ts|jsx|tsx|json|css|md)": [
-      "npm run format"
+      "prettier --write"
     ],
     "**/*.(js|ts)": [
       "eslint --fix"
