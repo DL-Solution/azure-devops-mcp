@@ -11,8 +11,12 @@
 //
 // Neither is user data: both describe the organization's service layout and are
 // the same for every caller, so one process-wide cache is safe in the stateless
-// HTTP transport too. Failed or empty lookups are not kept, matching the
-// library, which only stores a location promise once it resolved.
+// HTTP transport too. Only a usable result is kept: a non-empty array of
+// resource areas (cloud), or the on-prem `{count: 0, value: null}` shape that
+// _getResourceAreaUrl documents. Anything else — `null`, `undefined`, an empty
+// array, another shape, or a rejection — is forgotten, so the next caller
+// retries instead of being stuck for the life of the process with a result
+// _getResourceAreaUrl would treat as "route everything to the org URL".
 
 import { WebApi } from "azure-devops-node-api";
 
@@ -36,6 +40,21 @@ const API_FACTORIES = Object.getOwnPropertyNames(WebApi.prototype).filter((name)
 
 let warnedAboutInternals = false;
 
+/**
+ * Mirrors the shape check in azure-devops-node-api's own `_getResourceAreaUrl`
+ * (`!resourceAreas || resourceAreas.length === 0 || resourceAreas.count === 0`):
+ * that function treats anything else as "route everything to the org URL",
+ * which is only correct for a real on-prem `{count: 0, value: null}` response.
+ * A cloud response is a non-empty array; anything else (null, undefined, an
+ * empty array, or some other shape) is not a result worth caching forever.
+ */
+function isUsableResourceAreas(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  return typeof value === "object" && value !== null && (value as { count?: unknown }).count === 0;
+}
+
 /** Make `connection` use the process-wide metadata cache. Returns the same object. */
 export function shareAdoMetadata(connection: WebApi): WebApi {
   const internals = connection as unknown as WebApiInternals & Record<string, unknown>;
@@ -50,13 +69,21 @@ export function shareAdoMetadata(connection: WebApi): WebApi {
   const loadResourceAreas = internals._getResourceAreas.bind(connection);
   const organization = connection.serverUrl.toLowerCase();
   internals._getResourceAreas = () => {
-    let areas = resourceAreasByOrganization.get(organization);
-    if (!areas) {
-      areas = loadResourceAreas();
-      resourceAreasByOrganization.set(organization, areas);
-      const forget = () => resourceAreasByOrganization.delete(organization);
-      areas.then((value) => value === undefined && forget(), forget);
+    const shared = resourceAreasByOrganization.get(organization);
+    if (shared) {
+      // This caller did not start the in-flight lookup. If it rejects (e.g.
+      // the initiating caller's token was invalid), fall back to this
+      // connection's own credentials instead of failing on someone else's
+      // error. The initiator itself gets the rejection below, unwrapped.
+      return shared.catch(() => loadResourceAreas());
     }
+
+    const areas = loadResourceAreas();
+    resourceAreasByOrganization.set(organization, areas);
+    const forget = () => resourceAreasByOrganization.delete(organization);
+    areas.then((value) => {
+      if (!isUsableResourceAreas(value)) forget();
+    }, forget);
     return areas;
   };
 
