@@ -6,8 +6,9 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { PolicyConfiguration } from "azure-devops-node-api/interfaces/PolicyInterfaces.js";
-import { elicitProject } from "../shared/elicitations.js";
+import { resolveProject } from "../shared/elicitations.js";
 import { optionalProject } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const POLICY_TOOLS = {
   list_configurations: "policy_list_configurations",
@@ -25,14 +26,6 @@ const POLICY_TOOLS = {
 };
 
 function configurePolicyTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
-  // Resolve the project (eliciting if not supplied).
-  const resolveProject = async (connection: WebApi, project: string | undefined) => {
-    if (project) return { project };
-    const result = await elicitProject(server, connection, "Select the Azure DevOps project.");
-    if ("response" in result) return result;
-    return { project: result.resolved };
-  };
-
   const projectField = optionalProject;
 
   registerTool(
@@ -47,7 +40,7 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, scope, policyType }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
@@ -56,10 +49,9 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
         if (!configurations || configurations.length === 0) {
           return { content: [{ type: "text", text: "No policy configurations found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(configurations, null, 2) }] };
+        return jsonResult(configurations);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy configurations: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy configurations", error);
       }
     }
   );
@@ -75,16 +67,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, configurationId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const configuration = await policyApi.getPolicyConfiguration(ctx.project, configurationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(configuration, null, 2) }] };
+        return jsonResult(configuration);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy configuration: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy configuration", error);
       }
     }
   );
@@ -102,16 +93,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, configuration }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const result = await policyApi.createPolicyConfiguration(configuration as unknown as PolicyConfiguration, ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating policy configuration: ${errorMessage}` }], isError: true };
+        return toolError("creating policy configuration", error);
       }
     }
   );
@@ -128,16 +118,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, configurationId, configuration }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const result = await policyApi.updatePolicyConfiguration(configuration as unknown as PolicyConfiguration, ctx.project, configurationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating policy configuration: ${errorMessage}` }], isError: true };
+        return toolError("updating policy configuration", error);
       }
     }
   );
@@ -153,7 +142,7 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, configurationId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
@@ -161,8 +150,7 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
 
         return { content: [{ type: "text", text: `Policy configuration ${configurationId} deleted` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting policy configuration: ${errorMessage}` }], isError: true };
+        return toolError("deleting policy configuration", error);
       }
     }
   );
@@ -177,7 +165,7 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
@@ -186,10 +174,9 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
         if (!types || types.length === 0) {
           return { content: [{ type: "text", text: "No policy types found" }], isError: true };
         }
-        return { content: [{ type: "text", text: JSON.stringify(types, null, 2) }] };
+        return jsonResult(types);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy types: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy types", error);
       }
     }
   );
@@ -205,16 +192,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, typeId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const type = await policyApi.getPolicyType(ctx.project, typeId);
 
-        return { content: [{ type: "text", text: JSON.stringify(type, null, 2) }] };
+        return jsonResult(type);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy type: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy type", error);
       }
     }
   );
@@ -232,16 +218,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, configurationId, top, skip }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const revisions = await policyApi.getPolicyConfigurationRevisions(ctx.project, configurationId, top, skip);
 
-        return { content: [{ type: "text", text: JSON.stringify(revisions, null, 2) }] };
+        return jsonResult(revisions);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy configuration revisions: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy configuration revisions", error);
       }
     }
   );
@@ -258,16 +243,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, configurationId, revisionId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const revision = await policyApi.getPolicyConfigurationRevision(ctx.project, configurationId, revisionId);
 
-        return { content: [{ type: "text", text: JSON.stringify(revision, null, 2) }] };
+        return jsonResult(revision);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy configuration revision: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy configuration revision", error);
       }
     }
   );
@@ -286,16 +270,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, artifactId, includeNotApplicable, top, skip }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const evaluations = await policyApi.getPolicyEvaluations(ctx.project, artifactId, includeNotApplicable, top, skip);
 
-        return { content: [{ type: "text", text: JSON.stringify(evaluations, null, 2) }] };
+        return jsonResult(evaluations);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy evaluations: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy evaluations", error);
       }
     }
   );
@@ -311,16 +294,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, evaluationId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const evaluation = await policyApi.getPolicyEvaluation(ctx.project, evaluationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(evaluation, null, 2) }] };
+        return jsonResult(evaluation);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching policy evaluation: ${errorMessage}` }], isError: true };
+        return toolError("fetching policy evaluation", error);
       }
     }
   );
@@ -336,16 +318,15 @@ function configurePolicyTools(server: McpServer, _: () => Promise<string>, conne
     async ({ project, evaluationId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project);
+        const ctx = await resolveProject(server, connection, project);
         if ("response" in ctx) return ctx.response;
 
         const policyApi = await connection.getPolicyApi();
         const evaluation = await policyApi.requeuePolicyEvaluation(ctx.project, evaluationId);
 
-        return { content: [{ type: "text", text: JSON.stringify(evaluation, null, 2) }] };
+        return jsonResult(evaluation);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error requeuing policy evaluation: ${errorMessage}` }], isError: true };
+        return toolError("requeuing policy evaluation", error);
       }
     }
   );
