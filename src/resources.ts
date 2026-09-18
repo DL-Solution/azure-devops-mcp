@@ -140,7 +140,7 @@ function untrustedJson(uri: string, value: unknown, source: string) {
       {
         uri,
         mimeType: "text/plain",
-        text: spotlightContent(JSON.stringify(value, null, 2), source),
+        text: spotlightContent(JSON.stringify(value), source),
       },
     ],
   };

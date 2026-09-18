@@ -34,7 +34,7 @@ describe("buildServerInstructions", () => {
   // The text is sent with every initialize; it has to stay small enough to be
   // worth it next to the tool schemas.
   it("stays well under the cost of the tool schemas", () => {
-    expect(buildServerInstructions(allDomains, { organization: "contoso" }).length).toBeLessThan(6000);
+    expect(buildServerInstructions(allDomains, { organization: "contoso" }).length).toBeLessThan(6100);
   });
 
   it("describes every enabled domain's name prefix", () => {

@@ -8,7 +8,7 @@ interface ElicitResolved {
   resolved: string;
 }
 
-interface ElicitResponse {
+export interface ElicitResponse {
   response: { content: { type: "text"; text: string }[]; isError?: boolean };
 }
 
@@ -96,4 +96,17 @@ export async function elicitTeam(server: McpServer, connection: WebApi, project:
   }
 
   return { resolved: String(result.content.team) };
+}
+
+/**
+ * The project a tool acts on: the argument when given, otherwise the env
+ * default or the user's pick. Returns the elicitation's own response when the
+ * user could not pick one — hand it back as the tool result.
+ */
+export async function resolveProject(server: McpServer, connection: WebApi, project: string | undefined, message = "Select the Azure DevOps project."): Promise<{ project: string } | ElicitResponse> {
+  if (project) {
+    return { project };
+  }
+  const result = await elicitProject(server, connection, message);
+  return "response" in result ? result : { project: result.resolved };
 }
