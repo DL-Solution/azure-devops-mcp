@@ -19,7 +19,7 @@ npm run inspect         # MCP Inspector against dist/index.js
 npm run watch           # tsc --watch
 ```
 
-CI (`.github/workflows/build.yml`) runs two jobs. `build` (windows-latest): `npm ci --ignore-scripts` → `build` → `node scripts/build-validate-tools.js` (the build already type-checked) → `test:ci` → `toolset-check` → `npx` startup check. `static-code-analysis` (ubuntu-latest): `npm ci --ignore-scripts` → `prebuild` → `eslint` → `format-check` → `git diff --exit-code src/version.ts package-lock.json`. `--ignore-scripts` skips `prepare`, which would otherwise build once more during install; npm and jest caches are kept between runs. Commit the regenerated `src/version.ts` whenever `package.json` version changes.
+CI (`.github/workflows/build.yml`) runs two jobs. `build` (windows-latest): `npm ci --ignore-scripts` → `build` → `node scripts/build-validate-tools.js` (the build already type-checked) → `test:ci` → `toolset-check` → `npx` startup check. `static-code-analysis` (ubuntu-latest): `npm ci --ignore-scripts` → `build` (regenerates `src/version.ts` and produces `dist/`, which the tool-name ESLint rule imports) → `eslint` → `format-check` → `git diff --exit-code src/version.ts package-lock.json`. `--ignore-scripts` skips `prepare`, which would otherwise build once more during install; npm and jest caches are kept between runs. Commit the regenerated `src/version.ts` whenever `package.json` version changes.
 
 ## Architecture
 

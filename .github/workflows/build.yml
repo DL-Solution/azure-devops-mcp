@@ -129,8 +129,10 @@ jobs:
       - name: Clean install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Regenerate src/version.ts
-        run: npm run prebuild
+      # Regenerates src/version.ts (prebuild) for the version check below, and
+      # produces dist/, which the tool-name ESLint rule imports its validator from.
+      - name: Build the project
+        run: npm run build
 
       - name: Static code analysis
         run: npm run eslint
