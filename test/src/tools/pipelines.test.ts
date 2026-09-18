@@ -107,6 +107,20 @@ describe("configurePipelineTools", () => {
       expect(result.isError).toBeUndefined();
     });
 
+    it("should pass a body that is not JSON through as text", async () => {
+      configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "pipelines_update_build_stage");
+      if (!call) throw new Error("pipelines_update_build_stage tool not registered");
+      const [, , , handler] = call;
+      (tokenProvider as jest.Mock).mockResolvedValue("mock-token");
+      (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({ ok: true, text: jest.fn().mockResolvedValue("Stage queued") } as unknown as Response);
+
+      const result = await handler({ project: "test-project", buildId: 123, stageName: "Build", status: "Retry", forceRetryAllJobs: false });
+
+      expect(result.content[0].text).toBe("Stage queued");
+      expect(result.isError).toBeUndefined();
+    });
+
     it("should handle HTTP errors correctly", async () => {
       configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "pipelines_update_build_stage");

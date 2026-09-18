@@ -25,7 +25,7 @@ import {
 } from "azure-devops-node-api/interfaces/WorkInterfaces.js";
 import { elicitProject, elicitTeam } from "../shared/elicitations.js";
 import { optionalProject, optionalTeam, requiredProject, requiredTeam } from "../shared/common-params.js";
-import { jsonResult, toolError } from "../shared/tool-results.js";
+import { errorMessage, jsonResult, toolError } from "../shared/tool-results.js";
 
 // Maps the TreeStructureGroup enum to the string segment used in the
 // classification-nodes REST route (.../wit/classificationNodes/{areas|iterations}/...).
@@ -188,31 +188,38 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const connection = await connectionProvider();
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const results = [];
+        // One bad iteration must not hide the ones already created: each is tried and reported on its own.
+        const failed: { iterationName: string; error: string }[] = [];
 
         for (const { iterationName, startDate, finishDate } of iterations) {
-          // Step 1: Create the iteration
-          const iteration = await workItemTrackingApi.createOrUpdateClassificationNode(
-            {
-              name: iterationName,
-              attributes: {
-                startDate: startDate ? new Date(startDate) : undefined,
-                finishDate: finishDate ? new Date(finishDate) : undefined,
+          try {
+            const iteration = await workItemTrackingApi.createOrUpdateClassificationNode(
+              {
+                name: iterationName,
+                attributes: {
+                  startDate: startDate ? new Date(startDate) : undefined,
+                  finishDate: finishDate ? new Date(finishDate) : undefined,
+                },
               },
-            },
-            project,
-            TreeStructureGroup.Iterations
-          );
-
-          if (iteration) {
-            results.push(iteration);
+              project,
+              TreeStructureGroup.Iterations
+            );
+            if (iteration) {
+              results.push(iteration);
+            }
+          } catch (error) {
+            failed.push({ iterationName, error: errorMessage(error) });
           }
         }
 
         if (results.length === 0) {
+          if (failed.length > 0) {
+            return toolError("creating iterations", failed.length === 1 ? failed[0].error : failed.map((f) => `${f.iterationName}: ${f.error}`).join("; "));
+          }
           return { content: [{ type: "text", text: "No iterations were created" }], isError: true };
         }
 
-        return jsonResult(results);
+        return jsonResult(failed.length > 0 ? { created: results, failed } : results);
       } catch (error) {
         return toolError("creating iterations", error);
       }
@@ -308,20 +315,28 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         const workApi = await connection.getWorkApi();
         const teamContext = { project, team };
         const results = [];
+        // One bad iteration must not hide the ones already assigned: each is tried and reported on its own.
+        const failed: { path: string; error: string }[] = [];
 
         for (const { identifier, path } of iterations) {
-          const assignment = await workApi.postTeamIteration({ path: path, id: identifier }, teamContext);
-
-          if (assignment) {
-            results.push(assignment);
+          try {
+            const assignment = await workApi.postTeamIteration({ path: path, id: identifier }, teamContext);
+            if (assignment) {
+              results.push(assignment);
+            }
+          } catch (error) {
+            failed.push({ path, error: errorMessage(error) });
           }
         }
 
         if (results.length === 0) {
+          if (failed.length > 0) {
+            return toolError("assigning iterations", failed.length === 1 ? failed[0].error : failed.map((f) => `${f.path}: ${f.error}`).join("; "));
+          }
           return { content: [{ type: "text", text: "No iterations were assigned to the team" }], isError: true };
         }
 
-        return jsonResult(results);
+        return jsonResult(failed.length > 0 ? { assigned: results, failed } : results);
       } catch (error) {
         return toolError("assigning iterations", error);
       }

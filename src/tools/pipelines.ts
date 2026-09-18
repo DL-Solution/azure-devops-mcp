@@ -615,7 +615,11 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         return { content: [{ type: "text", text: `Stage '${stageName}' of build ${buildId} updated: ${status}.` }] };
       }
 
-      return jsonResult(JSON.parse(updatedBuild));
+      try {
+        return jsonResult(JSON.parse(updatedBuild));
+      } catch {
+        return { content: [{ type: "text", text: updatedBuild }] };
+      }
     }
   );
 
