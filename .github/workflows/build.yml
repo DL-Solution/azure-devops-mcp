@@ -20,7 +20,7 @@ env:
 jobs:
   build:
     name: Build the project
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
@@ -31,11 +31,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Remove .npmrc - uses standard registry for internal build check - non-release version
-        run: |
-          if (Test-Path .npmrc) {
-            Remove-Item .npmrc
-          }
-        shell: pwsh
+        run: rm -f .npmrc
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -68,25 +64,14 @@ jobs:
       # docs/TOOLSET.md is generated from the tools the built server registers.
       # A PR that adds, removes or changes a tool must regenerate it.
       - name: Verify docs/TOOLSET.md is up to date
-        # A dedicated script rather than `npm run toolset -- --check`: PowerShell on the
-        # Windows runner can swallow the `--` when npm resolves to npm.ps1.
         run: npm run toolset-check
 
       - name: Display coverage summary
         run: |
-          Write-Host "=== Code Coverage Summary ==="
-          if (Test-Path "coverage/lcov-report/index.html") {
-            Write-Host "Coverage report generated successfully"
-            if (Test-Path "coverage/coverage-summary.json") {
-              $coverage = Get-Content "coverage/coverage-summary.json" | ConvertFrom-Json
-              $total = $coverage.total
-              Write-Host "Lines: $($total.lines.pct)%"
-              Write-Host "Functions: $($total.functions.pct)%"
-              Write-Host "Branches: $($total.branches.pct)%"
-              Write-Host "Statements: $($total.statements.pct)%"
-            }
-          }
-        shell: pwsh
+          echo "=== Code Coverage Summary ==="
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e 'const t = require("./coverage/coverage-summary.json").total; for (const k of ["lines", "functions", "branches", "statements"]) console.log(`${k}: ${t[k].pct}%`);'
+          fi
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
@@ -97,16 +82,14 @@ jobs:
           fail_ci_if_error: false
 
       - name: Validate server startup via npx
-        shell: pwsh
         run: |
-          $result = & npx mcp-server-azuredevops 2>&1 | Out-String
-          if ($result -notmatch "Usage: mcp-server-azuredevops <organization>") {
-            Write-Host "Expected usage message not found in output:"
-            Write-Host $result
+          result=$(npx mcp-server-azuredevops 2>&1) || true
+          if ! grep -q "Usage: mcp-server-azuredevops <organization>" <<< "$result"; then
+            echo "Expected usage message not found in output:"
+            echo "$result"
             exit 1
-          }
-          Write-Host "Validation passed."
-          exit 0
+          fi
+          echo "Validation passed."
 
   static-code-analysis:
     name: Static code analysis
