@@ -285,7 +285,7 @@
 | Wiki               | [mcp_ado_wiki_create_or_update_page](#mcp_ado_wiki_create_or_update_page)                                     | Create or update a wiki page                                                                                                                          |
 | Wiki               | [mcp_ado_wiki_create_wiki](#mcp_ado_wiki_create_wiki)                                                         | Provision a new wiki in a project                                                                                                                     |
 | Wiki               | [mcp_ado_wiki_update_wiki](#mcp_ado_wiki_update_wiki)                                                         | Rename a wiki, or change which branches of a code wiki are published                                                                                  |
-| Wiki               | [mcp_ado_wiki_delete_wiki](#mcp_ado_wiki_delete_wiki)                                                         | Delete a wiki                                                                                                                                         |
+| Wiki               | [mcp_ado_wiki_delete_wiki](#mcp_ado_wiki_delete_wiki)                                                         | Delete (unpublish) a code wiki; a project wiki cannot be deleted                                                                                      |
 | Wiki               | [mcp_ado_wiki_delete_page](#mcp_ado_wiki_delete_page)                                                         | Delete a wiki page by path or by ID                                                                                                                   |
 | Wiki               | [mcp_ado_wiki_move_page](#mcp_ado_wiki_move_page)                                                             | Move or rename a wiki page, or change its position among its siblings                                                                                 |
 | Wiki               | [mcp_ado_wiki_upload_attachment](#mcp_ado_wiki_upload_attachment)                                             | Upload a file to a wiki, e.g                                                                                                                          |
@@ -2647,7 +2647,7 @@ Get how often a wiki page was viewed, per day.
 List the comments on a wiki page, newest first unless order is 'asc'.
 
 - **Required**: `project`, `wikiIdentifier`, `pageId`
-- **Optional**: `continuationToken`, `excludeDeleted`, `expand` (`none` \| `reactions` \| `renderedText` \| `all`), `order` (`asc` \| `desc`), `top`
+- **Optional**: `continuationToken`, `excludeDeleted`, `expand` (`none` \| `reactions` \| `renderedText` \| `all`), `order` (`asc` \| `desc`), `parentId`, `top`
 
 ### mcp_ado_wiki_get_page_comment
 

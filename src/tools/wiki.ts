@@ -543,7 +543,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     WIKI_TOOLS.delete_wiki,
-    "Delete a wiki. For a code wiki this unpublishes it; the repository and its files stay.",
+    "Delete a code wiki: this unpublishes it, and the repository and its files stay. A project wiki cannot be deleted through the API (Azure DevOps answers 405).",
     {
       project: requiredProject,
       wikiIdentifier: wikiIdentifierParam,
@@ -658,7 +658,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     WIKI_TOOLS.list_page_comments,
-    "List the comments on a wiki page, newest first unless order is 'asc'.",
+    "List the comments on a wiki page, newest first unless order is 'asc'. Returns top-level comments only: pass parentId for the replies to one comment, or expand 'all' to nest replies under their comment.",
     {
       project: requiredProject,
       wikiIdentifier: wikiIdentifierParam,
@@ -668,14 +668,16 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
       excludeDeleted: z.boolean().optional().describe("Omit deleted comments when true."),
       expand: pageCommentExpandParam,
       order: z.enum(["asc", "desc"]).optional().describe("Sort order by creation date. Defaults to newest first."),
+      parentId: z.coerce.number().int().min(1).optional().describe("List the replies to this comment instead of the top-level comments."),
     },
-    async ({ project, wikiIdentifier, pageId, top, continuationToken, excludeDeleted, expand, order }) => {
+    async ({ project, wikiIdentifier, pageId, top, continuationToken, excludeDeleted, expand, order, parentId }) => {
       const params = new URLSearchParams({ "api-version": apiVersion });
       if (top !== undefined) params.append("$top", String(top));
       if (continuationToken) params.append("continuationToken", continuationToken);
       if (excludeDeleted !== undefined) params.append("excludeDeleted", String(excludeDeleted));
       if (expand) params.append("$expand", expand);
       if (order) params.append("order", order);
+      if (parentId !== undefined) params.append("parentId", String(parentId));
       return call(`listing comments on wiki page ${pageId}`, () => rest("GET", `${pageCommentsPath(project, wikiIdentifier, pageId)}?${params.toString()}`));
     }
   );
@@ -689,7 +691,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
       wikiIdentifier: wikiIdentifierParam,
       pageId: pageIdParam,
       commentId: commentIdParam,
-      excludeDeleted: z.boolean().optional().describe("When true, a deleted comment is not returned."),
+      excludeDeleted: z.boolean().optional().describe("Omit deleted comments when true."),
       expand: pageCommentExpandParam,
     },
     async ({ project, wikiIdentifier, pageId, commentId, excludeDeleted, expand }) => {
@@ -733,7 +735,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     WIKI_TOOLS.delete_page_comment,
-    "Delete a wiki page comment by ID.",
+    "Delete a wiki page comment by ID. The comment is marked deleted (isDeleted) rather than removed, and replies to it remain.",
     {
       project: requiredProject,
       wikiIdentifier: wikiIdentifierParam,
@@ -804,7 +806,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     WIKI_TOOLS.upload_page_comment_attachment,
-    "Upload a file to attach to a wiki page comment, e.g. a screenshot. Returns the attachment reference; reference its url from a comment's markdown.",
+    "Upload a file to attach to a wiki page comment, e.g. a screenshot. Returns the attachment's id and url. Link the url from a comment's markdown, e.g. ![name](url): Azure DevOps serves the attachment only once a comment links to it.",
     {
       project: requiredProject,
       wikiIdentifier: wikiIdentifierParam,
@@ -834,7 +836,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     WIKI_TOOLS.get_page_comment_attachment,
-    "Download an attachment from a wiki page comment by its ID. Returns the content as a base64-encoded resource, or as text if it looks like a text file.",
+    "Download an attachment from a wiki page comment by its ID. Only attachments that a comment links to can be read. Azure DevOps serves every attachment as application/octet-stream, so pass fileName to get a text file back as text; otherwise the content comes as a base64-encoded resource.",
     {
       project: requiredProject,
       wikiIdentifier: wikiIdentifierParam,

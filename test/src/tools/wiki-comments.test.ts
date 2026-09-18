@@ -88,6 +88,14 @@ describe("wiki page comments", () => {
       expect(mockFetch.mock.calls[0][0]).toBe(`${base}/pages/12/comments?api-version=7.2-preview.1`);
     });
 
+    it("lists the replies to one comment with parentId", async () => {
+      respondText('{"totalCount":1,"count":1,"comments":[{"id":354780,"parentId":354779}]}');
+
+      await tool(WIKI_TOOLS.list_page_comments)({ ...project, pageId: 49, parentId: 354779 });
+
+      expect(mockFetch.mock.calls[0][0]).toBe(`${base}/pages/49/comments?api-version=7.2-preview.1&parentId=354779`);
+    });
+
     it("surfaces REST errors", async () => {
       respondText("The wiki page id '999' does not exist.", 404);
 
