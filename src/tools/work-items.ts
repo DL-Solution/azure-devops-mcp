@@ -11,10 +11,11 @@ import { WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfac
 import { CommentReactionType, FieldType, FieldUsage, GetFieldsExpand, QueryExpand, WorkItemField, WorkItemTypeFieldsExpandLevel } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { z } from "zod";
 import { batchApiVersion, markdownCommentsApiVersion, getEnumKeys, safeEnumConvert, encodeFormattedValue } from "../utils.js";
-import { elicitProject, elicitTeam } from "../shared/elicitations.js";
+import { elicitProject, elicitTeam, resolveProject } from "../shared/elicitations.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { getUserIdentityFromEmail } from "./auth.js";
 import { optionalProject, optionalTeam, optionalTeamWith, requiredProjectWith } from "../shared/common-params.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const WORKITEM_TOOLS = {
   my_work_items: "wit_my_work_items",
@@ -217,15 +218,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const teamContext = { project: resolvedProject, team: resolvedTeam };
         const backlogs = await workApi.getBacklogs(teamContext);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(backlogs, null, 2) }],
-        };
+        return jsonResult(backlogs);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error listing backlogs: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing backlogs", error);
       }
     }
   );
@@ -262,15 +257,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const workItems = await workApi.getBacklogLevelWorkItems(teamContext, backlogId);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workItems, null, 2) }],
-        };
+        return jsonResult(workItems);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error listing backlog work items: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing backlog work items", error);
       }
     }
   );
@@ -300,15 +289,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const workItems = await workApi.getPredefinedQueryResults(resolvedProject, type, top, includeCompleted);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workItems, null, 2) }],
-        };
+        return jsonResult(workItems);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error retrieving work items: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving work items", error);
       }
     }
   );
@@ -369,15 +352,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           });
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workitems, null, 2) }],
-        };
+        return jsonResult(workitems);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error retrieving work items batch: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving work items batch", error);
       }
     }
   );
@@ -424,16 +401,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const workItemApi = await connection.getWorkItemTrackingApi();
         const workItem = await workItemApi.getWorkItem(id, fields, asOf, expand as unknown as WorkItemExpand, resolvedProject);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workItem, null, 2) }],
-        };
+        return jsonResult(workItem);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error retrieving work item: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving work item", error);
       }
     }
   );
@@ -461,15 +431,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const workItemApi = await connection.getWorkItemTrackingApi();
         const comments = await workItemApi.getComments(resolvedProject, workItemId, top);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(comments, null, 2) }],
-        };
+        return jsonResult(comments);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error listing work item comments: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing work item comments", error);
       }
     }
   );
@@ -531,11 +495,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           content: [{ type: "text", text: comments }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error adding work item comment: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("adding work item comment", error);
       }
     }
   );
@@ -595,11 +555,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           content: [{ type: "text", text: updatedComment }],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error updating work item comment: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating work item comment", error);
       }
     }
   );
@@ -662,15 +618,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           });
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(revisions, null, 2) }],
-        };
+        return jsonResult(revisions);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error listing work item revisions: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("listing work item revisions", error);
       }
     }
   );
@@ -789,16 +739,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const result = await response.json();
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating child work items: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating child work items", error);
       }
     }
   );
@@ -847,29 +790,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: "Work item update failed" }], isError: true };
         }
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  workItemId,
-                  pullRequestId,
-                  success: true,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        return jsonResult({
+          workItemId,
+          pullRequestId,
+          success: true,
+        });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error linking work item to pull request: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("linking work item to pull request", error);
       }
     }
   );
@@ -899,15 +826,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         //get the work items for the current iteration
         const workItems = await workApi.getIterationWorkItems({ project: resolvedProject, team }, iterationId);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workItems, null, 2) }],
-        };
+        return jsonResult(workItems);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error retrieving work items for iteration: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving work items for iteration", error);
       }
     }
   );
@@ -956,19 +877,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const updatedWorkItem = await workItemApi.updateWorkItem(null, apiUpdates, id);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(updatedWorkItem, null, 2) }],
-        };
+        return jsonResult(updatedWorkItem);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
         // A failed '/rev' test comes back as 409/412; say so, so the model re-reads instead of retrying blindly (upstream #1526).
         const statusCode = typeof error === "object" && error !== null && "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : undefined;
         const statusText = statusCode === 409 ? " Conflict" : statusCode === 412 ? " Precondition Failed" : "";
         const updateStatus = statusCode !== undefined ? ` [HTTP ${statusCode}${statusText}]` : "";
-        return {
-          content: [{ type: "text", text: `Error updating work item${updateStatus}: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError(`updating work item${updateStatus}`, error);
       }
     }
   );
@@ -996,15 +911,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const workItemTypeInfo = await workItemApi.getWorkItemType(resolvedProject, workItemType);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(workItemTypeInfo, null, 2) }],
-        };
+        return jsonResult(workItemTypeInfo);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error retrieving work item type: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving work item type", error);
       }
     }
   );
@@ -1063,16 +972,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: "Work item was not created" }], isError: true };
         }
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(newWorkItem, null, 2) }],
-        };
+        return jsonResult(newWorkItem);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error creating work item: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("creating work item", error);
       }
     }
   );
@@ -1107,15 +1009,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const queryDetails = await workItemApi.getQuery(resolvedProject, query, safeEnumConvert(QueryExpand, expand), depth, includeDeleted, useIsoDateFormat);
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(queryDetails, null, 2) }],
-        };
+        return jsonResult(queryDetails);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error retrieving query: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving query", error);
       }
     }
   );
@@ -1142,21 +1038,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         // If ids mode, extract and return only the IDs
         if (responseType === "ids") {
           const ids = queryResult.workItems?.map((workItem) => workItem.id).filter((id): id is number => id !== undefined) || [];
-          return {
-            content: [{ type: "text", text: JSON.stringify({ ids, count: ids.length }, null, 2) }],
-          };
+          return jsonResult({ ids, count: ids.length });
         }
 
         // Default: return full query results
-        return {
-          content: [{ type: "text", text: JSON.stringify(queryResult, null, 2) }],
-        };
+        return jsonResult(queryResult);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error retrieving query results: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving query results", error);
       }
     }
   );
@@ -1235,15 +1123,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const result = await response.json();
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error updating work items in batch: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("updating work items in batch", error);
       }
     }
   );
@@ -1335,15 +1217,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const result = await response.json();
 
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error linking work items: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("linking work items", error);
       }
     }
   );
@@ -1392,7 +1268,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         if (relationIndexes.length === 0) {
           return {
-            content: [{ type: "text", text: `No matching relations found for link type '${type}'${url ? ` and URL '${url}'` : ""}.\n${JSON.stringify(relations, null, 2)}` }],
+            content: [{ type: "text", text: `No matching relations found for link type '${type}'${url ? ` and URL '${url}'` : ""}.\n${JSON.stringify(relations)}` }],
             isError: true,
           };
         }
@@ -1414,25 +1290,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           content: [
             {
               type: "text",
-              text:
-                `Removed ${removedRelations.length} link(s) of type '${type}':\n` +
-                JSON.stringify(removedRelations, null, 2) +
-                `\n\nUpdated work item result:\n` +
-                JSON.stringify(updatedWorkItem, null, 2),
+              text: `Removed ${removedRelations.length} link(s) of type '${type}':\n` + JSON.stringify(removedRelations) + `\n\nUpdated work item result:\n` + JSON.stringify(updatedWorkItem),
             },
           ],
           isError: false,
         };
       } catch (error) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error unlinking work item: ${error instanceof Error ? error.message : "Unknown error occurred"}`,
-            },
-          ],
-          isError: true,
-        };
+        return toolError("unlinking work item", error);
       }
     }
   );
@@ -1629,31 +1493,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: "Work item update failed" }], isError: true };
         }
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  workItemId,
-                  artifactUri: finalArtifactUri,
-                  linkType,
-                  comment: comment || null,
-                  success: true,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        return jsonResult({
+          workItemId,
+          artifactUri: finalArtifactUri,
+          linkType,
+          comment: comment || null,
+          success: true,
+        });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error adding artifact link to work item: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("adding artifact link to work item", error);
       }
     }
   );
@@ -1707,12 +1555,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         return response;
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-        return {
-          content: [{ type: "text", text: `Error executing WIQL query: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("executing WIQL query", error);
       }
     }
   );
@@ -1752,7 +1595,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
 
         if (!workItemId) {
-          return { content: [{ type: "text", text: JSON.stringify(attachment, null, 2) }] };
+          return jsonResult(attachment);
         }
 
         const patchDocument = [
@@ -1769,10 +1612,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const workItem = await workItemTrackingApi.updateWorkItem({}, patchDocument, workItemId, resolvedProject);
 
-        return { content: [{ type: "text", text: JSON.stringify({ attachment, workItem: { id: workItem?.id, rev: workItem?.rev } }, null, 2) }] };
+        return jsonResult({ attachment, workItem: { id: workItem?.id, rev: workItem?.rev } });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating work item attachment: ${errorMessage}` }], isError: true };
+        return toolError("creating work item attachment", error);
       }
     }
   );
@@ -1863,23 +1705,10 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           ],
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return {
-          content: [{ type: "text", text: `Error retrieving work item attachment: ${errorMessage}` }],
-          isError: true,
-        };
+        return toolError("retrieving work item attachment", error);
       }
     }
   );
-
-  // Resolves the project the same way every tool here does: an explicit value
-  // wins, otherwise the user is asked to pick one.
-  async function resolveProject(connection: WebApi, project: string | undefined, message: string) {
-    if (project) return { project };
-    const result = await elicitProject(server, connection, message);
-    if ("response" in result) return result;
-    return { project: result.resolved };
-  }
 
   registerTool(
     server,
@@ -1892,16 +1721,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ id, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the work item belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the work item belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const deleted = await workItemTrackingApi.deleteWorkItem(id, ctx.project, false);
 
-        return { content: [{ type: "text", text: JSON.stringify(deleted, null, 2) }] };
+        return jsonResult(deleted);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting work item: ${errorMessage}` }], isError: true };
+        return toolError("deleting work item", error);
       }
     }
   );
@@ -1917,16 +1745,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, ids }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project whose recycle bin to list.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project whose recycle bin to list.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const deleted = ids?.length ? await workItemTrackingApi.getDeletedWorkItems(ids, ctx.project) : await workItemTrackingApi.getDeletedWorkItemShallowReferences(ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(deleted, null, 2) }] };
+        return jsonResult(deleted);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing deleted work items: ${errorMessage}` }], isError: true };
+        return toolError("listing deleted work items", error);
       }
     }
   );
@@ -1942,16 +1769,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ id, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the work item belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the work item belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const restored = await workItemTrackingApi.restoreWorkItem({ isDeleted: false }, id, ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(restored, null, 2) }] };
+        return jsonResult(restored);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error restoring work item: ${errorMessage}` }], isError: true };
+        return toolError("restoring work item", error);
       }
     }
   );
@@ -1967,7 +1793,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ id, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the work item belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the work item belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
@@ -1975,8 +1801,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         return { content: [{ type: "text", text: `Work item ${id} was permanently destroyed.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error destroying work item: ${errorMessage}` }], isError: true };
+        return toolError("destroying work item", error);
       }
     }
   );
@@ -1991,16 +1816,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project whose tags to list.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project whose tags to list.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const tags = await workItemTrackingApi.getTags(ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(tags, null, 2) }] };
+        return jsonResult(tags);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing tags: ${errorMessage}` }], isError: true };
+        return toolError("listing tags", error);
       }
     }
   );
@@ -2016,7 +1840,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ tag, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the tag belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the tag belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
@@ -2026,10 +1850,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: `Tag '${tag}' not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(found, null, 2) }] };
+        return jsonResult(found);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching tag: ${errorMessage}` }], isError: true };
+        return toolError("fetching tag", error);
       }
     }
   );
@@ -2046,16 +1869,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ tag, name, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the tag belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the tag belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const updated = await workItemTrackingApi.updateTag({ name }, ctx.project, tag);
 
-        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+        return jsonResult(updated);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating tag: ${errorMessage}` }], isError: true };
+        return toolError("updating tag", error);
       }
     }
   );
@@ -2071,7 +1893,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ tag, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the tag belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the tag belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
@@ -2079,15 +1901,14 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         return { content: [{ type: "text", text: `Tag '${tag}' was deleted.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting tag: ${errorMessage}` }], isError: true };
+        return toolError("deleting tag", error);
       }
     }
   );
 
   // Templates are team-scoped, so they need both a project and a team.
   async function resolveTeamContext(connection: WebApi, project: string | undefined, team: string | undefined, message: string) {
-    const projectCtx = await resolveProject(connection, project, message);
+    const projectCtx = await resolveProject(server, connection, project, message);
     if ("response" in projectCtx) return projectCtx;
 
     if (team) return { teamContext: { project: projectCtx.project, team } };
@@ -2115,10 +1936,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const templates = await workItemTrackingApi.getTemplates(ctx.teamContext, workItemType);
 
-        return { content: [{ type: "text", text: JSON.stringify(templates, null, 2) }] };
+        return jsonResult(templates);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing work item templates: ${errorMessage}` }], isError: true };
+        return toolError("listing work item templates", error);
       }
     }
   );
@@ -2145,10 +1965,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: `Template '${templateId}' not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(template, null, 2) }] };
+        return jsonResult(template);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching work item template: ${errorMessage}` }], isError: true };
+        return toolError("fetching work item template", error);
       }
     }
   );
@@ -2178,10 +1997,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const created = await workItemTrackingApi.createTemplate({ name, workItemTypeName, fields, description }, ctx.teamContext);
 
-        return { content: [{ type: "text", text: JSON.stringify(created, null, 2) }] };
+        return jsonResult(created);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating work item template: ${errorMessage}` }], isError: true };
+        return toolError("creating work item template", error);
       }
     }
   );
@@ -2208,10 +2026,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const replaced = await workItemTrackingApi.replaceTemplate({ id: templateId, name, workItemTypeName, fields, description }, ctx.teamContext, templateId);
 
-        return { content: [{ type: "text", text: JSON.stringify(replaced, null, 2) }] };
+        return jsonResult(replaced);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error replacing work item template: ${errorMessage}` }], isError: true };
+        return toolError("replacing work item template", error);
       }
     }
   );
@@ -2236,8 +2053,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         return { content: [{ type: "text", text: `Template '${templateId}' was deleted.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting work item template: ${errorMessage}` }], isError: true };
+        return toolError("deleting work item template", error);
       }
     }
   );
@@ -2258,16 +2074,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, depth, expand, includeDeleted }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project whose queries to list.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project whose queries to list.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const queries = await workItemTrackingApi.getQueries(ctx.project, safeEnumConvert(QueryExpand, expand), depth, includeDeleted);
 
-        return { content: [{ type: "text", text: JSON.stringify(queries, null, 2) }] };
+        return jsonResult(queries);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing queries: ${errorMessage}` }], isError: true };
+        return toolError("listing queries", error);
       }
     }
   );
@@ -2291,16 +2106,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
 
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project to create the query in.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project to create the query in.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const created = await workItemTrackingApi.createQuery({ name, wiql, isFolder }, ctx.project, parentPath, validateWiqlOnly);
 
-        return { content: [{ type: "text", text: JSON.stringify(created, null, 2) }] };
+        return jsonResult(created);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating query: ${errorMessage}` }], isError: true };
+        return toolError("creating query", error);
       }
     }
   );
@@ -2319,7 +2133,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ query, name, wiql, project, undeleteDescendants }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the query belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the query belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
@@ -2329,10 +2143,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         const updated = await workItemTrackingApi.updateQuery(update, ctx.project, query, undeleteDescendants);
 
-        return { content: [{ type: "text", text: JSON.stringify(updated, null, 2) }] };
+        return jsonResult(updated);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating query: ${errorMessage}` }], isError: true };
+        return toolError("updating query", error);
       }
     }
   );
@@ -2348,7 +2161,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ query, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the query belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the query belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
@@ -2356,8 +2169,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         return { content: [{ type: "text", text: `Query '${query}' was deleted.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting query: ${errorMessage}` }], isError: true };
+        return toolError("deleting query", error);
       }
     }
   );
@@ -2373,17 +2185,16 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, namesOnly }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project whose work item types to list.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project whose work item types to list.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const types = await workItemTrackingApi.getWorkItemTypes(ctx.project);
         const result = namesOnly ? (types ?? []).map((type) => ({ name: type.name, referenceName: type.referenceName, description: type.description })) : types;
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing work item types: ${errorMessage}` }], isError: true };
+        return toolError("listing work item types", error);
       }
     }
   );
@@ -2398,16 +2209,15 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project whose type categories to list.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project whose type categories to list.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const categories = await workItemTrackingApi.getWorkItemTypeCategories(ctx.project);
 
-        return { content: [{ type: "text", text: JSON.stringify(categories, null, 2) }] };
+        return jsonResult(categories);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing work item type categories: ${errorMessage}` }], isError: true };
+        return toolError("listing work item type categories", error);
       }
     }
   );
@@ -2423,7 +2233,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ category, project }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the category belongs to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the category belongs to.");
         if ("response" in ctx) return ctx.response;
 
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
@@ -2433,10 +2243,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: `Work item type category '${category}' not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(found, null, 2) }] };
+        return jsonResult(found);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching work item type category: ${errorMessage}` }], isError: true };
+        return toolError("fetching work item type category", error);
       }
     }
   );
@@ -2452,10 +2261,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const workItemTrackingApi = await connection.getWorkItemTrackingApi();
         const relationTypes = await workItemTrackingApi.getRelationTypes();
 
-        return { content: [{ type: "text", text: JSON.stringify(relationTypes, null, 2) }] };
+        return jsonResult(relationTypes);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing work item relation types: ${errorMessage}` }], isError: true };
+        return toolError("listing work item relation types", error);
       }
     }
   );
@@ -2484,10 +2292,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const filter = nameFilter?.toLowerCase();
         const result = filter ? (fields ?? []).filter((field) => field.name?.toLowerCase().includes(filter) || field.referenceName?.toLowerCase().includes(filter)) : fields;
 
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        return jsonResult(result);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing work item fields: ${errorMessage}` }], isError: true };
+        return toolError("listing work item fields", error);
       }
     }
   );
@@ -2510,10 +2317,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           return { content: [{ type: "text", text: `Field '${field}' not found` }], isError: true };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify(found, null, 2) }] };
+        return jsonResult(found);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching work item field: ${errorMessage}` }], isError: true };
+        return toolError("fetching work item field", error);
       }
     }
   );
@@ -2554,25 +2360,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           isPicklistSuggested,
         } as unknown as WorkItemField;
         const created = await workItemTrackingApi.createField(field);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                {
-                  ...created,
-                  type: created.type !== undefined ? (FieldType[created.type] ?? created.type) : undefined,
-                  usage: created.usage !== undefined ? (FieldUsage[created.usage] ?? created.usage) : undefined,
-                },
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        return jsonResult({
+          ...created,
+          type: created.type !== undefined ? (FieldType[created.type] ?? created.type) : undefined,
+          usage: created.usage !== undefined ? (FieldUsage[created.usage] ?? created.usage) : undefined,
+        });
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating work item field: ${errorMessage}` }], isError: true };
+        return toolError("creating work item field", error);
       }
     }
   );
@@ -2607,10 +2401,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
         const workItemApi = await connection.getWorkItemTrackingApi();
         const reactions = await workItemApi.getCommentReactions(resolvedProject, workItemId, commentId);
-        return { content: [{ type: "text", text: JSON.stringify((reactions ?? []).map(describeReaction), null, 2) }] };
+        return jsonResult((reactions ?? []).map(describeReaction));
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing comment reactions: ${errorMessage}` }], isError: true };
+        return toolError("listing comment reactions", error);
       }
     }
   );
@@ -2636,21 +2429,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
         const workItemApi = await connection.getWorkItemTrackingApi();
         const users = await workItemApi.getEngagedUsers(resolvedProject, workItemId, commentId, reactionType(reaction), top, skip);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(
-                (users ?? []).map((user) => ({ id: user.id, displayName: user.displayName, uniqueName: user.uniqueName })),
-                null,
-                2
-              ),
-            },
-          ],
-        };
+        return jsonResult((users ?? []).map((user) => ({ id: user.id, displayName: user.displayName, uniqueName: user.uniqueName })));
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing users who reacted: ${errorMessage}` }], isError: true };
+        return toolError("listing users who reacted", error);
       }
     }
   );
@@ -2671,10 +2452,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
         const workItemApi = await connection.getWorkItemTrackingApi();
         const result = await workItemApi.createCommentReaction(resolvedProject, workItemId, commentId, reactionType(reaction));
-        return { content: [{ type: "text", text: JSON.stringify(describeReaction(result), null, 2) }] };
+        return jsonResult(describeReaction(result));
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error adding comment reaction: ${errorMessage}` }], isError: true };
+        return toolError("adding comment reaction", error);
       }
     }
   );
@@ -2695,10 +2475,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
         const workItemApi = await connection.getWorkItemTrackingApi();
         const result = await workItemApi.deleteCommentReaction(resolvedProject, workItemId, commentId, reactionType(reaction));
-        return { content: [{ type: "text", text: JSON.stringify(describeReaction(result), null, 2) }] };
+        return jsonResult(describeReaction(result));
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing comment reaction: ${errorMessage}` }], isError: true };
+        return toolError("removing comment reaction", error);
       }
     }
   );
@@ -2706,11 +2485,6 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
   // ------------------------------------------------ history, comments, types ---
 
   const workItemIdParam = z.coerce.number().min(1).describe("The ID of the work item.");
-  const failure = (action: string, error: unknown) => ({
-    content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : "Unknown error occurred"}` }],
-    isError: true,
-  });
-  const json = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 
   registerTool(
     server,
@@ -2724,13 +2498,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, workItemId, commentId }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project of the work item.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project of the work item.");
         if ("response" in ctx) return ctx.response;
         const workItemApi = await connection.getWorkItemTrackingApi();
         await workItemApi.deleteComment(ctx.project, workItemId, commentId);
-        return json({ deleted: commentId, workItemId });
+        return jsonResult({ deleted: commentId, workItemId });
       } catch (error) {
-        return failure(`deleting comment ${commentId}`, error);
+        return toolError(`deleting comment ${commentId}`, error);
       }
     }
   );
@@ -2748,14 +2522,14 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, workItemId, commentId, version }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project of the work item.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project of the work item.");
         if ("response" in ctx) return ctx.response;
         const workItemApi = await connection.getWorkItemTrackingApi();
         const versions =
           version !== undefined ? await workItemApi.getCommentVersion(ctx.project, workItemId, commentId, version) : await workItemApi.getCommentVersions(ctx.project, workItemId, commentId);
         return createExternalContentResponse(versions, "work item comment versions");
       } catch (error) {
-        return failure(`listing versions of comment ${commentId}`, error);
+        return toolError(`listing versions of comment ${commentId}`, error);
       }
     }
   );
@@ -2778,7 +2552,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const updates = updateNumber !== undefined ? await workItemApi.getUpdate(workItemId, updateNumber, project) : await workItemApi.getUpdates(workItemId, top, skip, project);
         return createExternalContentResponse(updates, "work item updates");
       } catch (error) {
-        return failure(`listing updates of work item ${workItemId}`, error);
+        return toolError(`listing updates of work item ${workItemId}`, error);
       }
     }
   );
@@ -2806,7 +2580,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
         return createExternalContentResponse(snapshot, "work item revision");
       } catch (error) {
-        return failure(`getting revision ${revision} of work item ${workItemId}`, error);
+        return toolError(`getting revision ${revision} of work item ${workItemId}`, error);
       }
     }
   );
@@ -2823,9 +2597,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const workItemApi = await connection.getWorkItemTrackingApi();
-        return json(await workItemApi.getWorkItemTypeStates(project, type));
+        return jsonResult(await workItemApi.getWorkItemTypeStates(project, type));
       } catch (error) {
-        return failure(`listing states of '${type}'`, error);
+        return toolError(`listing states of '${type}'`, error);
       }
     }
   );
@@ -2852,9 +2626,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         if (!result) {
           return { content: [{ type: "text", text: `Field '${field}' not found on '${type}'` }], isError: true };
         }
-        return json(result);
+        return jsonResult(result);
       } catch (error) {
-        return failure(`listing fields of '${type}'`, error);
+        return toolError(`listing fields of '${type}'`, error);
       }
     }
   );
@@ -2872,12 +2646,12 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, filter, top, includeDeleted }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project to search queries in.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project to search queries in.");
         if ("response" in ctx) return ctx.response;
         const workItemApi = await connection.getWorkItemTrackingApi();
-        return json(await workItemApi.searchQueries(ctx.project, filter, top, undefined, includeDeleted));
+        return jsonResult(await workItemApi.searchQueries(ctx.project, filter, top, undefined, includeDeleted));
       } catch (error) {
-        return failure(`searching queries for '${filter}'`, error);
+        return toolError(`searching queries for '${filter}'`, error);
       }
     }
   );
@@ -2895,9 +2669,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const workItemApi = await connection.getWorkItemTrackingApi();
         const result = await workItemApi.queryWorkItemsForArtifactUris({ artifactUris }, project);
-        return json(result?.artifactUrisQueryResult ?? {});
+        return jsonResult(result?.artifactUrisQueryResult ?? {});
       } catch (error) {
-        return failure("looking up work items for artifacts", error);
+        return toolError("looking up work items for artifacts", error);
       }
     }
   );
@@ -2915,7 +2689,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, ids, destroy, skipNotifications }) => {
       try {
         const connection = await connectionProvider();
-        const ctx = await resolveProject(connection, project, "Select the Azure DevOps project the work items belong to.");
+        const ctx = await resolveProject(server, connection, project, "Select the Azure DevOps project the work items belong to.");
         if ("response" in ctx) return ctx.response;
         const accessToken = await tokenProvider();
         // The typed client has no batch delete; the REST endpoint does.
@@ -2930,7 +2704,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
         return { content: [{ type: "text", text }] };
       } catch (error) {
-        return failure("deleting work items", error);
+        return toolError("deleting work items", error);
       }
     }
   );
@@ -2956,9 +2730,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         if (!response.ok) {
           throw new Error(`${response.status}: ${await response.text()}`);
         }
-        return json({ deleted: attachmentId });
+        return jsonResult({ deleted: attachmentId });
       } catch (error) {
-        return failure(`deleting attachment ${attachmentId}`, error);
+        return toolError(`deleting attachment ${attachmentId}`, error);
       }
     }
   );
@@ -2975,9 +2749,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         const connection = await connectionProvider();
         const workItemApi = await connection.getWorkItemTrackingApi();
         await workItemApi.deleteField(field);
-        return json({ deleted: field });
+        return jsonResult({ deleted: field });
       } catch (error) {
-        return failure(`deleting field '${field}'`, error);
+        return toolError(`deleting field '${field}'`, error);
       }
     }
   );
@@ -2993,9 +2767,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const workItemApi = await connection.getWorkItemTrackingApi();
-        return json(await workItemApi.updateField({ isDeleted: false }, field));
+        return jsonResult(await workItemApi.updateField({ isDeleted: false }, field));
       } catch (error) {
-        return failure(`restoring field '${field}'`, error);
+        return toolError(`restoring field '${field}'`, error);
       }
     }
   );
@@ -3012,9 +2786,9 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
         const workItemApi = await connection.getWorkItemTrackingApi();
-        return json(await workItemApi.migrateProjectsProcess({ typeId: processTypeId }, project));
+        return jsonResult(await workItemApi.migrateProjectsProcess({ typeId: processTypeId }, project));
       } catch (error) {
-        return failure(`moving project '${project}' to process ${processTypeId}`, error);
+        return toolError(`moving project '${project}' to process ${processTypeId}`, error);
       }
     }
   );
