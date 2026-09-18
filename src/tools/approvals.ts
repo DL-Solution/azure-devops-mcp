@@ -7,6 +7,7 @@ import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
 import { requiredProject } from "../shared/common-params.js";
+import { toolError } from "../shared/tool-results.js";
 
 const APPROVALS_TOOLS = {
   list: "approvals_list",
@@ -76,8 +77,7 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing approvals: ${errorMessage}` }], isError: true };
+        return toolError("listing approvals", error);
       }
     }
   );
@@ -106,8 +106,7 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching approval: ${errorMessage}` }], isError: true };
+        return toolError("fetching approval", error);
       }
     }
   );
@@ -138,8 +137,7 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating approval: ${errorMessage}` }], isError: true };
+        return toolError("updating approval", error);
       }
     }
   );
