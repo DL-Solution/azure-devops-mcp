@@ -27,6 +27,16 @@ const WIKI_TOOLS = {
   move_page: "wiki_move_page",
   upload_attachment: "wiki_upload_attachment",
   get_page_stats: "wiki_get_page_stats",
+  list_page_comments: "wiki_list_page_comments",
+  get_page_comment: "wiki_get_page_comment",
+  add_page_comment: "wiki_add_page_comment",
+  update_page_comment: "wiki_update_page_comment",
+  delete_page_comment: "wiki_delete_page_comment",
+  add_page_comment_reaction: "wiki_add_page_comment_reaction",
+  remove_page_comment_reaction: "wiki_remove_page_comment_reaction",
+  list_page_comment_reaction_users: "wiki_list_page_comment_reaction_users",
+  upload_page_comment_attachment: "wiki_upload_page_comment_attachment",
+  get_page_comment_attachment: "wiki_get_page_comment_attachment",
 };
 
 function configureWikiTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
@@ -496,6 +506,17 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
   };
   const branchParam = z.string().optional().describe("For a code wiki: the published branch to change. The wiki's first version when omitted.");
 
+  const pageIdParam = z.coerce.number().int().min(1).describe("The wiki page ID, from wiki_list_pages or wiki_get_page.");
+  const commentIdParam = z.coerce.number().int().min(1).describe("The comment ID, from wiki_list_page_comments.");
+  // The reactions a wiki page comment accepts, as the REST API spells them — the same set work item comments use.
+  const PAGE_COMMENT_REACTIONS = ["like", "dislike", "heart", "hooray", "smile", "confused"] as const;
+  const pageCommentReactionParam = z.enum(PAGE_COMMENT_REACTIONS).describe("The reaction.");
+  const pageCommentExpandParam = z
+    .enum(["none", "reactions", "renderedText", "all"])
+    .optional()
+    .describe("Extra data to include ('$expand'). 'renderedText' adds the rendered HTML; 'reactions' includes each comment's reaction counts.");
+  const pageCommentsPath = (project: string, wikiId: string, pageId: number) => `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiId)}/pages/${pageId}/comments`;
+
   registerTool(
     server,
     WIKI_TOOLS.update_wiki,
@@ -633,6 +654,257 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
         return rest("GET", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}/pages/${pageId}/stats?${params.toString()}`);
       })
   );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.list_page_comments,
+    "List the comments on a wiki page, newest first unless order is 'asc'.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      top: z.coerce.number().optional().describe("Maximum number of comments to return."),
+      continuationToken: continuationTokenParam,
+      excludeDeleted: z.boolean().optional().describe("Omit deleted comments when true."),
+      expand: pageCommentExpandParam,
+      order: z.enum(["asc", "desc"]).optional().describe("Sort order by creation date. Defaults to newest first."),
+    },
+    async ({ project, wikiIdentifier, pageId, top, continuationToken, excludeDeleted, expand, order }) => {
+      const params = new URLSearchParams({ "api-version": apiVersion });
+      if (top !== undefined) params.append("$top", String(top));
+      if (continuationToken) params.append("continuationToken", continuationToken);
+      if (excludeDeleted !== undefined) params.append("excludeDeleted", String(excludeDeleted));
+      if (expand) params.append("$expand", expand);
+      if (order) params.append("order", order);
+      return call(`listing comments on wiki page ${pageId}`, () => rest("GET", `${pageCommentsPath(project, wikiIdentifier, pageId)}?${params.toString()}`));
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.get_page_comment,
+    "Get a single wiki page comment by ID.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      commentId: commentIdParam,
+      excludeDeleted: z.boolean().optional().describe("When true, a deleted comment is not returned."),
+      expand: pageCommentExpandParam,
+    },
+    async ({ project, wikiIdentifier, pageId, commentId, excludeDeleted, expand }) => {
+      const params = new URLSearchParams({ "api-version": apiVersion });
+      if (excludeDeleted !== undefined) params.append("excludeDeleted", String(excludeDeleted));
+      if (expand) params.append("$expand", expand);
+      return call(`getting wiki page comment ${commentId}`, () => rest("GET", `${pageCommentsPath(project, wikiIdentifier, pageId)}/${commentId}?${params.toString()}`));
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.add_page_comment,
+    "Add a comment to a wiki page. text is markdown. Set parentId to reply to an existing comment instead of starting a new thread.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      text: z.string().describe("The comment text, in markdown."),
+      parentId: z.coerce.number().int().min(1).optional().describe("The ID of the comment to reply to, from wiki_list_page_comments."),
+    },
+    async ({ project, wikiIdentifier, pageId, text, parentId }) =>
+      call(`adding a comment to wiki page ${pageId}`, () => rest("POST", `${pageCommentsPath(project, wikiIdentifier, pageId)}?api-version=${apiVersion}`, { text, parentId }))
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.update_page_comment,
+    "Update the text of an existing wiki page comment. text is markdown.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      commentId: commentIdParam,
+      text: z.string().describe("The new comment text, in markdown."),
+    },
+    async ({ project, wikiIdentifier, pageId, commentId, text }) =>
+      call(`updating wiki page comment ${commentId}`, () => rest("PATCH", `${pageCommentsPath(project, wikiIdentifier, pageId)}/${commentId}?api-version=${apiVersion}`, { text }))
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.delete_page_comment,
+    "Delete a wiki page comment by ID.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      commentId: commentIdParam,
+    },
+    async ({ project, wikiIdentifier, pageId, commentId }) =>
+      call(`deleting wiki page comment ${commentId}`, () => rest("DELETE", `${pageCommentsPath(project, wikiIdentifier, pageId)}/${commentId}?api-version=${apiVersion}`))
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.add_page_comment_reaction,
+    "React to a wiki page comment as yourself, e.g. 'like'.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      commentId: commentIdParam,
+      reaction: pageCommentReactionParam,
+    },
+    async ({ project, wikiIdentifier, pageId, commentId, reaction }) =>
+      call(`adding reaction ${reaction} to wiki page comment ${commentId}`, () =>
+        rest("PUT", `${pageCommentsPath(project, wikiIdentifier, pageId)}/${commentId}/reactions/${reaction}?api-version=${apiVersion}`)
+      )
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.remove_page_comment_reaction,
+    "Withdraw your own reaction from a wiki page comment. Other people's reactions are not affected.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      commentId: commentIdParam,
+      reaction: pageCommentReactionParam,
+    },
+    async ({ project, wikiIdentifier, pageId, commentId, reaction }) =>
+      call(`removing reaction ${reaction} from wiki page comment ${commentId}`, () =>
+        rest("DELETE", `${pageCommentsPath(project, wikiIdentifier, pageId)}/${commentId}/reactions/${reaction}?api-version=${apiVersion}`)
+      )
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.list_page_comment_reaction_users,
+    "List who gave a particular reaction to a wiki page comment.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      commentId: commentIdParam,
+      reaction: pageCommentReactionParam,
+      top: z.coerce.number().min(1).optional().describe("Maximum number of people to return."),
+      skip: z.coerce.number().min(0).optional().describe("Number of people to skip."),
+    },
+    async ({ project, wikiIdentifier, pageId, commentId, reaction, top, skip }) => {
+      const params = new URLSearchParams({ "api-version": apiVersion });
+      if (top !== undefined) params.append("$top", String(top));
+      if (skip !== undefined) params.append("$skip", String(skip));
+      return call(`listing users who reacted ${reaction} to wiki page comment ${commentId}`, () =>
+        rest("GET", `${pageCommentsPath(project, wikiIdentifier, pageId)}/${commentId}/reactions/${reaction}/users?${params.toString()}`)
+      );
+    }
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.upload_page_comment_attachment,
+    "Upload a file to attach to a wiki page comment, e.g. a screenshot. Returns the attachment reference; reference its url from a comment's markdown.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      fileName: z.string().describe("The file name, e.g. 'screenshot.png'."),
+      contentBase64: z.string().describe("The file content, base64-encoded."),
+    },
+    async ({ project, wikiIdentifier, pageId, fileName, contentBase64 }) =>
+      call(`uploading wiki page comment attachment ${fileName}`, async () => {
+        const connection = await connectionProvider();
+        const token = await tokenProvider();
+        const baseUrl = connection.serverUrl.replace(/\/$/, "");
+        const params = new URLSearchParams({ "fileName": fileName, "api-version": apiVersion });
+        const response = await fetch(`${baseUrl}/${pageCommentsPath(project, wikiIdentifier, pageId)}/attachments?${params.toString()}`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}`, "User-Agent": userAgentProvider(), "Content-Type": "application/octet-stream" },
+          body: Buffer.from(contentBase64.replace(/\s/g, ""), "base64"),
+        });
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(`${response.status}: ${text}`);
+        }
+        return text;
+      })
+  );
+
+  registerTool(
+    server,
+    WIKI_TOOLS.get_page_comment_attachment,
+    "Download an attachment from a wiki page comment by its ID. Returns the content as a base64-encoded resource, or as text if it looks like a text file.",
+    {
+      project: requiredProject,
+      wikiIdentifier: wikiIdentifierParam,
+      pageId: pageIdParam,
+      attachmentId: z.string().describe("The GUID of the attachment, from wiki_upload_page_comment_attachment or a comment's markdown link."),
+      fileName: z.string().optional().describe("The file name, e.g. 'screenshot.png'. Used to determine the MIME type."),
+    },
+    async ({ project, wikiIdentifier, pageId, attachmentId, fileName }) => {
+      try {
+        const connection = await connectionProvider();
+        const token = await tokenProvider();
+        const baseUrl = connection.serverUrl.replace(/\/$/, "");
+        const url = `${baseUrl}/${pageCommentsPath(project, wikiIdentifier, pageId)}/attachments/${encodeURIComponent(attachmentId)}?api-version=${apiVersion}`;
+        const response = await fetch(url, {
+          headers: { "Authorization": `Bearer ${token}`, "User-Agent": userAgentProvider() },
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`${response.status}: ${text}`);
+        }
+        const buffer = Buffer.from(await response.arrayBuffer());
+        const mimeType = attachmentMimeType(fileName);
+
+        if (mimeType.startsWith("text/")) {
+          return createExternalContentResponse(buffer.toString("utf-8"), "wiki page comment attachment");
+        }
+
+        const base64Data = buffer.toString("base64");
+        return {
+          content: [
+            {
+              type: "resource" as const,
+              resource: { uri: `data:${mimeType};base64,${base64Data}`, mimeType, blob: base64Data },
+            },
+          ],
+        };
+      } catch (error) {
+        return toolError("downloading wiki page comment attachment", error);
+      }
+    }
+  );
+}
+
+// A small, local guess at MIME type from a file extension — mirrors the same lookup
+// wit_get_work_item_attachment uses (src/tools/work-items.ts), kept local since neither
+// module exports it and the set of extensions worth special-casing is short.
+function attachmentMimeType(fileName: string | undefined): string {
+  const ext = fileName?.split(".").pop()?.toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    bmp: "image/bmp",
+    svg: "image/svg+xml",
+    webp: "image/webp",
+    pdf: "application/pdf",
+    txt: "text/plain",
+    md: "text/markdown",
+    markdown: "text/markdown",
+    csv: "text/csv",
+    html: "text/html",
+    htm: "text/html",
+    xml: "text/xml",
+    json: "application/json",
+    yaml: "text/yaml",
+    yml: "text/yaml",
+    zip: "application/zip",
+  };
+  return (ext && mimeTypes[ext]) ?? "application/octet-stream";
 }
 
 function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
