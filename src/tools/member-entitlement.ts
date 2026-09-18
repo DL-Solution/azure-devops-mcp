@@ -5,6 +5,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
+import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { toolError } from "../shared/tool-results.js";
+import { continuationTokenParam } from "../shared/common-params.js";
 
 const MEMBER_ENTITLEMENT_TOOLS = {
   list_users: "memberentitlement_list_users",
@@ -22,22 +25,6 @@ const MEMBER_ENTITLEMENT_TOOLS = {
   create_group_entitlement: "memberentitlement_create_group_entitlement",
   delete_group_entitlement: "memberentitlement_delete_group_entitlement",
 };
-
-// Member Entitlement Management lives on a separate host from the core REST APIs.
-// Cloud: https://dev.azure.com/{org}        -> https://vsaex.dev.azure.com/{org}
-// Legacy: https://{org}.visualstudio.com    -> https://{org}.vsaex.visualstudio.com
-// On-prem Azure DevOps Server serves it from the same collection host (fallback).
-function memberEntitlementBaseUrl(serverUrl: string): string {
-  const trimmed = serverUrl.replace(/\/$/, "");
-  if (trimmed.includes("://dev.azure.com/")) {
-    return trimmed.replace("://dev.azure.com/", "://vsaex.dev.azure.com/");
-  }
-  const legacy = trimmed.match(/^(https?:\/\/)([^./]+)\.visualstudio\.com(\/.*)?$/);
-  if (legacy) {
-    return `${legacy[1]}${legacy[2]}.vsaex.visualstudio.com${legacy[3] ?? ""}`;
-  }
-  return trimmed;
-}
 
 const memberEntitlementApiVersion = "7.1";
 // Group entitlements and their members are preview-only, on their own revisions.
@@ -61,19 +48,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
   async function memberEntitlementFetch(method: string, pathAndQuery: string, body?: unknown, contentType = "application/json"): Promise<Response> {
     const connection = await connectionProvider();
     const accessToken = await tokenProvider();
-    const baseUrl = memberEntitlementBaseUrl(connection.serverUrl);
-    const headers: Record<string, string> = {
-      "Authorization": `Bearer ${accessToken}`,
-      "User-Agent": userAgentProvider(),
-    };
-    if (body !== undefined) {
-      headers["Content-Type"] = `${contentType}; charset=utf-8`;
-    }
-    return fetch(`${baseUrl}/_apis/${pathAndQuery}`, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    return adoFetch({ url: `${subdomainBaseUrl(connection.serverUrl, "vsaex")}/_apis/${pathAndQuery}`, method, token: accessToken, userAgent: userAgentProvider(), body, contentType });
   }
 
   registerTool(
@@ -84,7 +59,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
       filter: z.string().optional().describe("OData $filter expression, e.g. \"name eq 'jdoe@contoso.com'\" or \"licenseId eq 'Account-Express'\"."),
       select: z.string().optional().describe("Comma-separated extra properties to include, e.g. 'Projects,Extensions,Grouprules'."),
       orderBy: z.string().optional().describe("OData $orderBy expression, e.g. 'name ascending'."),
-      continuationToken: z.string().optional().describe("Continuation token from a previous response to fetch the next page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ filter, select, orderBy, continuationToken }) => {
       try {
@@ -101,8 +76,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing user entitlements: ${errorMessage}` }], isError: true };
+        return toolError("listing user entitlements", error);
       }
     }
   );
@@ -126,8 +100,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching user entitlement: ${errorMessage}` }], isError: true };
+        return toolError("fetching user entitlement", error);
       }
     }
   );
@@ -154,8 +127,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error adding user entitlement: ${errorMessage}` }], isError: true };
+        return toolError("adding user entitlement", error);
       }
     }
   );
@@ -184,8 +156,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating user entitlement: ${errorMessage}` }], isError: true };
+        return toolError("updating user entitlement", error);
       }
     }
   );
@@ -209,8 +180,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: `User '${userId}' was removed from the organization.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting user entitlement: ${errorMessage}` }], isError: true };
+        return toolError("deleting user entitlement", error);
       }
     }
   );
@@ -234,8 +204,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching entitlement summary: ${errorMessage}` }], isError: true };
+        return toolError("fetching entitlement summary", error);
       }
     }
   );
@@ -254,8 +223,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing group entitlements: ${errorMessage}` }], isError: true };
+        return toolError("listing group entitlements", error);
       }
     }
   );
@@ -279,8 +247,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error fetching group entitlement: ${errorMessage}` }], isError: true };
+        return toolError("fetching group entitlement", error);
       }
     }
   );
@@ -306,8 +273,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error updating group entitlement: ${errorMessage}` }], isError: true };
+        return toolError("updating group entitlement", error);
       }
     }
   );
@@ -319,7 +285,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
     {
       groupId: z.string().describe("The ID (GUID) of the group entitlement."),
       maxResults: z.coerce.number().optional().describe("Maximum number of members to return."),
-      continuationToken: z.string().optional().describe("Continuation token from a previous response to fetch the next page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ groupId, maxResults, continuationToken }) => {
       try {
@@ -334,8 +300,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error listing group entitlement members: ${errorMessage}` }], isError: true };
+        return toolError("listing group entitlement members", error);
       }
     }
   );
@@ -357,8 +322,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: `User '${memberId}' was added to group entitlement '${groupId}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error adding group entitlement member: ${errorMessage}` }], isError: true };
+        return toolError("adding group entitlement member", error);
       }
     }
   );
@@ -380,8 +344,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: `User '${memberId}' was removed from group entitlement '${groupId}'.` }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error removing group entitlement member: ${errorMessage}` }], isError: true };
+        return toolError("removing group entitlement member", error);
       }
     }
   );
@@ -421,8 +384,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error creating group entitlement: ${errorMessage}` }], isError: true };
+        return toolError("creating group entitlement", error);
       }
     }
   );
@@ -454,11 +416,10 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
 
         return { content: [{ type: "text", text: await response.text() }] };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-        return { content: [{ type: "text", text: `Error deleting group entitlement: ${errorMessage}` }], isError: true };
+        return toolError("deleting group entitlement", error);
       }
     }
   );
 }
 
-export { MEMBER_ENTITLEMENT_TOOLS, configureMemberEntitlementTools, memberEntitlementBaseUrl };
+export { MEMBER_ENTITLEMENT_TOOLS, configureMemberEntitlementTools };
