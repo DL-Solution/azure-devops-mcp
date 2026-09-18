@@ -9,8 +9,7 @@ import { IGitApi } from "azure-devops-node-api/GitApi.js";
 import { z } from "zod";
 import { apiVersion } from "../utils.js";
 import { subdomainBaseUrl } from "../shared/ado-rest.js";
-import { VersionControlRecursionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
-import { GitItem } from "azure-devops-node-api/interfaces/GitInterfaces.js";
+import { GitVersionType, VersionControlRecursionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 
 const SEARCH_TOOLS = {
   search_code: "search_code",
@@ -22,7 +21,7 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
   registerTool(
     server,
     SEARCH_TOOLS.search_code,
-    "Search Azure DevOps Repositories for a given search text",
+    "Search Azure DevOps Repositories for a given search text. Returns each matching file with its matching lines (numbered, at most 10 per file); read a whole file with repo_get_file_content.",
     {
       searchText: z.string().describe("Keywords to search for in code repositories"),
       project: z
@@ -72,14 +71,13 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
         throw new Error(`Azure DevOps Code Search API error: ${response.status} ${response.statusText}`);
       }
 
-      const resultText = await response.text();
-      const resultJson = JSON.parse(resultText) as { results?: SearchResult[]; infoCode?: number };
+      const resultJson = JSON.parse(await response.text()) as SearchResponse<CodeSearchResult>;
 
       const gitApi = await connection.getGitApi();
-      const combinedResults = await fetchCombinedResults(resultJson.results ?? [], gitApi);
+      const results = await Promise.all((resultJson.results ?? []).map((result) => summarizeCodeResult(result, gitApi)));
 
       return {
-        content: [{ type: "text", text: withInfoCodeNote(resultJson.infoCode, resultText + JSON.stringify(combinedResults)) }],
+        content: [{ type: "text", text: withInfoCodeNote(resultJson.infoCode, JSON.stringify(compactResponse(resultJson, results))) }],
       };
     }
   );
@@ -87,7 +85,7 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
   registerTool(
     server,
     SEARCH_TOOLS.search_wiki,
-    "Search Azure DevOps Wiki for a given search text. Pass a result's pagePath, not its path (the .md file in the wiki's git repository), to the wiki_ tools.",
+    "Search Azure DevOps Wiki for a given search text",
     {
       searchText: z.string().describe("Keywords to search for wiki pages"),
       project: z.array(z.string()).optional().describe("Filter by projects"),
@@ -132,7 +130,7 @@ function configureSearchTools(server: McpServer, tokenProvider: () => Promise<st
 
       const result = await response.text();
       return {
-        content: [{ type: "text", text: withInfoCodeNote(readInfoCode(result), withWikiPagePaths(result)) }],
+        content: [{ type: "text", text: withInfoCodeNote(readInfoCode(result), compactWikiResults(result)) }],
       };
     }
   );
@@ -234,6 +232,20 @@ function withInfoCodeNote(infoCode: number | undefined, text: string): string {
   return `Search returned infoCode ${infoCode}: ${meaning}.${consequence}\n${text}`;
 }
 
+interface SearchResponse<T> {
+  count?: number;
+  results?: T[];
+  infoCode?: number;
+  facets?: Record<string, unknown>;
+}
+
+// The search response as the model needs it: the service's own envelope minus infoCode, which
+// withInfoCodeNote spells out, and minus the empty facets object it sends when none were asked for.
+function compactResponse(response: SearchResponse<unknown>, results: unknown[]): Record<string, unknown> {
+  const facets = response.facets && Object.keys(response.facets).length > 0 ? response.facets : undefined;
+  return { count: response.count, results, facets };
+}
+
 // Wiki search returns the page's file in the wiki's git repository ("/Q%26A/Pre%2Dflight-check.md"),
 // while the wiki API addresses pages by title path ("/Q&A/Pre-flight check"). A wiki stores a page
 // title as its file name with spaces turned into "-" and "-" and other special characters
@@ -257,71 +269,116 @@ function wikiPagePath(filePath: string, mappedPath?: string): string {
     .join("/");
 }
 
-function withWikiPagePaths(body: string): string {
-  let parsed: { results?: unknown };
+interface WikiSearchResult {
+  path?: string;
+  project?: { name?: string };
+  wiki?: { name?: string; mappedPath?: string };
+  hits?: { fieldReferenceName?: string; highlights?: string[] }[];
+}
+
+// Each hit comes twice: once per matched word ("content") and once per matched letter
+// ("content.pattern", every character wrapped in its own <highlighthit>), which made up most
+// of a wiki search response and says nothing the word hits do not.
+function compactWikiResults(body: string): string {
+  let response: SearchResponse<WikiSearchResult>;
   try {
-    parsed = JSON.parse(body);
+    response = JSON.parse(body);
   } catch {
     return body;
   }
-  if (!Array.isArray(parsed?.results) || parsed.results.length === 0) return body;
-  for (const result of parsed.results as { path?: unknown; pagePath?: string; wiki?: { mappedPath?: string } }[]) {
-    if (typeof result?.path === "string") result.pagePath = wikiPagePath(result.path, result.wiki?.mappedPath);
-  }
-  return JSON.stringify(parsed);
+  const results = (response.results ?? []).map((result) => ({
+    project: result.project?.name,
+    wiki: result.wiki?.name,
+    path: typeof result.path === "string" ? wikiPagePath(result.path, result.wiki?.mappedPath) : undefined,
+    highlights: (result.hits ?? []).filter((hit) => !hit.fieldReferenceName?.endsWith(".pattern")).flatMap((hit) => hit.highlights ?? []),
+  }));
+  return JSON.stringify(compactResponse(response, results));
 }
 
-interface SearchResult {
-  project?: { id?: string };
-  repository?: { id?: string };
+interface CodeSearchResult {
   path?: string;
-  versions?: { changeId?: string }[];
-  [key: string]: unknown;
+  matches?: { content?: { charOffset?: number }[]; fileName?: unknown[] };
+  project?: { id?: string; name?: string };
+  repository?: { id?: string; name?: string };
+  versions?: { branchName?: string; changeId?: string }[];
 }
 
-type CombinedResult = { gitItem: GitItem } | { error: string };
+const MAX_LINES_PER_FILE = 10;
+const MAX_LINE_LENGTH = 200;
 
-async function fetchCombinedResults(topSearchResults: SearchResult[], gitApi: IGitApi): Promise<CombinedResult[]> {
-  const combinedResults: CombinedResult[] = [];
-  for (const searchResult of topSearchResults) {
-    try {
-      const projectId = searchResult.project?.id;
-      const repositoryId = searchResult.repository?.id;
-      const filePath = searchResult.path;
-      const changeId = Array.isArray(searchResult.versions) && searchResult.versions.length > 0 ? searchResult.versions[0].changeId : undefined;
-      if (!projectId || !repositoryId || !filePath || !changeId) {
-        combinedResults.push({
-          error: `Missing projectId, repositoryId, filePath, or changeId in the result: ${JSON.stringify(searchResult)}`,
-        });
-        continue;
-      }
+// Code search locates a match only by charOffset (UTF-16 units, i.e. a JS string index); its
+// line and column are always 0. So the file is read at the indexed commit and the matching
+// lines are cut out of it — the whole file used to be returned instead, 94% of the response.
+async function summarizeCodeResult(result: CodeSearchResult, gitApi: IGitApi): Promise<Record<string, unknown>> {
+  const version = result.versions?.[0];
+  const summary: Record<string, unknown> = {
+    project: result.project?.name,
+    repository: result.repository?.name,
+    branch: version?.branchName,
+    path: result.path,
+    commitId: version?.changeId,
+  };
+  if (result.matches?.fileName?.length) summary.fileNameMatch = true;
 
-      const versionDescriptor = changeId ? { version: changeId, versionType: 2, versionOptions: 0 } : undefined;
+  const offsets = (result.matches?.content ?? []).map((match) => match.charOffset).filter((offset): offset is number => typeof offset === "number");
+  if (offsets.length === 0) return summary;
 
-      const item = await gitApi.getItem(
-        repositoryId,
-        filePath,
-        projectId,
-        undefined,
-        VersionControlRecursionType.None,
-        true, // includeContentMetadata
-        false, // latestProcessedChange
-        false, // download
-        versionDescriptor,
-        true, // includeContent
-        true, // resolveLfs
-        true // sanitize
-      );
-      combinedResults.push({
-        gitItem: item,
-      });
-    } catch (err) {
-      combinedResults.push({
-        error: errorMessage(err),
-      });
-    }
+  const projectId = result.project?.id;
+  const repositoryId = result.repository?.id;
+  if (!projectId || !repositoryId || !result.path || !version?.changeId) {
+    summary.error = "The search result does not name the project, repository, path and commit needed to read the matching lines.";
+    return summary;
   }
-  return combinedResults;
+
+  try {
+    const item = await gitApi.getItem(
+      repositoryId,
+      result.path,
+      projectId,
+      undefined,
+      VersionControlRecursionType.None,
+      false, // includeContentMetadata
+      false, // latestProcessedChange
+      false, // download
+      { version: version.changeId, versionType: GitVersionType.Commit },
+      true, // includeContent
+      true, // resolveLfs
+      true // sanitize
+    );
+    const lines = matchingLines(item.content ?? "", offsets);
+    summary.matches = lines.slice(0, MAX_LINES_PER_FILE);
+    if (lines.length > MAX_LINES_PER_FILE) summary.moreMatches = lines.length - MAX_LINES_PER_FILE;
+  } catch (error) {
+    summary.error = errorMessage(error);
+  }
+  return summary;
+}
+
+function matchingLines(content: string, offsets: number[]): { line: number; text: string }[] {
+  const lines: { line: number; text: string }[] = [];
+  let lineNumber = 1;
+  let lineStart = 0;
+  for (const offset of [...offsets].sort((a, b) => a - b)) {
+    if (offset > content.length) break;
+    let newline = content.indexOf("\n", lineStart);
+    while (newline !== -1 && newline < offset) {
+      lineNumber++;
+      lineStart = newline + 1;
+      newline = content.indexOf("\n", lineStart);
+    }
+    if (lines.at(-1)?.line === lineNumber) continue;
+    const line = content.slice(lineStart, newline === -1 ? content.length : newline).replace(/\r$/, "");
+    lines.push({ line: lineNumber, text: excerpt(line, offset - lineStart) });
+  }
+  return lines;
+}
+
+// A minified file can hold the whole program on one line.
+function excerpt(line: string, column: number): string {
+  if (line.length <= MAX_LINE_LENGTH) return line;
+  const start = Math.max(0, Math.min(column - MAX_LINE_LENGTH / 2, line.length - MAX_LINE_LENGTH));
+  const end = start + MAX_LINE_LENGTH;
+  return `${start > 0 ? "…" : ""}${line.slice(start, end)}${end < line.length ? "…" : ""}`;
 }
 
 export { SEARCH_TOOLS, configureSearchTools };
