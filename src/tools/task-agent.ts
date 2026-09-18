@@ -15,7 +15,7 @@ import {
   KubernetesResourceCreateParametersExistingEndpoint,
 } from "azure-devops-node-api/interfaces/TaskAgentInterfaces.js";
 import { resolveProject } from "../shared/elicitations.js";
-import { optionalProject } from "../shared/common-params.js";
+import { optionalProject, continuationTokenParam } from "../shared/common-params.js";
 import { adoFetch } from "../shared/ado-rest.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
 import { Readable } from "stream";
@@ -1207,7 +1207,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       project: projectField,
       environmentId: environmentIdParam,
       top: z.coerce.number().min(1).optional().describe("Maximum number of deployments to return."),
-      continuationToken: z.string().optional().describe("Token from a previous page."),
+      continuationToken: continuationTokenParam,
     },
     async ({ project, environmentId, top, continuationToken }) => {
       try {
