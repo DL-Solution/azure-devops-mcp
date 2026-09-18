@@ -75,7 +75,7 @@ describe("configureWikiTools", () => {
       const result = await handler(params);
 
       expect(mockWikiApi.getWiki).toHaveBeenCalledWith("wiki1", "proj1");
-      expect(result.content[0].text).toBe(JSON.stringify(mockWiki, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockWiki));
       expect(result.isError).toBeUndefined();
     });
 
@@ -137,7 +137,7 @@ describe("configureWikiTools", () => {
 
       expect(mockWikiApi.getWiki).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching wiki: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching wiki: string error");
     });
   });
 
@@ -161,7 +161,7 @@ describe("configureWikiTools", () => {
       const result = await handler(params);
 
       expect(mockWikiApi.getAllWikis).toHaveBeenCalledWith("proj1");
-      expect(result.content[0].text).toBe(JSON.stringify(mockWikis, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockWikis));
       expect(result.isError).toBeUndefined();
     });
 
@@ -220,7 +220,7 @@ describe("configureWikiTools", () => {
 
       expect(mockWikiApi.getAllWikis).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching wikis: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching wikis: string error");
     });
   });
 
@@ -341,7 +341,7 @@ describe("configureWikiTools", () => {
 
       expect(mockWikiApi.getPagesBatch).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching wiki pages: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching wiki pages: string error");
     });
   });
 
@@ -389,7 +389,7 @@ describe("configureWikiTools", () => {
           }),
         })
       );
-      expect(result.content[0].text).toBe(JSON.stringify(mockPageData, null, 2));
+      expect(result.content[0].text).toBe(JSON.stringify(mockPageData));
       expect(result.isError).toBeUndefined();
     });
 
@@ -415,7 +415,7 @@ describe("configureWikiTools", () => {
       const result = await handler(params);
 
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("path=%2FDocumentation"), expect.any(Object));
-      expect(result.content[0].text).toContain('"id": 456');
+      expect(result.content[0].text).toContain('"id":456');
     });
 
     it("should include optional parameters when provided", async () => {
@@ -506,7 +506,7 @@ describe("configureWikiTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching wiki page metadata: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching wiki page metadata: string thrown, not an Error");
     });
 
     it("should encode project and wikiIdentifier in URL to prevent path injection", async () => {
@@ -727,7 +727,7 @@ describe("configureWikiTools", () => {
 
       expect(mockWikiApi.getPageText).toHaveBeenCalled();
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error fetching wiki page content: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error fetching wiki page content: string error");
     });
 
     it("should retrieve content via URL with pagePath", async () => {
@@ -1594,7 +1594,7 @@ describe("configureWikiTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error creating/updating wiki page: Unknown error occurred");
+      expect(result.content[0].text).toContain("Error creating/updating wiki page: String error message");
     });
 
     it("should handle path without leading slash", async () => {
