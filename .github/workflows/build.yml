@@ -41,18 +41,26 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
+          cache: npm
 
       - name: Clean install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build the project
         run: npm run build
 
       - name: Validate tool names and parameters
-        run: npm run validate-tools
+        # Types are already checked by "npm run build" above.
+        run: node scripts/build-validate-tools.js
+
+      - name: Cache jest transforms
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .jest-cache
+          key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json', 'jest.config.cjs', 'tsconfig.jest.json') }}
 
       - name: Run tests
-        run: npm test
+        run: npm run test:ci
 
       # docs/TOOLSET.md is generated from the tools the built server registers.
       # A PR that adds, removes or changes a tool must regenerate it.
@@ -99,7 +107,7 @@ jobs:
 
   static-code-analysis:
     name: Static code analysis
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
@@ -113,9 +121,13 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
+          cache: npm
 
       - name: Clean install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
+
+      - name: Regenerate src/version.ts
+        run: npm run prebuild
 
       - name: Static code analysis
         run: npm run eslint
@@ -125,13 +137,5 @@ jobs:
 
       - name: Verify package version is synced
         run: |
-          git diff --exit-code ./src/version.ts
-          if (!$?) {
-            Write-Host "Version mismatch detected. Please ensure that the version information in version.ts is up to date with package.json."
-            exit 1
-          }
-          git diff --exit-code ./package-lock.json
-          if (!$?) {
-            Write-Host "Please run 'npm install' to update package-lock.json and add changes to the commit."
-            exit 1
-          }
+          git diff --exit-code ./src/version.ts || { echo "Version mismatch detected. Please ensure that the version information in version.ts is up to date with package.json."; exit 1; }
+          git diff --exit-code ./package-lock.json || { echo "Please run 'npm install' to update package-lock.json and add changes to the commit."; exit 1; }
