@@ -151,6 +151,60 @@ describe("elicitations", () => {
     });
   });
 
+  describe("a client that cannot show a picker", () => {
+    // Every request over the stateless HTTP transport lands on a fresh server that never saw the
+    // client's initialize, so its capabilities are unknown there — the same as a client without
+    // elicitation. Asking anyway throws the SDK's "Client does not support form elicitation."
+    const originalProjectEnv = process.env.ado_mcp_project;
+    const originalTeamEnv = process.env.ado_mcp_team;
+    let elicitInput: jest.Mock;
+
+    beforeEach(() => {
+      delete process.env.ado_mcp_project;
+      delete process.env.ado_mcp_team;
+      elicitInput = jest.fn();
+      server = createToolServer({ server: { elicitInput, getClientCapabilities: () => undefined } }) as unknown as McpServer;
+    });
+
+    afterEach(() => {
+      if (originalProjectEnv === undefined) delete process.env.ado_mcp_project;
+      else process.env.ado_mcp_project = originalProjectEnv;
+      if (originalTeamEnv === undefined) delete process.env.ado_mcp_team;
+      else process.env.ado_mcp_team = originalTeamEnv;
+    });
+
+    it("gets an error naming the projects to pass instead of a picker", async () => {
+      mockCoreApi.getProjects.mockResolvedValue([{ id: "p1", name: "Hansa" }, { id: "p2", name: "mcpTest" }, { id: "p3" }]);
+
+      const result = await elicitProject(server, mockConnection as unknown as WebApi);
+
+      expect(result).toEqual({
+        response: { content: [{ type: "text", text: 'No project was given and this client cannot show a picker. Pass "project" — one of: Hansa, mcpTest, p3.' }], isError: true },
+      });
+      expect(elicitInput).not.toHaveBeenCalled();
+    });
+
+    it("gets an error naming the project's teams to pass instead of a picker", async () => {
+      mockCoreApi.getTeams.mockResolvedValue([
+        { id: "t1", name: "Hansa Team" },
+        { id: "t2", name: "Core" },
+      ]);
+
+      const result = await elicitTeam(server, mockConnection as unknown as WebApi, "Hansa");
+
+      expect(result).toEqual({
+        response: { content: [{ type: "text", text: 'No team was given and this client cannot show a picker. Pass "team" — one of the teams in Hansa: Hansa Team, Core.' }], isError: true },
+      });
+      expect(elicitInput).not.toHaveBeenCalled();
+    });
+
+    it("still uses the configured default project without asking", async () => {
+      process.env.ado_mcp_project = "Hansa";
+
+      expect(await elicitProject(server, mockConnection as unknown as WebApi)).toEqual({ resolved: "Hansa" });
+    });
+  });
+
   describe("resolveProject", () => {
     const originalProjectEnv = process.env.ado_mcp_project;
 

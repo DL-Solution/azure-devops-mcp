@@ -4675,28 +4675,36 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toBe("Project selection cancelled.");
     });
 
-    it("get_work_items_batch_by_ids: should return elicitation response when project selection is declined", async () => {
+    it("get_work_items_batch_by_ids: fetches by ID across the organization without asking for a project", async () => {
       configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_get_work_items_batch_by_ids");
       if (!call) throw new Error("wit_get_work_items_batch_by_ids not registered");
       const [, , , handler] = call;
 
       setupElicitMocks("decline");
+      (mockWorkItemTrackingApi.getWorkItemsBatch as jest.Mock).mockResolvedValue([]);
 
       const result = await handler({ ids: [1, 2] });
-      expect(result.content[0].text).toBe("Project selection cancelled.");
+
+      expect(result.isError).toBeUndefined();
+      expect((mockWorkItemTrackingApi.getWorkItemsBatch as jest.Mock).mock.calls[0][1]).toBeUndefined();
+      expect((server as unknown as { server: { elicitInput: jest.Mock } }).server.elicitInput).not.toHaveBeenCalled();
     });
 
-    it("get_work_item: should return elicitation response when project selection is declined", async () => {
+    it("get_work_item: fetches by ID across the organization without asking for a project", async () => {
       configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_get_work_item");
       if (!call) throw new Error("wit_get_work_item not registered");
       const [, , , handler] = call;
 
       setupElicitMocks("decline");
+      (mockWorkItemTrackingApi.getWorkItem as jest.Mock).mockResolvedValue({ id: 1 });
 
       const result = await handler({ id: 1 });
-      expect(result.content[0].text).toBe("Project selection cancelled.");
+
+      expect(result.isError).toBeUndefined();
+      expect((mockWorkItemTrackingApi.getWorkItem as jest.Mock).mock.calls[0][4]).toBeUndefined();
+      expect((server as unknown as { server: { elicitInput: jest.Mock } }).server.elicitInput).not.toHaveBeenCalled();
     });
 
     it("list_work_item_comments: should return elicitation response when project selection is declined", async () => {
@@ -4931,32 +4939,6 @@ describe("configureWorkItemTools", () => {
 
       await handler({ type: "assignedtome", top: 10, includeCompleted: false });
       expect(mockWorkApi.getPredefinedQueryResults).toHaveBeenCalledWith("Contoso", "assignedtome", 10, false);
-    });
-
-    it("get_work_items_batch_by_ids: should use elicited project when project is not provided", async () => {
-      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
-      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_get_work_items_batch_by_ids");
-      if (!call) throw new Error("wit_get_work_items_batch_by_ids not registered");
-      const [, , , handler] = call;
-
-      setupAcceptMocks();
-      (mockWorkItemTrackingApi.getWorkItemsBatch as jest.Mock).mockResolvedValue([]);
-
-      await handler({ ids: [1, 2] });
-      expect(mockWorkItemTrackingApi.getWorkItemsBatch).toHaveBeenCalledWith({ ids: [1, 2], fields: expect.any(Array) }, "Contoso");
-    });
-
-    it("get_work_item: should use elicited project when project is not provided", async () => {
-      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
-      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_get_work_item");
-      if (!call) throw new Error("wit_get_work_item not registered");
-      const [, , , handler] = call;
-
-      setupAcceptMocks();
-      (mockWorkItemTrackingApi.getWorkItem as jest.Mock).mockResolvedValue({ id: 1 });
-
-      await handler({ id: 1 });
-      expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(1, undefined, undefined, undefined, "Contoso");
     });
 
     it("list_work_item_comments: should use elicited project when project is not provided", async () => {

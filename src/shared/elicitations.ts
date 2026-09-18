@@ -14,6 +14,18 @@ export interface ElicitResponse {
 
 export type ElicitResult = ElicitResolved | ElicitResponse;
 
+// Whether the client can answer a form elicitation. Over the stateless HTTP transport every request
+// lands on a fresh server that never saw the client's initialize, so the capabilities are unknown
+// there and the answer is no — a picker could not be shown, and the SDK throws "Client does not
+// support form elicitation." when asked. The model gets the choices in an error instead.
+function canShowPicker(server: McpServer): boolean {
+  return Boolean(server.server.getClientCapabilities()?.elicitation?.form);
+}
+
+function pickerUnavailable(argument: string, choices: string): ElicitResponse {
+  return { response: { content: [{ type: "text", text: `No ${argument} was given and this client cannot show a picker. Pass "${argument}" — ${choices}.` }], isError: true } };
+}
+
 export async function elicitProject(server: McpServer, connection: WebApi, message?: string): Promise<ElicitResult> {
   // Check for default project from environment variable
   const defaultProject = process.env.ado_mcp_project;
@@ -27,6 +39,10 @@ export async function elicitProject(server: McpServer, connection: WebApi, messa
 
   if (!projects || projects.length === 0) {
     return { response: { content: [{ type: "text", text: "No projects found to select from." }], isError: true } };
+  }
+
+  if (!canShowPicker(server)) {
+    return pickerUnavailable("project", `one of: ${projects.map((p) => p.name ?? p.id).join(", ")}`);
   }
 
   const result = await server.server.elicitInput({
@@ -69,6 +85,10 @@ export async function elicitTeam(server: McpServer, connection: WebApi, project:
 
   if (!teams || teams.length === 0) {
     return { response: { content: [{ type: "text", text: "No teams found to select from." }], isError: true } };
+  }
+
+  if (!canShowPicker(server)) {
+    return pickerUnavailable("team", `one of the teams in ${project}: ${teams.map((t) => t.name ?? t.id).join(", ")}`);
   }
 
   const result = await server.server.elicitInput({

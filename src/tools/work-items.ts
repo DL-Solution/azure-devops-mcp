@@ -299,7 +299,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     WORKITEM_TOOLS.get_work_items_batch_by_ids,
-    "Retrieve list of work items by IDs in batch. If a project is not specified, you will be prompted to select one.",
+    "Retrieve list of work items by IDs in batch. IDs are unique across the organization, so no project is needed.",
     {
       project: optionalProject,
       ids: z.array(z.coerce.number().min(1)).describe("The IDs of the work items to retrieve."),
@@ -308,21 +308,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     async ({ project, ids, fields }) => {
       try {
         const connection = await connectionProvider();
-
-        let resolvedProject = project;
-        if (!resolvedProject) {
-          const result = await elicitProject(server, connection, "Select the Azure DevOps project to retrieve work items for.");
-          if ("response" in result) return result.response;
-          resolvedProject = result.resolved;
-        }
-
         const workItemApi = await connection.getWorkItemTrackingApi();
         const defaultFields = ["System.Id", "System.WorkItemType", "System.Title", "System.State", "System.Parent", "System.Tags", "Microsoft.VSTS.Common.StackRank", "System.AssignedTo"];
 
         // If no fields are provided, use the default set of fields
         const fieldsToUse = !fields || fields.length === 0 ? defaultFields : fields;
 
-        const workitems = await workItemApi.getWorkItemsBatch({ ids, fields: fieldsToUse }, resolvedProject);
+        const workitems = await workItemApi.getWorkItemsBatch({ ids, fields: fieldsToUse }, project);
 
         // List of identity fields that need to be transformed from objects to formatted strings
         const identityFields = [
@@ -362,7 +354,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     WORKITEM_TOOLS.get_work_item,
-    "Get a single work item by ID. If a project is not specified, you will be prompted to select one.",
+    "Get a single work item by ID. IDs are unique across the organization, so no project is needed.",
     {
       id: z.coerce.number().min(1).describe("The ID of the work item to retrieve."),
       project: optionalProject,
@@ -383,15 +375,6 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       try {
         const connection = await connectionProvider();
 
-        let resolvedProject = project;
-
-        if (!resolvedProject) {
-          const result = await elicitProject(server, connection, "Select the Azure DevOps project to retrieve the work item from.");
-
-          if ("response" in result) return result.response;
-          resolvedProject = result.resolved;
-        }
-
         // The Azure DevOps API does not support using expand and fields together.
         // When both are provided, prefer fields as it is the more specific selection.
         if (fields && fields.length > 0 && expand != null) {
@@ -399,7 +382,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
 
         const workItemApi = await connection.getWorkItemTrackingApi();
-        const workItem = await workItemApi.getWorkItem(id, fields, asOf, expand as unknown as WorkItemExpand, resolvedProject);
+        const workItem = await workItemApi.getWorkItem(id, fields, asOf, expand as unknown as WorkItemExpand, project);
 
         return jsonResult(workItem);
       } catch (error) {

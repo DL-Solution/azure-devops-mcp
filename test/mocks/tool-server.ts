@@ -12,6 +12,10 @@
  * replays every registerTool call into `tool` in that positional shape, so those
  * lookups keep working, while `registerTool.mock.calls` still holds the real
  * registration (annotations included) for tests that care about it.
+ *
+ * A `server` passed in `extra` stands for the low-level SDK server. Unless it says
+ * otherwise, its client can answer a form elicitation, as the suites that mock
+ * `elicitInput` assume.
  */
 export function createToolServer<Extra extends object>(extra?: Extra) {
   const tool = jest.fn();
@@ -19,5 +23,7 @@ export function createToolServer<Extra extends object>(extra?: Extra) {
     tool(name, config.description, config.inputSchema, handler);
     return { update: jest.fn(), remove: jest.fn(), enable: jest.fn(), disable: jest.fn() };
   });
-  return { tool, registerTool, ...(extra ?? ({} as Extra)) };
+  const lowLevel = (extra as { server?: object } | undefined)?.server;
+  const server = lowLevel ? { getClientCapabilities: () => ({ elicitation: { form: {} } }), ...lowLevel } : undefined;
+  return { tool, registerTool, ...(extra ?? ({} as Extra)), ...(server ? { server } : {}) };
 }
