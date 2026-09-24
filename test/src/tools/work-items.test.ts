@@ -8,7 +8,7 @@ import { WebApi } from "azure-devops-node-api";
 import { Readable } from "stream";
 import * as fs from "fs";
 import * as path from "path";
-import { QueryExpand } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
+import { QueryExpand, WorkItemErrorPolicy } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 
 jest.mock("fs");
 import {
@@ -346,11 +346,28 @@ describe("configureWorkItemTools", () => {
         {
           ids: params.ids,
           fields: ["System.Id", "System.WorkItemType", "System.Title", "System.State", "System.Parent", "System.Tags", "Microsoft.VSTS.Common.StackRank", "System.AssignedTo"],
+          errorPolicy: WorkItemErrorPolicy.Omit,
         },
         params.project
       );
 
       expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItems]));
+    });
+
+    it("returns the work items it found and names the ids it could not read", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_get_work_items_batch_by_ids");
+      if (!call) throw new Error("wit_get_work_items_batch_by_ids tool not registered");
+      const [, , , handler] = call;
+      const found = [{ id: 297, fields: { "System.Id": 297 } }];
+      // With errorPolicy Omit the service drops a missing or unreadable id instead of failing the whole batch.
+      (mockWorkItemTrackingApi.getWorkItemsBatch as jest.Mock).mockResolvedValue(found);
+
+      const result = await handler({ ids: [297, 299, 300], fields: ["System.Id"] });
+
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toBe(JSON.stringify(found));
+      expect(result.content[1].text).toBe("Not returned — the work items do not exist or you cannot read them: 299, 300");
     });
 
     it("should call workItemApi.getWorkItemsBatch API with custom fields when fields parameter is provided", async () => {
@@ -385,6 +402,7 @@ describe("configureWorkItemTools", () => {
         {
           ids: params.ids,
           fields: params.fields,
+          errorPolicy: WorkItemErrorPolicy.Omit,
         },
         params.project
       );
@@ -414,6 +432,7 @@ describe("configureWorkItemTools", () => {
         {
           ids: params.ids,
           fields: ["System.Id", "System.WorkItemType", "System.Title", "System.State", "System.Parent", "System.Tags", "Microsoft.VSTS.Common.StackRank", "System.AssignedTo"],
+          errorPolicy: WorkItemErrorPolicy.Omit,
         },
         params.project
       );
@@ -629,7 +648,7 @@ describe("configureWorkItemTools", () => {
 
       const result = await handler(params);
 
-      expect(result.content[0].text).toBe(JSON.stringify(null));
+      expect(result.content[0].text).toBe("[]");
     });
 
     it("should transform all user fields to formatted strings", async () => {
