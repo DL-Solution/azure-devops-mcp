@@ -656,7 +656,7 @@ Retrieve a list of projects in your Azure DevOps organization.
 
 ### mcp_ado_core_get_identity_ids
 
-Retrieve Azure DevOps identity IDs for a provided search filter.
+Retrieve Azure DevOps identity IDs for users or groups by sign-in name, email or display name. A whole sign-in name or email is matched exactly; otherwise the beginning of a display name, alias or email is matched through the graph subject query.
 
 - **Required**: `searchFilter`
 - **Optional**: None

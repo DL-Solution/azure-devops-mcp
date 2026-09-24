@@ -111,9 +111,11 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     CORE_TOOLS.get_identity_ids,
-    "Retrieve Azure DevOps identity IDs for a provided search filter.",
+    "Retrieve Azure DevOps identity IDs for users or groups by sign-in name, email or display name.",
     {
-      searchFilter: z.string().describe("Search filter (unique name, display name, email) to retrieve identity IDs for."),
+      searchFilter: z
+        .string()
+        .describe("A whole sign-in name or email, or the beginning of a display name, alias or email. Display names are matched as the directory stores them, often surname first."),
     },
     async ({ searchFilter }) => {
       try {
