@@ -162,6 +162,42 @@ describe("auth functions", () => {
         expect.any(Object)
       );
     });
+
+    // The identities search matches only a whole sign-in name or email; a display name finds nothing there.
+    it("falls back to a graph subject query when the identities search finds nothing", async () => {
+      (tokenProvider as jest.Mock).mockResolvedValue("fake-token");
+      const identity = { id: "user1-id", providerDisplayName: "Кучерявий Євген", descriptor: "Microsoft.IdentityModel.Claims.ClaimsIdentity;tenant\\kucheriavyi@example.com" };
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue({ count: 0, value: [] }) })
+        .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue({ count: 2, value: [{ descriptor: "aad.user1" }, { descriptor: "vssgp.group1" }] }) })
+        .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue({ count: 1, value: [identity] }) });
+
+      const result = await searchIdentities("Кучерявий", tokenProvider, connectionProvider, userAgentProvider);
+
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        "https://vssps.dev.azure.com/test-org/_apis/graph/subjectquery?api-version=7.1-preview.1",
+        expect.objectContaining({ method: "POST", body: JSON.stringify({ query: "Кучерявий", subjectKind: ["User", "Group"] }) })
+      );
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        3,
+        "https://vssps.dev.azure.com/test-org/_apis/identities?api-version=7.2-preview.1&subjectDescriptors=aad.user1%2Cvssgp.group1",
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer fake-token" }) })
+      );
+      expect(result.value).toEqual([identity]);
+    });
+
+    it("returns no identities when the graph subject query finds nothing either", async () => {
+      (tokenProvider as jest.Mock).mockResolvedValue("fake-token");
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue({ count: 0, value: [] }) })
+        .mockResolvedValueOnce({ ok: true, json: jest.fn().mockResolvedValue({ count: 0, value: null }) });
+
+      const result = await searchIdentities("nobody", tokenProvider, connectionProvider, userAgentProvider);
+
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(result.value).toEqual([]);
+    });
   });
 
   describe("getUserIdFromEmail", () => {
