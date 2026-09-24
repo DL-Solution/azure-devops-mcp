@@ -756,7 +756,7 @@ Retrieve a list of work items relevant to the authenticated user.
 
 ### mcp_ado_wit_get_work_items_batch_by_ids
 
-Retrieve list of work items by IDs in batch.
+Retrieve list of work items by IDs in batch. IDs that do not exist or cannot be read are listed after the results instead of failing the whole call.
 
 - **Required**: `ids`
 - **Optional**: `fields`, `project`

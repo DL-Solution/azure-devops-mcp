@@ -7,7 +7,7 @@ import * as path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
-import { WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
+import { WorkItemErrorPolicy, WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { CommentReactionType, FieldType, FieldUsage, GetFieldsExpand, QueryExpand, WorkItemField, WorkItemTypeFieldsExpandLevel } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { z } from "zod";
 import { batchApiVersion, markdownCommentsApiVersion, getEnumKeys, safeEnumConvert, encodeFormattedValue } from "../utils.js";
@@ -299,7 +299,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     WORKITEM_TOOLS.get_work_items_batch_by_ids,
-    "Retrieve list of work items by IDs in batch. IDs are unique across the organization, so no project is needed.",
+    "Retrieve list of work items by IDs in batch. IDs are unique across the organization, so no project is needed. IDs that do not exist or cannot be read are listed after the results instead of failing the call.",
     {
       project: optionalProject,
       ids: z.array(z.coerce.number().min(1)).describe("The IDs of the work items to retrieve."),
@@ -314,7 +314,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         // If no fields are provided, use the default set of fields
         const fieldsToUse = !fields || fields.length === 0 ? defaultFields : fields;
 
-        const workitems = await workItemApi.getWorkItemsBatch({ ids, fields: fieldsToUse }, project);
+        // Omit: an id that does not exist or cannot be read is left out instead of failing the whole batch.
+        const workitems = ((await workItemApi.getWorkItemsBatch({ ids, fields: fieldsToUse, errorPolicy: WorkItemErrorPolicy.Omit }, project)) ?? []).filter((item) => item);
 
         // List of identity fields that need to be transformed from objects to formatted strings
         const identityFields = [
@@ -344,7 +345,13 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           });
         }
 
-        return jsonResult(workitems);
+        const returned = new Set(workitems.map((item) => item.id));
+        const missing = ids.filter((id) => !returned.has(id));
+        const result = jsonResult(workitems);
+        if (missing.length > 0) {
+          result.content.push({ type: "text", text: `Not returned — the work items do not exist or you cannot read them: ${missing.join(", ")}` });
+        }
+        return result;
       } catch (error) {
         return toolError("retrieving work items batch", error);
       }
