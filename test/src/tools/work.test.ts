@@ -1421,6 +1421,24 @@ describe("configureWorkTools", () => {
   });
 
   describe("create_iterations", () => {
+    // A slash in the name is refused (TF50316); nesting goes through the parent path instead.
+    it("creates an iteration under a parent iteration", async () => {
+      configureWorkTools(server, tokenProvider, connectionProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "work_create_iterations");
+      if (!call) throw new Error("work_create_iterations tool not registered");
+      const [, , , handler] = call;
+      (mockWorkItemTrackingApi.createOrUpdateClassificationNode as jest.Mock).mockResolvedValue({ id: 1, name: "Sprint 1" });
+
+      await handler({ project: "Fabrikam", iterations: [{ iterationName: "Sprint 1", parentPath: "Gate 1" }] });
+
+      expect(mockWorkItemTrackingApi.createOrUpdateClassificationNode).toHaveBeenCalledWith(
+        { name: "Sprint 1", attributes: { startDate: undefined, finishDate: undefined } },
+        "Fabrikam",
+        TreeStructureGroup.Iterations,
+        "Gate 1"
+      );
+    });
+
     it("should call createOrUpdateClassificationNode API with the correct parameters and return the expected result", async () => {
       configureWorkTools(server, tokenProvider, connectionProvider);
 
@@ -1469,7 +1487,8 @@ describe("configureWorkTools", () => {
           },
         },
         "Fabrikam",
-        TreeStructureGroup.Iterations
+        TreeStructureGroup.Iterations,
+        undefined
       );
 
       expect(result.content[0].text).toBe(
@@ -1639,7 +1658,8 @@ describe("configureWorkTools", () => {
           },
         },
         "Fabrikam",
-        TreeStructureGroup.Iterations
+        TreeStructureGroup.Iterations,
+        undefined
       );
 
       expect(result.content[0].text).toBe(

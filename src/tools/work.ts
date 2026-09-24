@@ -176,7 +176,11 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
       iterations: z
         .array(
           z.object({
-            iterationName: z.string().describe("The name of the iteration to create."),
+            iterationName: z.string().describe('The name of the iteration to create — a single node name; it must not contain \\ / : * ? " < > | # $ & +.'),
+            parentPath: z
+              .string()
+              .optional()
+              .describe("Path of an existing parent iteration to create this one under (e.g. 'Release 1' or 'Release 1/Gate 1'). If omitted, the iteration is created at the project root."),
             startDate: z.string().optional().describe("The start date of the iteration in ISO format (e.g., '2023-01-01T00:00:00Z'). Optional."),
             finishDate: z.string().optional().describe("The finish date of the iteration in ISO format (e.g., '2023-01-31T23:59:59Z'). Optional."),
           })
@@ -191,7 +195,7 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
         // One bad iteration must not hide the ones already created: each is tried and reported on its own.
         const failed: { iterationName: string; error: string }[] = [];
 
-        for (const { iterationName, startDate, finishDate } of iterations) {
+        for (const { iterationName, parentPath, startDate, finishDate } of iterations) {
           try {
             const iteration = await workItemTrackingApi.createOrUpdateClassificationNode(
               {
@@ -202,7 +206,8 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
                 },
               },
               project,
-              TreeStructureGroup.Iterations
+              TreeStructureGroup.Iterations,
+              parentPath
             );
             if (iteration) {
               results.push(iteration);
