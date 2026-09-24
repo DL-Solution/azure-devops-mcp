@@ -4,6 +4,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
+import { GalleryApi } from "azure-devops-node-api/GalleryApi.js";
 import { z } from "zod";
 import { jsonResult, toolError } from "../shared/tool-results.js";
 
@@ -16,6 +17,14 @@ const GALLERY_TOOLS = {
 const SEARCH_TEXT_FILTER_TYPE = 10;
 // ExtensionQueryFlags.IncludeLatestVersionOnly — keeps results compact.
 const INCLUDE_LATEST_VERSION_ONLY = 512;
+
+// The Marketplace is not one of an organization's resource areas, so
+// connection.getGalleryApi() fails to locate it on dev.azure.com. Its host is fixed.
+const MARKETPLACE_URL = "https://marketplace.visualstudio.com";
+
+function marketplaceClient(connection: WebApi): GalleryApi {
+  return new GalleryApi(MARKETPLACE_URL, [connection.authHandler], connection.options);
+}
 
 function configureGalleryTools(server: McpServer, _: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
   registerTool(
@@ -30,7 +39,7 @@ function configureGalleryTools(server: McpServer, _: () => Promise<string>, conn
     async ({ searchText, top, flags }) => {
       try {
         const connection = await connectionProvider();
-        const galleryApi = await connection.getGalleryApi();
+        const galleryApi = marketplaceClient(connection);
 
         const extensionQuery = {
           filters: [
@@ -65,7 +74,7 @@ function configureGalleryTools(server: McpServer, _: () => Promise<string>, conn
     async ({ publisherName, extensionName, version, flags }) => {
       try {
         const connection = await connectionProvider();
-        const galleryApi = await connection.getGalleryApi();
+        const galleryApi = marketplaceClient(connection);
         const extension = await galleryApi.getExtension({}, publisherName, extensionName, version, flags);
 
         if (!extension) {
