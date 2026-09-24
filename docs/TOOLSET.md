@@ -1199,7 +1199,7 @@ Retrieve a list of iterations for a specific team in a project.
 
 ### mcp_ado_work_create_iterations
 
-Create new iterations in a specified Azure DevOps project.
+Create new iterations in a specified Azure DevOps project, at the root or under an existing parent iteration (`parentPath` of each item).
 
 - **Required**: `project`, `iterations`
 - **Optional**: None

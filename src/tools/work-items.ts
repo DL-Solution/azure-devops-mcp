@@ -2076,7 +2076,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     "Create a saved query or a query folder. Queries are saved under a parent folder path such as 'Shared Queries' or 'My Queries'.",
     {
       parentPath: z.string().describe("Folder the item is created in, e.g. 'Shared Queries' or 'Shared Queries/Release'."),
-      name: z.string().describe("Name of the query or folder."),
+      name: z.string().describe('Name of the query or folder. It must not contain / \\ < > * ? " + | : — use a folder (parentPath) for nesting.'),
       wiql: z.string().optional().describe("The WIQL text of the query. Required for a query, omitted for a folder."),
       isFolder: z.boolean().default(false).describe("Create a folder instead of a query."),
       project: optionalProject,

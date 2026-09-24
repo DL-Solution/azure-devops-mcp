@@ -228,7 +228,11 @@ function configureDashboardTools(server: McpServer, _: () => Promise<string>, co
       team: teamField,
       dashboardId: z.string().describe("The ID of the dashboard containing the widget."),
       widgetId: z.string().describe("The ID of the widget to update."),
-      widget: z.record(z.unknown()).describe("The full widget object (as returned by dashboard_get_widget, with edits applied)."),
+      widget: z
+        .record(z.unknown())
+        .describe(
+          "The full widget object as returned by dashboard_get_widget, with edits applied. Its eTag must be current: fetch the widget again right before each update, and again after a WidgetETagConflictException — a widget taken from dashboard_get_dashboard or from before an earlier update is stale."
+        ),
     },
     async ({ project, team, dashboardId, widgetId, widget }) => {
       try {
