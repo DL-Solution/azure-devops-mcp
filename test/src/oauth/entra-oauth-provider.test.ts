@@ -73,12 +73,17 @@ describe("EntraOAuthProvider", () => {
       await expect(provider.clientsStore.getClient("never-seen")).resolves.toBeUndefined();
     });
 
-    it.each(["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback", "http://localhost:33418/callback", "http://127.0.0.1:6274/oauth/callback", "http://[::1]:8080/cb"])(
-      "accepts the redirect URI %s",
-      async (uri) => {
-        await expect(provider.clientsStore.registerClient?.({ redirect_uris: [uri] } as never)).resolves.toMatchObject({ redirect_uris: [uri] });
-      }
-    );
+    it.each([
+      "https://claude.ai/api/mcp/auth_callback",
+      "https://claude.com/api/mcp/auth_callback",
+      "https://vscode.dev/redirect",
+      "https://insiders.vscode.dev/redirect",
+      "http://localhost:33418/callback",
+      "http://127.0.0.1:6274/oauth/callback",
+      "http://[::1]:8080/cb",
+    ])("accepts the redirect URI %s", async (uri) => {
+      await expect(provider.clientsStore.registerClient?.({ redirect_uris: [uri] } as never)).resolves.toMatchObject({ redirect_uris: [uri] });
+    });
 
     it.each([
       "https://evil.example/cb",
@@ -87,6 +92,8 @@ describe("EntraOAuthProvider", () => {
       "https://claude.ai/api/mcp/auth_callback?x=1",
       "https://localhost/cb",
       "http://localhost.evil.example/cb",
+      "http://user:pass@localhost/cb",
+      "https://vscode.dev/other",
       "not a url",
     ])("refuses to register the redirect URI %s", async (uri) => {
       await expect(provider.clientsStore.registerClient?.({ redirect_uris: [uri] } as never)).rejects.toThrow("redirect_uri not allowed");

@@ -118,10 +118,11 @@ const ADO_DEFAULT_SCOPE = "499b84ac-1321-427f-aa17-267ca6975798/.default";
 // consent given to our app, so without this list anyone could register
 // https://evil/cb, send a victim an /authorize link on our domain and redeem
 // the code that lands there for the victim's tokens — the "confused deputy"
-// from the MCP security best practices. Claude's connector callback and loopback
-// (RFC 8252: local clients such as Claude Code or MCP Inspector, any port) are
-// the only destinations; a code sent to someone else's localhost reaches no one.
-const ALLOWED_REDIRECT_URIS = new Set(["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback"]);
+// from the MCP security best practices. Claude's connector callback, VS Code's
+// (stable and Insiders) and loopback (RFC 8252: local clients such as Claude
+// Code or MCP Inspector, any port) are the only destinations; a code sent to
+// someone else's localhost reaches no one.
+const ALLOWED_REDIRECT_URIS = new Set(["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback", "https://vscode.dev/redirect", "https://insiders.vscode.dev/redirect"]);
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export function isAllowedRedirectUri(uri: string): boolean {
@@ -131,7 +132,7 @@ export function isAllowedRedirectUri(uri: string): boolean {
   } catch {
     return false;
   }
-  if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) {
+  if (url.protocol === "http:" && url.username === "" && url.password === "" && LOOPBACK_HOSTS.has(url.hostname)) {
     return true;
   }
   return ALLOWED_REDIRECT_URIS.has(url.href);
