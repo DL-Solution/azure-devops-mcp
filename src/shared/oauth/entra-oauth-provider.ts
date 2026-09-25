@@ -20,6 +20,7 @@ import { OAuthRegisteredClientsStore } from "@modelcontextprotocol/sdk/server/au
 import { AuthorizationParams, OAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import {
+  InvalidClientMetadataError,
   InvalidGrantError,
   InvalidRequestError,
   InvalidScopeError,
@@ -112,14 +113,53 @@ export interface EntraOAuthConfig {
 // Azure DevOps resource ID — tokens for this audience work against the ADO REST API.
 const ADO_DEFAULT_SCOPE = "499b84ac-1321-427f-aa17-267ca6975798/.default";
 
+// Where this server may send an authorization code. Registration is open (MCP
+// clients require DCR) and Entra signs the user in silently under the admin
+// consent given to our app, so without this list anyone could register
+// https://evil/cb, send a victim an /authorize link on our domain and redeem
+// the code that lands there for the victim's tokens — the "confused deputy"
+// from the MCP security best practices. Claude's connector callback and loopback
+// (RFC 8252: local clients such as Claude Code or MCP Inspector, any port) are
+// the only destinations; a code sent to someone else's localhost reaches no one.
+const ALLOWED_REDIRECT_URIS = new Set(["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback"]);
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+export function isAllowedRedirectUri(uri: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(uri);
+  } catch {
+    return false;
+  }
+  if (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname)) {
+    return true;
+  }
+  return ALLOWED_REDIRECT_URIS.has(url.href);
+}
+
+function disallowedRedirectUris(client: Pick<OAuthClientInformationFull, "redirect_uris">): string[] {
+  return client.redirect_uris.filter((uri) => !isAllowedRedirectUri(uri));
+}
+
 class StateBackedClientsStore implements OAuthRegisteredClientsStore {
   constructor(private readonly state: OAuthStateStore) {}
 
   async getClient(clientId: string): Promise<OAuthClientInformationFull | undefined> {
-    return this.state.getClient(clientId);
+    const client = await this.state.getClient(clientId);
+    // Clients registered before the allow-list existed stay in the state store;
+    // treat one with a foreign redirect URI as unknown so it cannot start a flow.
+    if (client && disallowedRedirectUris(client).length > 0) {
+      logger.warn("Ignoring OAuth client registered with a disallowed redirect URI", { clientId });
+      return undefined;
+    }
+    return client;
   }
 
   async registerClient(client: Omit<OAuthClientInformationFull, "client_id" | "client_id_issued_at">): Promise<OAuthClientInformationFull> {
+    const disallowed = disallowedRedirectUris(client);
+    if (disallowed.length > 0) {
+      throw new InvalidClientMetadataError(`redirect_uri not allowed: ${disallowed.join(", ")}`);
+    }
     const registered: OAuthClientInformationFull = {
       ...client,
       client_id: randomUUID(),
