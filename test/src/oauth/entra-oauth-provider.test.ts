@@ -12,6 +12,7 @@ jest.mock("../../../src/logger", () => ({
 jest.mock("jose", () => ({ createRemoteJWKSet: jest.fn(), jwtVerify: jest.fn() }));
 
 import { EntraOAuthProvider } from "../../../src/shared/oauth/entra-oauth-provider";
+import { InMemoryOAuthStateStore } from "../../../src/shared/oauth/state-store";
 
 const config = {
   tenantId: "tenant-1",
@@ -61,7 +62,7 @@ describe("EntraOAuthProvider", () => {
 
   describe("dynamic client registration", () => {
     it("issues a client_id and persists the registration in the state store", async () => {
-      const registered = await provider.clientsStore.registerClient?.({ redirect_uris: ["https://client.example/cb"] } as never);
+      const registered = await provider.clientsStore.registerClient?.({ redirect_uris: ["https://claude.ai/api/mcp/auth_callback"] } as never);
       if (!registered) throw new Error("registerClient not implemented");
       expect(registered.client_id).toBeTruthy();
       await expect(provider.clientsStore.getClient(registered.client_id)).resolves.toEqual(registered);
@@ -69,6 +70,38 @@ describe("EntraOAuthProvider", () => {
 
     it("does not know a client that was never registered", async () => {
       await expect(provider.clientsStore.getClient("never-seen")).resolves.toBeUndefined();
+    });
+
+    it.each(["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback", "http://localhost:33418/callback", "http://127.0.0.1:6274/oauth/callback", "http://[::1]:8080/cb"])(
+      "accepts the redirect URI %s",
+      async (uri) => {
+        await expect(provider.clientsStore.registerClient?.({ redirect_uris: [uri] } as never)).resolves.toMatchObject({ redirect_uris: [uri] });
+      }
+    );
+
+    it.each([
+      "https://evil.example/cb",
+      "https://claude.ai/other/path",
+      "https://claude.ai.evil.example/api/mcp/auth_callback",
+      "https://claude.ai/api/mcp/auth_callback?x=1",
+      "https://localhost/cb",
+      "http://localhost.evil.example/cb",
+      "not a url",
+    ])("refuses to register the redirect URI %s", async (uri) => {
+      await expect(provider.clientsStore.registerClient?.({ redirect_uris: [uri] } as never)).rejects.toThrow("redirect_uri not allowed");
+    });
+
+    it("refuses a registration that mixes an allowed and a foreign redirect URI", async () => {
+      await expect(provider.clientsStore.registerClient?.({ redirect_uris: ["https://claude.ai/api/mcp/auth_callback", "https://evil.example/cb"] } as never)).rejects.toThrow(
+        "https://evil.example/cb"
+      );
+    });
+
+    it("treats a stored client with a foreign redirect URI as unknown", async () => {
+      const stateStore = new InMemoryOAuthStateStore();
+      await stateStore.saveClient({ client_id: "old", redirect_uris: ["https://evil.example/cb"] } as never);
+      const guarded = new EntraOAuthProvider(config, { stateStore });
+      await expect(guarded.clientsStore.getClient("old")).resolves.toBeUndefined();
     });
   });
 
