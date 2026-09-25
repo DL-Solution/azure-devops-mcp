@@ -46,6 +46,14 @@ const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   serviceendpoint_share_service_endpoint: "destructive",
   // Switching off secret scanning or push protection removes a safeguard; switching a plan on starts billing.
   advsec_update_enablement: "destructive",
+  // Moving a project to another process rewrites its work item types, states and fields.
+  wit_migrate_project_process: "destructive",
+  // Can make a private project public, or rename it under every link that points at it.
+  core_update_project: "destructive",
+  // Creates a project for the whole organization, with its own permissions and billing footprint.
+  core_create_project: "destructive",
+  // A field is organization-wide and every process sees it; it cannot be renamed later.
+  wit_create_field: "destructive",
 };
 
 export function categorizeTool(name: string): ToolCategory {

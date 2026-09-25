@@ -47,6 +47,13 @@ describe("categorizeTool", () => {
     expect(categorizeTool("serviceendpoint_share_service_endpoint")).toBe("destructive");
     expect(categorizeTool("advsec_update_enablement")).toBe("destructive");
   });
+
+  it("treats project- and organization-wide changes as destructive", () => {
+    expect(categorizeTool("wit_migrate_project_process")).toBe("destructive");
+    expect(categorizeTool("core_update_project")).toBe("destructive");
+    expect(categorizeTool("core_create_project")).toBe("destructive");
+    expect(categorizeTool("wit_create_field")).toBe("destructive");
+  });
 });
 
 describe("registerTool", () => {

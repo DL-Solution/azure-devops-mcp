@@ -70,14 +70,17 @@ export const PRESET_NAMES: readonly string[] = Object.keys(TOOL_PRESETS);
  * Resolve a preset name to the domains it enables.
  *
  * Returns undefined for an unknown name so the caller can answer 404 rather
- * than silently serving something the client did not ask for.
+ * than silently serving something the client did not ask for. With `enabled`
+ * (the domains --domains switched on) the result is narrowed to those: a preset
+ * picks a smaller surface, it must never widen the one the operator configured.
  */
-export function resolvePreset(name: string): Set<string> | undefined {
+export function resolvePreset(name: string, enabled?: ReadonlySet<string>): Set<string> | undefined {
   // The name arrives from a URL path, so look it up as an own property:
   // a plain index would resolve "constructor" and friends off Object.prototype.
   const key = name.trim().toLowerCase();
   if (!Object.hasOwn(TOOL_PRESETS, key)) {
     return undefined;
   }
-  return new Set<string>(TOOL_PRESETS[key]);
+  const domains: readonly string[] = TOOL_PRESETS[key];
+  return new Set(enabled ? domains.filter((domain) => enabled.has(domain)) : domains);
 }

@@ -5,7 +5,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { WebApi } from "azure-devops-node-api";
 
+import { logger } from "./logger.js";
 import { wrapExternalToolResponse } from "./shared/content-safety.js";
+import { toolError } from "./shared/tool-results.js";
 import { Domain } from "./shared/domains.js";
 import { configureAdvSecTools } from "./tools/advanced-security.js";
 import { configureMcpAppsTools } from "./tools/mcp-apps.js";
@@ -101,11 +103,21 @@ function configureToolsWithContentSafety(server: McpServer, domain: string, conf
   const wrapRegistration = <T extends (...args: never[]) => unknown>(registration: T): T =>
     new Proxy(registration, {
       apply(target, thisArg, argumentsList: unknown[]) {
+        const toolName = String(argumentsList[0]);
         const callbackIndex = argumentsList.length - 1;
         const callback = argumentsList[callbackIndex];
         if (typeof callback === "function") {
           argumentsList[callbackIndex] = async (...callbackArgs: unknown[]) => {
-            const response = (await Reflect.apply(callback, undefined, callbackArgs)) as CallToolResult;
+            let response: CallToolResult;
+            try {
+              response = (await Reflect.apply(callback, undefined, callbackArgs)) as CallToolResult;
+            } catch (error) {
+              // A handler without its own catch would otherwise reach the SDK, which turns the
+              // exception into an error result itself — past this wrapper, so an Azure DevOps
+              // message (which can quote user-written text) went out unspotlighted.
+              logger.error("Tool threw", { tool: toolName, error: error instanceof Error ? (error.stack ?? error.message) : String(error) });
+              response = toolError(`running ${toolName}`, error);
+            }
             return wrapExternalToolResponse(response, `Azure DevOps ${domain}`);
           };
         }
