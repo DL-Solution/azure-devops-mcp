@@ -65,20 +65,38 @@ describe("configureNotificationTools", () => {
     const handler = getHandler("notification_list_subscriptions");
     mockNotificationApi.listSubscriptions.mockResolvedValue([{ id: "s1" }]);
 
-    const result = await handler({ targetId: "user-1", ids: ["s1", "s2"] });
+    const result = await handler({ targetId: "user-1", ids: ["s1", "s2"], top: 100 });
 
-    expect(mockNotificationApi.listSubscriptions).toHaveBeenCalledWith("user-1", ["s1", "s2"]);
+    expect(mockNotificationApi.listSubscriptions).toHaveBeenCalledWith("user-1", ["s1", "s2"], undefined);
     expect(result.content[0].text).toContain("s1");
   });
 
-  it("list_subscriptions reports when none found", async () => {
+  it("list_subscriptions combines the query flags", async () => {
     const handler = getHandler("notification_list_subscriptions");
     mockNotificationApi.listSubscriptions.mockResolvedValue([]);
 
-    const result = await handler({});
+    await handler({ queryFlags: ["IncludeFilterDetails", "IncludeSystemSubscriptions"], top: 100 });
 
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain("No notification subscriptions found");
+    expect(mockNotificationApi.listSubscriptions).toHaveBeenCalledWith(undefined, undefined, 8 | 32);
+  });
+
+  it("list_subscriptions keeps only the first top subscriptions", async () => {
+    const handler = getHandler("notification_list_subscriptions");
+    mockNotificationApi.listSubscriptions.mockResolvedValue([{ id: "s1" }, { id: "s2" }, { id: "s3" }]);
+
+    const result = await handler({ top: 2 });
+
+    expect(JSON.parse(result.content[0].text)).toEqual([{ id: "s1" }, { id: "s2" }]);
+  });
+
+  it("list_subscriptions returns an empty list when none found", async () => {
+    const handler = getHandler("notification_list_subscriptions");
+    mockNotificationApi.listSubscriptions.mockResolvedValue([]);
+
+    const result = await handler({ top: 100 });
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0].text)).toEqual([]);
   });
 
   it("get_subscription passes the id", async () => {

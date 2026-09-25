@@ -1369,12 +1369,46 @@ describe("configurePipelineTools", () => {
       const params = {
         project: "test-project",
         pipelineId: 123,
+        top: 50,
       };
 
       const result = await handler(params);
 
       expect(mockPipelinesApi.listRuns).toHaveBeenCalledWith("test-project", 123);
       expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, name: "run-1" }]));
+    });
+
+    it("should cut the runs to top, keeping the run objects as they are", async () => {
+      configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "pipelines_list_runs");
+      if (!call) fail("Tool not found");
+      const [, , schema, handler] = call;
+
+      const runs = [
+        { id: 3, name: "run-3", state: "completed" },
+        { id: 2, name: "run-2", state: "completed" },
+        { id: 1, name: "run-1", state: "completed" },
+      ];
+      mockConnection.getPipelinesApi.mockResolvedValue({ listRuns: jest.fn().mockResolvedValue(runs) });
+
+      const result = await handler({ project: "test-project", pipelineId: 123, top: 2 });
+
+      expect(result.content[0].text).toBe(JSON.stringify(runs.slice(0, 2)));
+      expect(schema.top.parse(undefined)).toBe(50);
+      expect(() => schema.top.parse(10001)).toThrow();
+    });
+
+    it("should return an empty list when the API returns nothing", async () => {
+      configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "pipelines_list_runs");
+      if (!call) fail("Tool not found");
+      const [, , , handler] = call;
+
+      mockConnection.getPipelinesApi.mockResolvedValue({ listRuns: jest.fn().mockResolvedValue(null) });
+
+      const result = await handler({ project: "test-project", pipelineId: 123, top: 50 });
+
+      expect(result.content[0].text).toBe("[]");
     });
 
     it("should handle API errors for pipelines_list_runs", async () => {
@@ -1391,9 +1425,13 @@ describe("configurePipelineTools", () => {
       const params = {
         project: "test-project",
         pipelineId: 999,
+        top: 50,
       };
 
-      await expect(handler(params)).rejects.toThrow("Pipeline not found");
+      const result = await handler(params);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error listing pipeline runs: Pipeline not found");
     });
   });
 
@@ -1488,7 +1526,10 @@ describe("configurePipelineTools", () => {
         yamlOverride: "some yaml",
       };
 
-      await expect(handler(params)).rejects.toThrow("Parameter 'yamlOverride' can only be specified together with parameter 'previewRun'.");
+      const result = await handler(params);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error running pipeline: Parameter 'yamlOverride' can only be specified together with parameter 'previewRun'.");
     });
 
     it("should handle missing build ID from pipeline run", async () => {
@@ -1507,7 +1548,10 @@ describe("configurePipelineTools", () => {
         pipelineId: 123,
       };
 
-      await expect(handler(params)).rejects.toThrow("Failed to get build ID from pipeline run");
+      const result = await handler(params);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error running pipeline: Failed to get build ID from pipeline run");
     });
 
     it("should handle API errors for pipelines_run_pipeline", async () => {
@@ -1526,7 +1570,20 @@ describe("configurePipelineTools", () => {
         pipelineId: 123,
       };
 
-      await expect(handler(params)).rejects.toThrow("API Error");
+      const result = await handler(params);
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error running pipeline: API Error");
+    });
+
+    it("should accept resources without a pipelines entry", () => {
+      configurePipelineTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "pipelines_run_pipeline");
+      if (!call) fail("Tool not found");
+      const [, , schema] = call;
+
+      expect(schema.resources.parse({ repositories: { self: { refName: "refs/heads/main" } } })).toEqual({ repositories: { self: { refName: "refs/heads/main" } } });
+      expect(schema.yamlOverride.description).toContain("previewRun: true");
     });
   });
 
@@ -1871,14 +1928,70 @@ describe("configurePipelineTools", () => {
       expect(queueBuild).toHaveBeenCalledWith({ definition: { id: 7 }, sourceBranch: "refs/heads/main", parameters: '{"x":"1"}' }, "proj");
     });
 
-    it("cancel_build sets status to Cancelling (4)", async () => {
+    it("cancel_build sets status to Cancelling (4) and returns only the outcome", async () => {
       const handler = getHandler("pipelines_cancel_build");
-      const updateBuild = jest.fn().mockResolvedValue({ id: 100, status: 4 });
+      const updateBuild = jest.fn().mockResolvedValue({ id: 100, buildNumber: "20260925.1", status: 4, result: undefined, definition: { id: 7 }, _links: {}, logs: {} });
       mockConnection.getBuildApi.mockResolvedValue({ updateBuild });
 
-      await handler({ project: "proj", buildId: 100 });
+      const result = await handler({ project: "proj", buildId: 100 });
 
       expect(updateBuild).toHaveBeenCalledWith({ status: 4 }, "proj", 100);
+      expect(JSON.parse(result.content[0].text)).toEqual({ id: 100, buildNumber: "20260925.1", status: "Cancelling" });
+    });
+
+    it("cancel_build reports API errors", async () => {
+      const handler = getHandler("pipelines_cancel_build");
+      mockConnection.getBuildApi.mockResolvedValue({ updateBuild: jest.fn().mockRejectedValue(new Error("Build not found")) });
+
+      const result = await handler({ project: "proj", buildId: 100 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error cancelling build: Build not found");
+    });
+
+    it("get_build_status projects the build from getBuild", async () => {
+      const handler = getHandler("pipelines_get_build_status");
+      const getBuild = jest.fn().mockResolvedValue({
+        id: 42,
+        buildNumber: "20260925.3",
+        status: 2,
+        result: 2,
+        queueTime: "2026-09-25T10:00:00Z",
+        startTime: "2026-09-25T10:01:00Z",
+        finishTime: "2026-09-25T10:05:00Z",
+        sourceBranch: "refs/heads/main",
+        definition: { id: 7, name: "CI", url: "https://x", project: { id: "p" } },
+        logs: { url: "https://logs" },
+        _links: {},
+      });
+      const getBuildReport = jest.fn();
+      mockConnection.getBuildApi.mockResolvedValue({ getBuild, getBuildReport });
+
+      const result = await handler({ project: "proj", buildId: 42 });
+
+      expect(getBuild).toHaveBeenCalledWith("proj", 42);
+      expect(getBuildReport).not.toHaveBeenCalled();
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        id: 42,
+        buildNumber: "20260925.3",
+        status: "Completed",
+        result: "Succeeded",
+        queueTime: "2026-09-25T10:00:00Z",
+        startTime: "2026-09-25T10:01:00Z",
+        finishTime: "2026-09-25T10:05:00Z",
+        sourceBranch: "refs/heads/main",
+        definition: { id: 7, name: "CI" },
+      });
+    });
+
+    it("get_build_status reports API errors", async () => {
+      const handler = getHandler("pipelines_get_build_status");
+      mockConnection.getBuildApi.mockResolvedValue({ getBuild: jest.fn().mockRejectedValue(new Error("TF: build 42 not found")) });
+
+      const result = await handler({ project: "proj", buildId: 42 });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe("Error fetching build status: TF: build 42 not found");
     });
 
     it("add_build_tag adds a tag", async () => {

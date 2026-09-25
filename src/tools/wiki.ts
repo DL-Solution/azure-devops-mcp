@@ -13,6 +13,9 @@ import { adoFetch } from "../shared/ado-rest.js";
 import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
 
+// The wikis resource (288d122c-…) is at version 2; the shared "7.2-preview.1" asks for version 1, which rejects DELETE with 405. node-api's WikiApi uses this.
+const WIKI_RESOURCE_API_VERSION = "7.2-preview.2";
+
 const WIKI_TOOLS = {
   list_wikis: "wiki_list_wikis",
   get_wiki: "wiki_get_wiki",
@@ -300,16 +303,45 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     }
   );
 
+  // Best effort: the current ETag of an existing page, from the header or (older servers) the body, or undefined.
+  const fetchPageEtag = async (url: string, accessToken: string): Promise<string | undefined> => {
+    try {
+      const getResponse = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "User-Agent": userAgentProvider(),
+        },
+      });
+      if (!getResponse.ok) {
+        return undefined;
+      }
+      const headerEtag = getResponse.headers.get("etag") || getResponse.headers.get("ETag");
+      if (headerEtag) {
+        return headerEtag;
+      }
+      const pageData = await getResponse.json();
+      return typeof pageData?.eTag === "string" ? pageData.eTag : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   registerTool(
     server,
     WIKI_TOOLS.create_or_update_page,
-    "Create or update a wiki page with content.",
+    "Create a wiki page, or overwrite an existing one. Overwriting requires the page's current etag: without it an existing page is left untouched and the error returns its current ETag.",
     {
       wikiIdentifier: z.string().describe("The unique identifier or name of the wiki."),
       path: z.string().describe("The path of the wiki page (e.g., '/Home' or '/Documentation/Setup')."),
       content: z.string().describe("The content of the wiki page in markdown format."),
       project: z.string().optional().describe("The project name or ID where the wiki is located. If not provided, the default project will be used."),
-      etag: z.string().optional().describe("ETag for editing existing pages (optional, will be fetched if not provided)."),
+      etag: z
+        .string()
+        .optional()
+        .describe(
+          "The current ETag of the page, required to overwrite an existing page (optimistic concurrency). Omit it to create a new page; if the page already exists, the call fails and returns the current ETag to pass after re-reading the page."
+        ),
       branch: z.string().default("wikiMaster").describe("The branch name for the wiki repository. Defaults to 'wikiMaster' which is the default branch for Azure DevOps wikis."),
     },
     async ({ wikiIdentifier, path, content, project, etag, branch = "wikiMaster" }) => {
@@ -350,32 +382,18 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
             };
           }
 
-          // If creation failed with 409 (Conflict) or 500 (Page exists), try to update it
+          // If creation failed with 409 (Conflict) or 500 (Page exists), update it — but only against an ETag the caller supplied
           if (createResponse.status === 409 || createResponse.status === 500) {
-            // Page exists, we need to get the ETag and update it
-            let currentEtag = etag;
-
-            if (!currentEtag) {
-              // Fetch current page to get ETag
-              const getResponse = await fetch(url, {
-                method: "GET",
-                headers: {
-                  "Authorization": `Bearer ${accessToken}`,
-                  "User-Agent": userAgentProvider(),
-                },
-              });
-
-              if (getResponse.ok) {
-                currentEtag = getResponse.headers.get("etag") || getResponse.headers.get("ETag") || undefined;
-                if (!currentEtag) {
-                  const pageData = await getResponse.json();
-                  currentEtag = pageData.eTag;
-                }
-              }
-
-              if (!currentEtag) {
-                throw new Error("Could not retrieve ETag for existing page");
-              }
+            // Without an ETag, overwriting would silently discard whatever changed since the caller last read the page.
+            if (!etag) {
+              const existingEtag = await fetchPageEtag(url, accessToken);
+              const etagHint = existingEtag
+                ? ` Its current ETag is ${existingEtag}; re-read the page (wiki_get_page_content) and, if you still want to replace it, call again with etag: ${JSON.stringify(existingEtag)}.`
+                : " Re-read the page (wiki_get_page_content) and call again with its current ETag in etag to replace it.";
+              return {
+                content: [{ type: "text", text: `Wiki page ${normalizedPath} already exists and no etag was given, so it was not overwritten.${etagHint}` }],
+                isError: true,
+              };
             }
 
             // Now update the existing page with ETag
@@ -385,7 +403,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
                 "Authorization": `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
                 "User-Agent": userAgentProvider(),
-                "If-Match": currentEtag,
+                "If-Match": etag,
               },
               body: JSON.stringify({ content: content }),
             });
@@ -532,7 +550,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
         return { content: [{ type: "text", text: "Nothing to change: give name, versions or both." }], isError: true };
       }
       return call(`updating wiki ${wikiIdentifier}`, () =>
-        rest("PATCH", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}?api-version=${apiVersion}`, {
+        rest("PATCH", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}?api-version=${WIKI_RESOURCE_API_VERSION}`, {
           name,
           versions: versions?.map((version) => ({ version, versionType: "branch" })),
         })
@@ -549,7 +567,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
       wikiIdentifier: wikiIdentifierParam,
     },
     async ({ project, wikiIdentifier }) =>
-      call(`deleting wiki ${wikiIdentifier}`, () => rest("DELETE", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}?api-version=${apiVersion}`))
+      call(`deleting wiki ${wikiIdentifier}`, () => rest("DELETE", `${encodeURIComponent(project)}/_apis/wiki/wikis/${encodeURIComponent(wikiIdentifier)}?api-version=${WIKI_RESOURCE_API_VERSION}`))
   );
 
   registerTool(

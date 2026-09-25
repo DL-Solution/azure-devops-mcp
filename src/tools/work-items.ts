@@ -5,6 +5,7 @@ import * as fs from "fs";
 import { Readable } from "stream";
 import * as path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { WorkItemErrorPolicy, WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
@@ -14,7 +15,7 @@ import { batchApiVersion, markdownCommentsApiVersion, getEnumKeys, safeEnumConve
 import { elicitProject, elicitTeam, resolveProject } from "../shared/elicitations.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { getUserIdentityFromEmail } from "./auth.js";
-import { optionalProject, optionalTeam, optionalTeamWith, requiredProjectWith } from "../shared/common-params.js";
+import { continuationTokenParam, optionalProject, optionalTeam, optionalTeamWith, requiredProjectWith } from "../shared/common-params.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const WORKITEM_TOOLS = {
@@ -186,6 +187,49 @@ async function resolveCommentMentions(
 }
 
 const MENTION_HINT = " To mention someone, write @<their email>, e.g. @<ada@contoso.com>; it becomes a real mention that notifies them.";
+
+interface WitBatchItem {
+  code?: number;
+  id?: number;
+  title?: string;
+  url?: string;
+  error?: string;
+}
+
+/**
+ * The wit `$batch` endpoint answers 200 even when its sub-requests fail: each
+ * entry of `value` carries its own `code` and a JSON *string* `body`. Passing
+ * that through made a batch of 4xx look like success, so it is reduced to one
+ * line per item — the work item on success, Azure DevOps' message on failure.
+ * `requestedIds` (in request order) labels failures, whose body has no id.
+ * The result is an error only when every item failed.
+ */
+function summarizeWitBatch(result: unknown, requestedIds?: number[]): CallToolResult {
+  const entries: unknown[] = Array.isArray((result as { value?: unknown })?.value) ? (result as { value: unknown[] }).value : [];
+  const items = entries.map((entry, index): WitBatchItem => {
+    const { code, body } = (entry ?? {}) as { code?: number; body?: unknown };
+    let parsed: unknown = body;
+    if (typeof body === "string") {
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        parsed = body;
+      }
+    }
+    const failed = typeof code !== "number" || code >= 400;
+    if (!failed) {
+      const workItem = (parsed ?? {}) as { id?: number; url?: string; fields?: Record<string, unknown> };
+      const title = workItem.fields?.["System.Title"];
+      return { code, id: workItem.id, title: typeof title === "string" ? title : undefined, url: workItem.url };
+    }
+    const payload = (parsed ?? {}) as { value?: { Message?: string; message?: string }; message?: string };
+    const message = typeof parsed === "string" ? parsed : (payload.value?.Message ?? payload.value?.message ?? payload.message);
+    return { code, id: requestedIds?.[index], error: message || `HTTP ${code ?? "unknown"}` };
+  });
+  const failed = items.filter((item) => item.error !== undefined).length;
+  const response = jsonResult({ succeeded: items.length - failed, failed, items });
+  return failed > 0 && failed === items.length ? { ...response, isError: true } : response;
+}
 
 function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
   registerTool(
@@ -405,9 +449,10 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
     {
       project: optionalProject,
       workItemId: z.coerce.number().min(1).describe("The ID of the work item to retrieve comments for."),
-      top: z.coerce.number().default(50).describe("Optional number of comments to retrieve. Defaults to all comments."),
+      top: z.coerce.number().default(50).describe("Number of comments per page. Defaults to 50; pass the returned continuationToken to get the next page."),
+      continuationToken: continuationTokenParam,
     },
-    async ({ project, workItemId, top }) => {
+    async ({ project, workItemId, top, continuationToken }) => {
       try {
         const connection = await connectionProvider();
 
@@ -419,7 +464,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         }
 
         const workItemApi = await connection.getWorkItemTrackingApi();
-        const comments = await workItemApi.getComments(resolvedProject, workItemId, top);
+        const comments = await workItemApi.getComments(resolvedProject, workItemId, top, continuationToken);
 
         return jsonResult(comments);
       } catch (error) {
@@ -727,9 +772,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           throw new Error(`Failed to update work items in batch: ${response.statusText}`);
         }
 
-        const result = await response.json();
-
-        return jsonResult(result);
+        return summarizeWitBatch(await response.json());
       } catch (error) {
         return toolError("creating child work items", error);
       }
@@ -923,7 +966,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
             format: z.enum(["Html", "Markdown"]).optional().describe("the format of the field value, e.g., 'Html', 'Markdown'. Optional, defaults to 'Markdown'."),
           })
         )
-        .describe("A record of field names and values to set on the new work item. Each fild is the field name and each value is the corresponding value to set for that field."),
+        .describe("A record of field names and values to set on the new work item. Each field is the field name and each value is the corresponding value to set for that field."),
     },
     async ({ project, workItemType, fields }) => {
       try {
@@ -1111,9 +1154,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           throw new Error(`Failed to update work items in batch: ${response.statusText}`);
         }
 
-        const result = await response.json();
-
-        return jsonResult(result);
+        return summarizeWitBatch(await response.json(), uniqueIds);
       } catch (error) {
         return toolError("updating work items in batch", error);
       }
@@ -1205,9 +1246,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           throw new Error(`Failed to update work items in batch: ${response.statusText}`);
         }
 
-        const result = await response.json();
-
-        return jsonResult(result);
+        return summarizeWitBatch(await response.json(), uniqueIds);
       } catch (error) {
         return toolError("linking work items", error);
       }
@@ -2669,7 +2708,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     WORKITEM_TOOLS.delete_work_items,
-    "Delete several work items at once, moving them to the recycle bin — or, with destroy, erasing them permanently. Reports the outcome per work item.",
+    "Delete several work items at once, moving them to the recycle bin — or, with destroy, erasing them permanently. Returns the per-item outcome (id, code, message) when Azure DevOps reports one, otherwise the ids that were accepted for deletion.",
     {
       project: optionalProject,
       ids: z.array(z.coerce.number().min(1)).min(1).max(200).describe("The IDs of the work items to delete, up to 200."),
@@ -2692,7 +2731,23 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
         if (!response.ok) {
           throw new Error(`${response.status}: ${text}`);
         }
-        return { content: [{ type: "text", text }] };
+        // Usually 204 with no body: the request was accepted as a whole.
+        if (!text.trim()) {
+          return jsonResult({ deleted: ids, destroy });
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          return { content: [{ type: "text", text }] };
+        }
+        const results = (parsed as { results?: { id?: number; code?: number; message?: string }[] })?.results;
+        if (!Array.isArray(results)) {
+          return jsonResult(parsed);
+        }
+        const outcome = jsonResult({ destroy, results: results.map(({ id, code, message }) => ({ id, code, message })) });
+        const allFailed = results.length > 0 && results.every(({ code }) => typeof code === "number" && code >= 400);
+        return allFailed ? { ...outcome, isError: true } : outcome;
       } catch (error) {
         return toolError("deleting work items", error);
       }

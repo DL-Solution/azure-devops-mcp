@@ -1213,50 +1213,32 @@ describe("configureWikiTools", () => {
       expect(result.isError).toBeUndefined();
     });
 
-    it("should update an existing wiki page with ETag", async () => {
+    it("refuses to overwrite an existing page without etag and returns its current ETag", async () => {
       configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
       if (!call) throw new Error("wiki_create_or_update_page tool not registered");
       const [, , , handler] = call;
 
-      const mockCreateResponse = {
-        ok: false,
-        status: 409, // Conflict - page exists
-      };
-
-      const mockGetResponse = {
-        ok: true,
-        headers: {
-          get: jest.fn().mockReturnValue('W/"test-etag"'),
-        },
-      };
-
-      const mockUpdateResponse = {
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          path: "/Home",
-          id: 123,
-          content: "# Updated Welcome\nThis is the updated home page.",
-        }),
-      };
-
       mockFetch
-        .mockResolvedValueOnce(mockCreateResponse) // First PUT fails with 409
-        .mockResolvedValueOnce(mockGetResponse) // GET to retrieve ETag
-        .mockResolvedValueOnce(mockUpdateResponse); // Second PUT succeeds with ETag
+        .mockResolvedValueOnce({ ok: false, status: 409 }) // PUT without If-Match: page exists
+        .mockResolvedValueOnce({ ok: true, headers: { get: jest.fn().mockReturnValue('W/"test-etag"') } });
 
       const params = {
         wikiIdentifier: "wiki1",
         path: "/Home",
-        content: "# Updated Welcome\nThis is the updated home page.",
+        content: "# Updated Welcome",
         project: "proj1",
       };
 
       const result = await handler(params);
 
-      expect(mockFetch).toHaveBeenCalledTimes(3);
-      expect(result.content[0].text).toContain("Successfully updated wiki page at path: /Home");
-      expect(result.isError).toBeUndefined();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.stringContaining("pages?path="), expect.objectContaining({ method: "GET" }));
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Wiki page /Home already exists and no etag was given, so it was not overwritten.");
+      expect(result.content[0].text).toContain(
+        'Its current ETag is W/"test-etag"; re-read the page (wiki_get_page_content) and, if you still want to replace it, call again with etag: "W/\\"test-etag\\"".'
+      );
     });
 
     it("should handle API errors correctly", async () => {
@@ -1305,131 +1287,15 @@ describe("configureWikiTools", () => {
       expect(result.content[0].text).toContain("Error creating/updating wiki page: Network error");
     });
 
-    it("should get ETag from response body when not in headers", async () => {
+    it("returns the ETag from the response body when it is not in the headers", async () => {
       configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
       if (!call) throw new Error("wiki_create_or_update_page tool not registered");
       const [, , , handler] = call;
 
-      const mockCreateResponse = {
-        ok: false,
-        status: 409, // Conflict - page exists
-      };
-
-      const mockGetResponse = {
-        ok: true,
-        headers: {
-          get: jest.fn().mockReturnValue(null), // No ETag in headers
-        },
-        json: jest.fn().mockResolvedValue({
-          eTag: 'W/"body-etag"', // ETag in response body
-        }),
-      };
-
-      const mockUpdateResponse = {
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          path: "/Home",
-          id: 123,
-          content: "# Updated Welcome",
-        }),
-      };
-
       mockFetch
-        .mockResolvedValueOnce(mockCreateResponse) // First PUT fails with 409
-        .mockResolvedValueOnce(mockGetResponse) // GET to retrieve ETag from body
-        .mockResolvedValueOnce(mockUpdateResponse); // Second PUT succeeds with ETag
-
-      const params = {
-        wikiIdentifier: "wiki1",
-        path: "/Home",
-        content: "# Updated Welcome",
-        project: "proj1",
-      };
-
-      const result = await handler(params);
-
-      expect(mockFetch).toHaveBeenCalledTimes(3);
-      expect(result.content[0].text).toContain("Successfully updated wiki page at path: /Home");
-      expect(result.isError).toBeUndefined();
-    });
-
-    it("should handle when ETag is found directly in headers (case-sensitive)", async () => {
-      configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
-      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
-      if (!call) throw new Error("wiki_create_or_update_page tool not registered");
-      const [, , , handler] = call;
-
-      const mockCreateResponse = {
-        ok: false,
-        status: 409, // Conflict - page exists
-      };
-
-      const mockGetResponse = {
-        ok: true,
-        headers: {
-          get: jest.fn().mockImplementation((headerName: string) => {
-            if (headerName === "etag") return null;
-            if (headerName === "ETag") return 'W/"header-etag"';
-            return null;
-          }),
-        },
-      };
-
-      const mockUpdateResponse = {
-        ok: true,
-        json: jest.fn().mockResolvedValue({
-          path: "/Home",
-          id: 123,
-          content: "# Updated Welcome",
-        }),
-      };
-
-      mockFetch
-        .mockResolvedValueOnce(mockCreateResponse) // First PUT fails with 409
-        .mockResolvedValueOnce(mockGetResponse) // GET to retrieve ETag from headers
-        .mockResolvedValueOnce(mockUpdateResponse); // Second PUT succeeds with ETag
-
-      const params = {
-        wikiIdentifier: "wiki1",
-        path: "/Home",
-        content: "# Updated Welcome",
-        project: "proj1",
-      };
-
-      const result = await handler(params);
-
-      expect(mockFetch).toHaveBeenCalledTimes(3);
-      expect(result.content[0].text).toContain("Successfully updated wiki page at path: /Home");
-      expect(result.isError).toBeUndefined();
-    });
-
-    it("should handle missing ETag error when not in headers or body", async () => {
-      configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
-      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
-      if (!call) throw new Error("wiki_create_or_update_page tool not registered");
-      const [, , , handler] = call;
-
-      const mockCreateResponse = {
-        ok: false,
-        status: 409, // Conflict - page exists
-      };
-
-      const mockGetResponse = {
-        ok: true,
-        headers: {
-          get: jest.fn().mockReturnValue(null), // No ETag in headers
-        },
-        json: jest.fn().mockResolvedValue({
-          // No eTag in response body either
-          path: "/Home",
-          id: 123,
-        }),
-      };
-
-      mockFetch
-        .mockResolvedValueOnce(mockCreateResponse) // First PUT fails with 409
-        .mockResolvedValueOnce(mockGetResponse); // GET succeeds but no ETag anywhere
+        .mockResolvedValueOnce({ ok: false, status: 409 }) // PUT without If-Match: page exists
+        .mockResolvedValueOnce({ ok: true, headers: { get: jest.fn().mockReturnValue(null) }, json: jest.fn().mockResolvedValue({ eTag: 'W/"body-etag"' }) });
 
       const params = {
         wikiIdentifier: "wiki1",
@@ -1441,8 +1307,63 @@ describe("configureWikiTools", () => {
       const result = await handler(params);
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.stringContaining("pages?path="), expect.objectContaining({ method: "GET" }));
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error creating/updating wiki page: Could not retrieve ETag for existing page");
+      expect(result.content[0].text).toContain("Wiki page /Home already exists and no etag was given, so it was not overwritten.");
+      expect(result.content[0].text).toContain('W/"body-etag"');
+    });
+
+    it("returns the ETag from a case-sensitive header lookup", async () => {
+      configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
+      if (!call) throw new Error("wiki_create_or_update_page tool not registered");
+      const [, , , handler] = call;
+
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 409 }) // PUT without If-Match: page exists
+        .mockResolvedValueOnce({ ok: true, headers: { get: jest.fn().mockImplementation((name: string) => (name === "ETag" ? 'W/"header-etag"' : null)) } });
+
+      const params = {
+        wikiIdentifier: "wiki1",
+        path: "/Home",
+        content: "# Updated Welcome",
+        project: "proj1",
+      };
+
+      const result = await handler(params);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.stringContaining("pages?path="), expect.objectContaining({ method: "GET" }));
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Wiki page /Home already exists and no etag was given, so it was not overwritten.");
+      expect(result.content[0].text).toContain('W/"header-etag"');
+    });
+
+    it("refuses without an ETag hint when neither headers nor body carry one", async () => {
+      configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
+      if (!call) throw new Error("wiki_create_or_update_page tool not registered");
+      const [, , , handler] = call;
+
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 409 }) // PUT without If-Match: page exists
+        .mockResolvedValueOnce({ ok: true, headers: { get: jest.fn().mockReturnValue(null) }, json: jest.fn().mockResolvedValue({ path: "/Home", id: 123 }) });
+
+      const params = {
+        wikiIdentifier: "wiki1",
+        path: "/Home",
+        content: "# Updated Welcome",
+        project: "proj1",
+      };
+
+      const result = await handler(params);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.stringContaining("pages?path="), expect.objectContaining({ method: "GET" }));
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Wiki page /Home already exists and no etag was given, so it was not overwritten.");
+      expect(result.content[0].text).not.toContain("current ETag is");
+      expect(result.content[0].text).toContain("call again with its current ETag in etag");
     });
 
     it("should update existing page when ETag is provided as parameter", async () => {
@@ -1495,30 +1416,15 @@ describe("configureWikiTools", () => {
       expect(result.isError).toBeUndefined();
     });
 
-    it("should handle missing ETag error when neither headers nor body contain ETag", async () => {
+    it("treats a 500 on create as an existing page too", async () => {
       configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
       if (!call) throw new Error("wiki_create_or_update_page tool not registered");
       const [, , , handler] = call;
 
-      const mockCreateResponse = {
-        ok: false,
-        status: 409, // Conflict - page exists
-      };
-
-      const mockGetResponse = {
-        ok: true,
-        headers: {
-          get: jest.fn().mockReturnValue(null), // No ETag in headers
-        },
-        json: jest.fn().mockResolvedValue({
-          // No eTag in response body either
-        }),
-      };
-
       mockFetch
-        .mockResolvedValueOnce(mockCreateResponse) // First PUT fails with 409
-        .mockResolvedValueOnce(mockGetResponse); // GET fails to retrieve ETag
+        .mockResolvedValueOnce({ ok: false, status: 500 }) // PUT without If-Match: page exists
+        .mockResolvedValueOnce({ ok: true, headers: { get: jest.fn().mockReturnValue('W/"etag-500"') } });
 
       const params = {
         wikiIdentifier: "wiki1",
@@ -1529,38 +1435,45 @@ describe("configureWikiTools", () => {
 
       const result = await handler(params);
 
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.stringContaining("pages?path="), expect.objectContaining({ method: "GET" }));
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error creating/updating wiki page: Could not retrieve ETag for existing page");
+      expect(result.content[0].text).toContain("Wiki page /Home already exists and no etag was given, so it was not overwritten.");
+      expect(result.content[0].text).toContain('W/"etag-500"');
     });
 
-    it("should handle update failure after getting ETag", async () => {
+    it("should handle update failure with a stale etag", async () => {
       configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
       if (!call) throw new Error("wiki_create_or_update_page tool not registered");
       const [, , , handler] = call;
 
-      const mockCreateResponse = {
-        ok: false,
-        status: 409, // Conflict - page exists
-      };
-
-      const mockGetResponse = {
-        ok: true,
-        headers: {
-          get: jest.fn().mockReturnValue('W/"test-etag"'),
-        },
-      };
-
-      const mockUpdateResponse = {
-        ok: false,
-        status: 412, // Precondition failed
-        text: jest.fn().mockResolvedValue("ETag mismatch"),
-      };
-
       mockFetch
-        .mockResolvedValueOnce(mockCreateResponse) // First PUT fails with 409
-        .mockResolvedValueOnce(mockGetResponse) // GET to retrieve ETag
-        .mockResolvedValueOnce(mockUpdateResponse); // Second PUT fails with 412
+        .mockResolvedValueOnce({ ok: false, status: 409 }) // First PUT fails with 409
+        .mockResolvedValueOnce({ ok: false, status: 412, text: jest.fn().mockResolvedValue("ETag mismatch") }); // Second PUT fails with 412
+
+      const params = {
+        wikiIdentifier: "wiki1",
+        path: "/Home",
+        content: "# Updated Welcome",
+        project: "proj1",
+        etag: 'W/"stale-etag"',
+      };
+
+      const result = await handler(params);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Error creating/updating wiki page: Failed to update page (412): ETag mismatch");
+    });
+
+    it("refuses without an ETag hint when the GET for it throws", async () => {
+      configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
+      if (!call) throw new Error("wiki_create_or_update_page tool not registered");
+      const [, , , handler] = call;
+
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 409 }).mockRejectedValueOnce(new Error("socket hang up"));
 
       const params = {
         wikiIdentifier: "wiki1",
@@ -1572,7 +1485,8 @@ describe("configureWikiTools", () => {
       const result = await handler(params);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error creating/updating wiki page: Failed to update page (412): ETag mismatch");
+      expect(result.content[0].text).toContain("already exists and no etag was given");
+      expect(result.content[0].text).not.toContain("socket hang up");
     });
 
     it("should handle non-Error exceptions", async () => {
@@ -1663,25 +1577,15 @@ describe("configureWikiTools", () => {
       expect(result.content[0].text).toContain("Successfully created wiki page at path: /Home");
     });
 
-    it("should handle failed GET request for ETag", async () => {
+    it("refuses without an ETag hint when the GET for it fails", async () => {
       configureWikiTools(server, tokenProvider, connectionProvider, userAgentProvider);
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_create_or_update_page");
       if (!call) throw new Error("wiki_create_or_update_page tool not registered");
       const [, , , handler] = call;
 
-      const mockCreateResponse = {
-        ok: false,
-        status: 409, // Conflict - page exists
-      };
-
-      const mockGetResponse = {
-        ok: false, // GET fails
-        status: 404,
-      };
-
       mockFetch
-        .mockResolvedValueOnce(mockCreateResponse) // First PUT fails with 409
-        .mockResolvedValueOnce(mockGetResponse); // GET fails
+        .mockResolvedValueOnce({ ok: false, status: 409 }) // PUT without If-Match: page exists
+        .mockResolvedValueOnce({ ok: false, status: 404 });
 
       const params = {
         wikiIdentifier: "wiki1",
@@ -1692,8 +1596,12 @@ describe("configureWikiTools", () => {
 
       const result = await handler(params);
 
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.stringContaining("pages?path="), expect.objectContaining({ method: "GET" }));
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toContain("Error creating/updating wiki page: Could not retrieve ETag for existing page");
+      expect(result.content[0].text).toContain("Wiki page /Home already exists and no etag was given, so it was not overwritten.");
+      expect(result.content[0].text).not.toContain("current ETag is");
+      expect(result.content[0].text).toContain("call again with its current ETag in etag");
     });
 
     it("should use custom branch when specified", async () => {

@@ -328,7 +328,7 @@ describe("work item fields and comment reactions", () => {
     const respond = (body: string, status = 200) => mockFetch.mockResolvedValue({ ok: status >= 200 && status < 300, status, text: () => Promise.resolve(body) });
 
     it("deletes work items in one batch request", async () => {
-      respond('{"results":[{"id":1,"statusCode":200}]}');
+      respond('{"results":[{"id":1,"code":200,"name":"A","url":"u1"},{"id":2,"code":404,"message":"TF401232: not found"}]}');
 
       const result = await handlerFor(WORKITEM_TOOLS.delete_work_items)({ project: "Contoso", ids: [1, 2], destroy: false, skipNotifications: true });
 
@@ -337,7 +337,48 @@ describe("work item fields and comment reactions", () => {
       expect(init.method).toBe("POST");
       expect(init.headers.Authorization).toBe("Bearer token");
       expect(JSON.parse(init.body)).toEqual({ ids: [1, 2], destroy: false, skipNotifications: true });
-      expect(result.content[0].text).toBe('{"results":[{"id":1,"statusCode":200}]}');
+      expect(result.isError).toBeUndefined();
+      expect(parsed(result)).toEqual({
+        destroy: false,
+        results: [
+          { id: 1, code: 200 },
+          { id: 2, code: 404, message: "TF401232: not found" },
+        ],
+      });
+    });
+
+    it("reports the requested ids when the deletion answers 204 with no body", async () => {
+      respond("", 204);
+
+      const result = await handlerFor(WORKITEM_TOOLS.delete_work_items)({ project: "Contoso", ids: [1, 2], destroy: true });
+
+      expect(result.isError).toBeUndefined();
+      expect(parsed(result)).toEqual({ deleted: [1, 2], destroy: true });
+    });
+
+    it("is an error when every work item failed to delete", async () => {
+      respond('{"results":[{"id":1,"code":403,"message":"denied"}]}');
+
+      const result = await handlerFor(WORKITEM_TOOLS.delete_work_items)({ project: "Contoso", ids: [1], destroy: false });
+
+      expect(result.isError).toBe(true);
+      expect(parsed(result)).toEqual({ destroy: false, results: [{ id: 1, code: 403, message: "denied" }] });
+    });
+
+    it("passes a non-JSON success body through as text", async () => {
+      respond("done");
+
+      const result = await handlerFor(WORKITEM_TOOLS.delete_work_items)({ project: "Contoso", ids: [1], destroy: false });
+
+      expect(result.content[0].text).toBe("done");
+    });
+
+    it("passes a JSON body without results through", async () => {
+      respond('{"other":1}');
+
+      const result = await handlerFor(WORKITEM_TOOLS.delete_work_items)({ project: "Contoso", ids: [1], destroy: false });
+
+      expect(parsed(result)).toEqual({ other: 1 });
     });
 
     it("surfaces a rejected batch deletion", async () => {

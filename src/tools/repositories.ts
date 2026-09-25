@@ -1159,7 +1159,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
                     changeEntries: changes?.changeEntries ?? [],
                     fileCount: changes?.changeEntries?.length ?? 0,
                     // What repo_create_pull_request_thread needs to anchor a comment to this diff.
-                    firstComparingIteration: Math.max(0, latestIteration.id - 1),
+                    // The changes above are the full diff from the base (no compareTo), i.e. iterations 1..N.
+                    firstComparingIteration: 1,
                     secondComparingIteration: latestIteration.id,
                     nextSkip: changes?.nextSkip,
                     nextTop: changes?.nextTop,
@@ -1624,7 +1625,7 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         .min(1)
         .optional()
         .describe("The file's changeTrackingId from the pull request's iteration changes. Anchors the comment to that file in a specific diff; pass together with both comparing iterations."),
-      firstComparingIteration: z.coerce.number().int().min(0).optional().describe("The iteration on the left side of the diff."),
+      firstComparingIteration: z.coerce.number().int().min(1).optional().describe("The iteration on the left side of the diff (1 for the full diff from the base)."),
       secondComparingIteration: z.coerce.number().int().min(1).optional().describe("The iteration on the right side of the diff."),
     },
     async ({
@@ -2062,48 +2063,50 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
       project: z.string().optional().describe("Project ID or project name. Required when repositoryId is a repository name instead of a GUID."),
     },
     async ({ repositoryId, pullRequestId, vote, project }) => {
-      const connection = await connectionProvider();
-      const gitApi = await connection.getGitApi();
+      try {
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
 
-      const userDetails = await getCurrentUserDetails(tokenProvider, connectionProvider, userAgentProvider);
-      const userId = userDetails.authenticatedUser.id;
+        const userDetails = await getCurrentUserDetails(tokenProvider, connectionProvider, userAgentProvider);
+        const userId = userDetails.authenticatedUser.id;
 
-      if (!userId) {
-        throw new Error("Could not determine authenticated user ID.");
-      }
-
-      const voteMap: Record<string, number> = {
-        Approved: 10,
-        ApprovedWithSuggestions: 5,
-        NoVote: 0,
-        WaitingForAuthor: -5,
-        Rejected: -10,
-      };
-
-      const existingReviewer = await gitApi.getPullRequestReviewer(repositoryId, pullRequestId, userId, project).catch((error) => {
-        if (!(error instanceof Error) || !/not found|reviewer does not exist/i.test(error.message)) {
-          throw error;
+        if (!userId) {
+          throw new Error("Could not determine authenticated user ID.");
         }
 
-        return undefined;
-      });
+        const voteMap: Record<string, number> = {
+          Approved: 10,
+          ApprovedWithSuggestions: 5,
+          NoVote: 0,
+          WaitingForAuthor: -5,
+          Rejected: -10,
+        };
 
-      const reviewerPayload = {
-        vote: voteMap[vote],
-        id: userId,
-        ...(existingReviewer?.isRequired !== undefined ? { isRequired: existingReviewer.isRequired } : {}),
-      };
+        // Only to keep isRequired: the single-reviewer GET fails for a user who is not yet a reviewer,
+        // with a message that varies, while the list simply does not contain them.
+        const reviewers = await gitApi.getPullRequestReviewers(repositoryId, pullRequestId, project);
+        const existingReviewer = reviewers?.find((reviewer) => reviewer.id === userId);
 
-      await gitApi.createPullRequestReviewer(reviewerPayload as any, repositoryId, pullRequestId, userId, project);
+        const reviewerPayload = {
+          vote: voteMap[vote],
+          id: userId,
+          ...(existingReviewer?.isRequired !== undefined ? { isRequired: existingReviewer.isRequired } : {}),
+        };
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Successfully cast vote '${vote}' on PR #${pullRequestId}.`,
-          },
-        ],
-      };
+        // PUT upserts: it adds the user as a reviewer if needed and records the vote.
+        await gitApi.createPullRequestReviewer(reviewerPayload as any, repositoryId, pullRequestId, userId, project);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Successfully cast vote '${vote}' on PR #${pullRequestId}.`,
+            },
+          ],
+        };
+      } catch (error) {
+        return toolError("casting vote on pull request", error);
+      }
     }
   );
 
