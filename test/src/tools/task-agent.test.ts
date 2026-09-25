@@ -147,6 +147,48 @@ describe("configureTaskAgentTools", () => {
     expect(result.content[0].text).toContain("updated");
   });
 
+  // Azure DevOps stores the description on each project reference and ignores the top-level one.
+  it("add_variable_group copies a top-level description into references that lack one", async () => {
+    const handler = getHandler("taskagent_add_variable_group");
+    mockTaskAgentApi.addVariableGroup.mockResolvedValue({ id: 9 });
+
+    await handler({
+      variableGroup: {
+        name: "shared",
+        description: "Shared settings",
+        variableGroupProjectReferences: [
+          { name: "a", projectReference: { name: "A" } },
+          { name: "b", description: "", projectReference: { name: "B" } },
+          { name: "c", description: "Own", projectReference: { name: "C" } },
+          null,
+        ],
+      },
+    });
+
+    expect(mockTaskAgentApi.addVariableGroup).toHaveBeenCalledWith({
+      name: "shared",
+      description: "Shared settings",
+      variableGroupProjectReferences: [
+        { name: "a", description: "Shared settings", projectReference: { name: "A" } },
+        { name: "b", description: "Shared settings", projectReference: { name: "B" } },
+        { name: "c", description: "Own", projectReference: { name: "C" } },
+        null,
+      ],
+    });
+  });
+
+  it("update_variable_group copies a top-level description into its project references", async () => {
+    const handler = getHandler("taskagent_update_variable_group");
+    mockTaskAgentApi.updateVariableGroup.mockResolvedValue({ id: 9 });
+
+    await handler({ groupId: 9, variableGroup: { name: "g", description: "New text", variableGroupProjectReferences: [{ name: "g", projectReference: { id: "p1" } }] } });
+
+    expect(mockTaskAgentApi.updateVariableGroup).toHaveBeenCalledWith(
+      { name: "g", description: "New text", variableGroupProjectReferences: [{ name: "g", description: "New text", projectReference: { id: "p1" } }] },
+      9
+    );
+  });
+
   it("delete_variable_group passes group id and project ids", async () => {
     const handler = getHandler("taskagent_delete_variable_group");
     mockTaskAgentApi.deleteVariableGroup.mockResolvedValue(undefined);

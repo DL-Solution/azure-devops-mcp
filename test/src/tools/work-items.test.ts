@@ -84,6 +84,14 @@ interface MockConnection {
   serverUrl?: string;
 }
 
+// What the wit $batch endpoint answers: HTTP 200 whatever its sub-requests did,
+// each with its own code and a JSON *string* body.
+const batchOk = {
+  count: 1,
+  value: [{ code: 200, headers: {}, body: JSON.stringify({ id: 1, rev: 2, fields: { "System.Title": "Updated Title" }, url: "https://dev.azure.com/contoso/_apis/wit/workItems/1" }) }],
+};
+const batchOkSummary = { succeeded: 1, failed: 0, items: [{ code: 200, id: 1, title: "Updated Title", url: "https://dev.azure.com/contoso/_apis/wit/workItems/1" }] };
+
 describe("configureWorkItemTools", () => {
   let server: McpServer;
   let tokenProvider: TokenProviderMock;
@@ -851,9 +859,22 @@ describe("configureWorkItemTools", () => {
 
       const result = await handler(params);
 
-      expect(mockWorkItemTrackingApi.getComments).toHaveBeenCalledWith(params.project, params.workItemId, params.top);
+      expect(mockWorkItemTrackingApi.getComments).toHaveBeenCalledWith(params.project, params.workItemId, params.top, undefined);
 
       expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemComments]));
+    });
+
+    it("passes the continuation token and returns the next one", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_list_work_item_comments");
+      if (!call) throw new Error("wit_list_work_item_comments tool not registered");
+      const [, , , handler] = call;
+      (mockWorkItemTrackingApi.getComments as jest.Mock).mockResolvedValue({ totalCount: 3, count: 1, comments: [{ id: 2 }], continuationToken: "next-page" });
+
+      const result = await handler({ project: "Contoso", workItemId: 299, top: 1, continuationToken: "page-2" });
+
+      expect(mockWorkItemTrackingApi.getComments).toHaveBeenCalledWith("Contoso", 299, 1, "page-2");
+      expect(JSON.parse(result.content[0].text).continuationToken).toBe("next-page");
     });
   });
 
@@ -1886,7 +1907,7 @@ describe("configureWorkItemTools", () => {
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: jest.fn().mockResolvedValue([{ id: 1, success: true }]),
+        json: jest.fn().mockResolvedValue(batchOk),
       });
 
       const params = {
@@ -1936,7 +1957,7 @@ describe("configureWorkItemTools", () => {
         })
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
+      expect(result.content[0].text).toBe(JSON.stringify(batchOkSummary));
     });
 
     it("should handle Markdown format for large text fields", async () => {
@@ -1951,7 +1972,7 @@ describe("configureWorkItemTools", () => {
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: jest.fn().mockResolvedValue([{ id: 1, success: true }]),
+        json: jest.fn().mockResolvedValue(batchOk),
       });
 
       const longDescription = "This is a very long description that is definitely more than 50 characters long and should trigger Markdown formatting";
@@ -2006,7 +2027,7 @@ describe("configureWorkItemTools", () => {
         })
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
+      expect(result.content[0].text).toBe(JSON.stringify(batchOkSummary));
     });
 
     it("should handle batch update failure", async () => {
@@ -2040,6 +2061,99 @@ describe("configureWorkItemTools", () => {
       expect(result.content[0].text).toContain("Error updating work items in batch");
       expect(result.content[0].text).toContain("Failed to update work items in batch: Bad Request");
     });
+
+    const updateBatchHandler = () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_update_work_items_batch");
+      if (!call) throw new Error("wit_update_work_items_batch tool not registered");
+      mockConnection.serverUrl = "https://dev.azure.com/contoso";
+      (tokenProvider as jest.Mock).mockResolvedValue("fake-token");
+      return call[3];
+    };
+    const twoUpdates = {
+      updates: [
+        { op: "Replace", id: 1, path: "/fields/System.Title", value: "Updated Title" },
+        { op: "Replace", id: 2, path: "/fields/System.Title", value: "Other" },
+      ],
+    };
+
+    it("reports a partial failure per item without failing the call", async () => {
+      const handler = updateBatchHandler();
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          count: 2,
+          value: [batchOk.value[0], { code: 400, headers: {}, body: JSON.stringify({ count: 1, value: { Message: "TF401320: Rule Error for field Title." } }) }],
+        }),
+      });
+
+      const result = await handler(twoUpdates);
+
+      expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        succeeded: 1,
+        failed: 1,
+        items: [batchOkSummary.items[0], { code: 400, id: 2, error: "TF401320: Rule Error for field Title." }],
+      });
+    });
+
+    it("is an error when every item failed, keeping each message", async () => {
+      const handler = updateBatchHandler();
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          count: 2,
+          value: [
+            { code: 404, headers: {}, body: JSON.stringify({ message: "TF401232: Work item 1 does not exist." }) },
+            { code: 403, headers: {}, body: "<html>Forbidden</html>" },
+          ],
+        }),
+      });
+
+      const result = await handler(twoUpdates);
+
+      expect(result.isError).toBe(true);
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        succeeded: 0,
+        failed: 2,
+        items: [
+          { code: 404, id: 1, error: "TF401232: Work item 1 does not exist." },
+          { code: 403, id: 2, error: "<html>Forbidden</html>" },
+        ],
+      });
+    });
+
+    it("falls back to the status code when a failed item has no message", async () => {
+      const handler = updateBatchHandler();
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          count: 1,
+          value: [
+            { code: 500, headers: {} },
+            { headers: {}, body: "{}" },
+          ],
+        }),
+      });
+
+      const result = await handler(twoUpdates);
+
+      expect(result.isError).toBe(true);
+      expect(JSON.parse(result.content[0].text).items).toEqual([
+        { code: 500, id: 1, error: "HTTP 500" },
+        { id: 2, error: "HTTP unknown" },
+      ]);
+    });
+
+    it("summarizes an unexpected response shape as empty rather than failing", async () => {
+      const handler = updateBatchHandler();
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: jest.fn().mockResolvedValue(null) });
+
+      const result = await handler(twoUpdates);
+
+      expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[0].text)).toEqual({ succeeded: 0, failed: 0, items: [] });
+    });
   });
 
   describe("work_items_link tool", () => {
@@ -2055,7 +2169,7 @@ describe("configureWorkItemTools", () => {
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: jest.fn().mockResolvedValue([{ id: 1, success: true }]),
+        json: jest.fn().mockResolvedValue(batchOk),
       });
 
       const params = {
@@ -2083,7 +2197,7 @@ describe("configureWorkItemTools", () => {
         })
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
+      expect(result.content[0].text).toBe(JSON.stringify(batchOkSummary));
     });
 
     it("should handle linking failure", async () => {
@@ -2117,6 +2231,27 @@ describe("configureWorkItemTools", () => {
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("Error linking work items");
       expect(result.content[0].text).toContain("Failed to update work items in batch: Unauthorized");
+    });
+
+    it("is an error when the batch answered 200 but every link failed", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_work_items_link");
+      if (!call) throw new Error("wit_work_items_link tool not registered");
+      const [, , , handler] = call;
+      mockConnection.serverUrl = "https://dev.azure.com/contoso";
+      (tokenProvider as jest.Mock).mockResolvedValue("fake-token");
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          count: 1,
+          value: [{ code: 400, headers: {}, body: JSON.stringify({ value: { Message: "Relation already exists." } }) }],
+        }),
+      });
+
+      const result = await handler({ project: "TestProject", updates: [{ id: 7, linkToId: 2, type: "related" }] });
+
+      expect(result.isError).toBe(true);
+      expect(JSON.parse(result.content[0].text)).toEqual({ succeeded: 0, failed: 1, items: [{ code: 400, id: 7, error: "Relation already exists." }] });
     });
   });
 
@@ -2683,7 +2818,7 @@ describe("configureWorkItemTools", () => {
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
-        json: jest.fn().mockResolvedValue([{ id: 1, success: true }]),
+        json: jest.fn().mockResolvedValue(batchOk),
       });
 
       const params = {
@@ -2701,7 +2836,7 @@ describe("configureWorkItemTools", () => {
       const result = await handler(params);
 
       expect(fetch).toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify([{ id: 1, success: true }]));
+      expect(result.content[0].text).toBe(JSON.stringify(batchOkSummary));
     });
   });
 
@@ -2892,6 +3027,46 @@ describe("configureWorkItemTools", () => {
       expect(ops).toContain("/fields/Microsoft.VSTS.TCM.ReproSteps");
       expect(ops).toContain("/multilineFieldsFormat/Microsoft.VSTS.TCM.ReproSteps");
       expect(ops).not.toContain("/fields/System.Description");
+    });
+
+    it("reports which child work items were created and which failed", async () => {
+      configureWorkItemTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wit_add_child_work_items");
+      if (!call) throw new Error("wit_add_child_work_items tool not registered");
+      const [, , , handler] = call;
+      mockConnection.serverUrl = "https://dev.azure.com/contoso";
+      (tokenProvider as jest.Mock).mockResolvedValue("fake-token");
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            count: 2,
+            value: [
+              { code: 200, headers: {}, body: JSON.stringify({ id: 501, fields: { "System.Title": "First" }, url: "https://dev.azure.com/contoso/_apis/wit/workItems/501" }) },
+              { code: 400, headers: {}, body: JSON.stringify({ value: { Message: "TF401347: Invalid tree name given for work item -2, field 'System.AreaPath'." } }) },
+            ],
+          }),
+      });
+
+      const result = await handler({
+        parentId: 1,
+        project: "TestProject",
+        workItemType: "Task",
+        items: [
+          { title: "First", description: "a" },
+          { title: "Second", description: "b", areaPath: "Nope" },
+        ],
+      });
+
+      expect(result.isError).toBeUndefined();
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        succeeded: 1,
+        failed: 1,
+        items: [
+          { code: 200, id: 501, title: "First", url: "https://dev.azure.com/contoso/_apis/wit/workItems/501" },
+          { code: 400, error: "TF401347: Invalid tree name given for work item -2, field 'System.AreaPath'." },
+        ],
+      });
     });
 
     it("should handle fetch failure response", async () => {
@@ -4970,7 +5145,7 @@ describe("configureWorkItemTools", () => {
       (mockWorkItemTrackingApi.getComments as jest.Mock).mockResolvedValue([]);
 
       await handler({ workItemId: 1, top: 10 });
-      expect(mockWorkItemTrackingApi.getComments).toHaveBeenCalledWith("Contoso", 1, 10);
+      expect(mockWorkItemTrackingApi.getComments).toHaveBeenCalledWith("Contoso", 1, 10, undefined);
     });
 
     it("add_work_item_comment: should use elicited project when project is not provided", async () => {

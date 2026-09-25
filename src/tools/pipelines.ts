@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { apiVersion, getEnumKeys, safeEnumConvert } from "../utils.js";
 import { WebApi } from "azure-devops-node-api";
-import { BuildQueryOrder, DefinitionQueryOrder, Build, BuildDefinition, BuildStatus, FolderQueryOrder, TaskResult } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
+import { BuildQueryOrder, DefinitionQueryOrder, Build, BuildDefinition, BuildResult, BuildStatus, FolderQueryOrder, TaskResult } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
 import { z } from "zod";
 import { StageUpdateType } from "azure-devops-node-api/interfaces/BuildInterfaces.js";
 import { ConfigurationType, RepositoryType } from "azure-devops-node-api/interfaces/PipelinesInterfaces.js";
@@ -14,6 +14,16 @@ import { createExternalContentResponse } from "../shared/content-safety.js";
 import { join, posix, resolve, win32 } from "path";
 import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
+
+// node-api deserializes status/result into numeric enums; the REST API itself answers with names, so give the model those.
+function buildOutcome(build: Build) {
+  return {
+    id: build.id,
+    buildNumber: build.buildNumber,
+    status: build.status === undefined ? undefined : BuildStatus[build.status],
+    result: build.result === undefined ? undefined : BuildResult[build.result],
+  };
+}
 
 const PIPELINE_TOOLS = {
   pipelines_get_builds: "pipelines_get_builds",
@@ -451,17 +461,22 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     PIPELINE_TOOLS.pipelines_list_runs,
-    "Gets top 10000 runs for a particular pipeline.",
+    "Lists the most recent runs of a pipeline, newest first. The Runs API has no server-side paging or filters, so the result is cut to 'top' here; to filter by branch, status, result or time, use pipelines_get_builds.",
     {
-      project: z.string().describe("Project ID or name to run the build in"),
-      pipelineId: z.coerce.number().min(1).describe("ID of the pipeline to run"),
+      project: requiredProject,
+      pipelineId: z.coerce.number().min(1).describe("ID of the pipeline whose runs to list"),
+      top: z.coerce.number().int().min(1).max(10000).default(50).describe("Maximum number of runs to return (default 50)."),
     },
-    async ({ project, pipelineId }) => {
-      const connection = await connectionProvider();
-      const pipelinesApi = await connection.getPipelinesApi();
-      const pipelineRuns = await pipelinesApi.listRuns(project, pipelineId);
+    async ({ project, pipelineId, top }) => {
+      try {
+        const connection = await connectionProvider();
+        const pipelinesApi = await connection.getPipelinesApi();
+        const pipelineRuns = await pipelinesApi.listRuns(project, pipelineId);
 
-      return jsonResult(pipelineRuns);
+        return jsonResult((pipelineRuns ?? []).slice(0, top));
+      } catch (error) {
+        return toolError("listing pipeline runs", error);
+      }
     }
   );
 
@@ -490,13 +505,15 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         })
       )
       .optional(),
-    pipelines: z.record(
-      z.string().describe("Name of the pipeline resource."),
-      z.object({
-        runId: z.coerce.number().min(1).optional().describe("Id of the source pipeline run that triggered or is referenced by this pipeline run."),
-        version: z.string().optional().describe("Version of the source pipeline run."),
-      })
-    ),
+    pipelines: z
+      .record(
+        z.string().describe("Name of the pipeline resource."),
+        z.object({
+          runId: z.coerce.number().min(1).optional().describe("Id of the source pipeline run that triggered or is referenced by this pipeline run."),
+          version: z.string().optional().describe("Version of the source pipeline run."),
+        })
+      )
+      .optional(),
     repositories: z
       .record(
         z.string().describe("Name of the repository resource."),
@@ -515,7 +532,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
     PIPELINE_TOOLS.pipelines_run_pipeline,
     "Starts a new run of a pipeline.",
     {
-      project: z.string().describe("Project ID or name to run the build in"),
+      project: requiredProject,
       pipelineId: z.coerce.number().min(1).describe("ID of the pipeline to run"),
       pipelineVersion: z.coerce.number().min(1).optional().describe("Version of the pipeline to run. If not provided, the latest version will be used."),
       previewRun: z.boolean().optional().describe("If true, returns the final YAML document after parsing templates without creating a new run."),
@@ -523,52 +540,65 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       stagesToSkip: z.array(z.string()).optional().describe("A list of stages to skip."),
       templateParameters: z.record(z.string(), z.string()).optional().describe("Custom build parameters as key-value pairs"),
       variables: z.record(z.string(), variableSchema).optional().describe("A dictionary of variables to pass to the pipeline."),
-      yamlOverride: z.string().optional().describe("YAML override for the pipeline run."),
+      yamlOverride: z.string().optional().describe("YAML to use instead of the pipeline's own. Only accepted together with previewRun: true — it previews the final YAML and never starts a run."),
     },
     async ({ project, pipelineId, pipelineVersion, previewRun, resources, stagesToSkip, templateParameters, variables, yamlOverride }) => {
-      if (!previewRun && yamlOverride) {
-        throw new Error("Parameter 'yamlOverride' can only be specified together with parameter 'previewRun'.");
+      try {
+        if (!previewRun && yamlOverride) {
+          throw new Error("Parameter 'yamlOverride' can only be specified together with parameter 'previewRun'.");
+        }
+
+        const connection = await connectionProvider();
+        const pipelinesApi = await connection.getPipelinesApi();
+        const runRequest = {
+          previewRun: previewRun,
+          resources: {
+            ...resources,
+          },
+          stagesToSkip: stagesToSkip,
+          templateParameters: templateParameters,
+          variables: variables,
+          yamlOverride: yamlOverride,
+        };
+
+        const pipelineRun = await pipelinesApi.runPipeline(runRequest, project, pipelineId, pipelineVersion);
+
+        if (pipelineRun?.id === undefined) {
+          throw new Error("Failed to get build ID from pipeline run");
+        }
+
+        return jsonResult(pipelineRun);
+      } catch (error) {
+        return toolError("running pipeline", error);
       }
-
-      const connection = await connectionProvider();
-      const pipelinesApi = await connection.getPipelinesApi();
-      const runRequest = {
-        previewRun: previewRun,
-        resources: {
-          ...resources,
-        },
-        stagesToSkip: stagesToSkip,
-        templateParameters: templateParameters,
-        variables: variables,
-        yamlOverride: yamlOverride,
-      };
-
-      const pipelineRun = await pipelinesApi.runPipeline(runRequest, project, pipelineId, pipelineVersion);
-      const queuedBuild = { id: pipelineRun.id };
-      const buildId = queuedBuild.id;
-
-      if (buildId === undefined) {
-        throw new Error("Failed to get build ID from pipeline run");
-      }
-
-      return jsonResult(pipelineRun);
     }
   );
 
   registerTool(
     server,
     PIPELINE_TOOLS.pipelines_get_build_status,
-    "Fetches the status of a specific build.",
+    "Fetches the status of a specific build: status, result, queue/start/finish times, source branch and definition. Use pipelines_get_build for the full build record.",
     {
-      project: z.string().describe("Project ID or name to get the build status for"),
+      project: requiredProject,
       buildId: z.coerce.number().min(1).describe("ID of the build to get the status for"),
     },
     async ({ project, buildId }) => {
-      const connection = await connectionProvider();
-      const buildApi = await connection.getBuildApi();
-      const build = await buildApi.getBuildReport(project, buildId);
+      try {
+        const connection = await connectionProvider();
+        const buildApi = await connection.getBuildApi();
+        const build = await buildApi.getBuild(project, buildId);
 
-      return jsonResult(build);
+        return jsonResult({
+          ...buildOutcome(build),
+          queueTime: build.queueTime,
+          startTime: build.startTime,
+          finishTime: build.finishTime,
+          sourceBranch: build.sourceBranch,
+          definition: { id: build.definition?.id, name: build.definition?.name },
+        });
+      } catch (error) {
+        return toolError("fetching build status", error);
+      }
     }
   );
 
@@ -800,9 +830,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     PIPELINE_TOOLS.pipelines_cancel_build,
-    "Cancel an in-progress build by setting its status to Cancelling.",
+    "Cancel an in-progress build by setting its status to Cancelling. Returns the build's id, number, status and result.",
     {
-      project: z.string().describe("Project ID or name."),
+      project: requiredProject,
       buildId: z.coerce.number().describe("The ID of the build to cancel."),
     },
     async ({ project, buildId }) => {
@@ -812,7 +842,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         const build: Build = { status: BuildStatus.Cancelling };
         const updated = await buildApi.updateBuild(build, project, buildId);
 
-        return jsonResult(updated);
+        return jsonResult(buildOutcome(updated));
       } catch (error) {
         return toolError("cancelling build", error);
       }

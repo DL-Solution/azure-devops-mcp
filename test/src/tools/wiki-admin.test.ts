@@ -41,7 +41,7 @@ describe("wiki administration", () => {
     const result = await tool(WIKI_TOOLS.update_wiki)({ ...project, name: "Handbook", versions: ["main"] });
 
     const [url, init] = mockFetch.mock.calls[0] as [string, { method: string; body: string }];
-    expect(url).toBe(`${base}?api-version=7.2-preview.1`);
+    expect(url).toBe(`${base}?api-version=7.2-preview.2`);
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body)).toEqual({ name: "Handbook", versions: [{ version: "main", versionType: "branch" }] });
     expect(result.content[0].text).toContain("Handbook");
@@ -59,7 +59,7 @@ describe("wiki administration", () => {
 
     const result = await tool(WIKI_TOOLS.delete_wiki)(project);
 
-    expect(mockFetch.mock.calls[0][0]).toBe(`${base}?api-version=7.2-preview.1`);
+    expect(mockFetch.mock.calls[0][0]).toBe(`${base}?api-version=7.2-preview.2`);
     expect((mockFetch.mock.calls[0][1] as { method: string }).method).toBe("DELETE");
     expect(result.content[0].text).toBe("Done.");
   });

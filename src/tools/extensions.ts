@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const EXTENSIONS_TOOLS = {
   list_installed: "extension_list_installed",
@@ -14,6 +14,31 @@ const EXTENSIONS_TOOLS = {
 };
 
 const extensionsApiVersion = "7.1-preview.1";
+
+interface InstalledExtension {
+  extensionId?: string;
+  extensionName?: string;
+  publisherId?: string;
+  publisherName?: string;
+  version?: string;
+  flags?: string;
+  installState?: { flags?: string; lastUpdated?: string };
+}
+
+// The listing carries each extension's full manifest (contributions, scopes, files): megabytes for a
+// few dozen extensions. Keep what identifies it and its state; extension_get_installed has the rest.
+// Absent fields stay undefined, which jsonResult's JSON.stringify leaves out.
+function summarizeInstalledExtension({ extensionId, extensionName, publisherId, publisherName, version, flags, installState }: InstalledExtension) {
+  return {
+    extensionId,
+    extensionName,
+    publisherId,
+    publisherName,
+    version,
+    flags,
+    installState: installState && { flags: installState.flags, lastUpdated: installState.lastUpdated },
+  };
+}
 
 function configureExtensionsTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string) {
   async function request(pathAndQuery: string): Promise<Response> {
@@ -26,7 +51,7 @@ function configureExtensionsTools(server: McpServer, tokenProvider: () => Promis
   registerTool(
     server,
     EXTENSIONS_TOOLS.list_installed,
-    "List the extensions installed in the organization.",
+    "List the extensions installed in the organization: id, name, publisher, version, flags and install state of each. Use extension_get_installed for one extension's full manifest.",
     {
       includeDisabledExtensions: z.boolean().optional().describe("Include extensions that are installed but disabled."),
       includeErrors: z.boolean().optional().describe("Include extensions that failed to install."),
@@ -42,7 +67,9 @@ function configureExtensionsTools(server: McpServer, tokenProvider: () => Promis
           throw new Error(`Failed to list installed extensions (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        const body = (await response.json()) as { value?: InstalledExtension[] } | InstalledExtension[];
+        const extensions = Array.isArray(body) ? body : (body.value ?? []);
+        return jsonResult(extensions.map(summarizeInstalledExtension));
       } catch (error) {
         return toolError("listing installed extensions", error);
       }

@@ -28,18 +28,65 @@ describe("configureExtensionsTools", () => {
     return call[3] as (args: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
   }
 
-  const ok = (body: string, status = 200) => ({ ok: status >= 200 && status < 300, status, text: () => Promise.resolve(body) });
+  const ok = (body: string, status = 200) => ({ ok: status >= 200 && status < 300, status, text: () => Promise.resolve(body), json: () => Promise.resolve(JSON.parse(body)) });
 
   it("lists installed extensions on the extmgmt host", async () => {
     const handler = getHandler(EXTENSIONS_TOOLS.list_installed);
-    mockFetch.mockResolvedValue(ok("[]"));
+    mockFetch.mockResolvedValue(ok('{"count":0,"value":[]}'));
 
-    await handler({ includeDisabledExtensions: true });
+    const result = await handler({ includeDisabledExtensions: true, includeErrors: false });
 
     const [url, init] = mockFetch.mock.calls[0];
     expect(url).toContain("https://extmgmt.dev.azure.com/contoso/_apis/extensionmanagement/installedextensions?");
     expect(url).toContain("includeDisabledExtensions=true");
+    expect(url).toContain("includeErrors=false");
     expect(init.method).toBe("GET");
+    expect(JSON.parse(result.content[0].text)).toEqual([]);
+  });
+
+  it("projects each installed extension to its identity and state, dropping the manifest", async () => {
+    const handler = getHandler(EXTENSIONS_TOOLS.list_installed);
+    const extensions = [
+      {
+        extensionId: "vss-code-search",
+        extensionName: "Code Search",
+        publisherId: "p1",
+        publisherName: "ms",
+        version: "20.1.0",
+        flags: "builtIn, trusted",
+        installState: { flags: "none", lastUpdated: "2026-01-01T00:00:00Z", installationIssues: [] },
+        contributions: [{ id: "big" }],
+        files: [{ assetType: "x" }],
+      },
+      { extensionId: "bare", publisherName: "someone" },
+    ];
+    mockFetch.mockResolvedValue(ok(JSON.stringify({ count: 2, value: extensions })));
+
+    const result = await handler({});
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0].text)).toEqual([
+      {
+        extensionId: "vss-code-search",
+        extensionName: "Code Search",
+        publisherId: "p1",
+        publisherName: "ms",
+        version: "20.1.0",
+        flags: "builtIn, trusted",
+        installState: { flags: "none", lastUpdated: "2026-01-01T00:00:00Z" },
+      },
+      { extensionId: "bare", publisherName: "someone" },
+    ]);
+  });
+
+  it("returns a failed listing as an error", async () => {
+    const handler = getHandler(EXTENSIONS_TOOLS.list_installed);
+    mockFetch.mockResolvedValue(ok("denied", 403));
+
+    const result = await handler({});
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe("Error listing installed extensions: Failed to list installed extensions (403): denied");
   });
 
   it("gets an installed extension by publisher and name", async () => {

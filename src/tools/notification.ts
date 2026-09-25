@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { NotificationSubscriptionCreateParameters, NotificationSubscriptionUpdateParameters } from "azure-devops-node-api/interfaces/NotificationInterfaces.js";
+import { NotificationSubscriptionCreateParameters, NotificationSubscriptionUpdateParameters, SubscriptionQueryFlags } from "azure-devops-node-api/interfaces/NotificationInterfaces.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const NOTIFICATION_TOOLS = {
@@ -27,17 +27,20 @@ function configureNotificationTools(server: McpServer, _: () => Promise<string>,
     {
       targetId: z.string().optional().describe("Optional ID of a user or group to list subscriptions for."),
       ids: z.array(z.string()).optional().describe("Optional list of subscription IDs to retrieve."),
+      queryFlags: z
+        .array(z.enum(["IncludeInvalidSubscriptions", "IncludeDeletedSubscriptions", "IncludeFilterDetails", "AlwaysReturnBasicInformation", "IncludeSystemSubscriptions"]))
+        .optional()
+        .describe("Optional flags widening what is returned; combined together."),
+      top: z.coerce.number().int().min(1).default(100).describe("Maximum number of subscriptions to return. The API does not page, so the list is cut here after it arrives."),
     },
-    async ({ targetId, ids }) => {
+    async ({ targetId, ids, queryFlags, top }) => {
       try {
         const connection = await connectionProvider();
         const notificationApi = await connection.getNotificationApi();
-        const subscriptions = await notificationApi.listSubscriptions(targetId, ids);
+        const flags = queryFlags?.reduce((combined, flag) => combined | SubscriptionQueryFlags[flag], SubscriptionQueryFlags.None);
+        const subscriptions = await notificationApi.listSubscriptions(targetId, ids, flags);
 
-        if (!subscriptions || subscriptions.length === 0) {
-          return { content: [{ type: "text", text: "No notification subscriptions found" }], isError: true };
-        }
-        return jsonResult(subscriptions);
+        return jsonResult((subscriptions ?? []).slice(0, top));
       } catch (error) {
         return toolError("fetching notification subscriptions", error);
       }

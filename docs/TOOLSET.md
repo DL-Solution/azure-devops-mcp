@@ -773,7 +773,7 @@ Get a single work item by ID.
 Retrieve list of comments for a work item by ID.
 
 - **Required**: `workItemId`
-- **Optional**: `project`, `top`
+- **Optional**: `continuationToken`, `project`, `top`
 
 ### mcp_ado_wit_add_work_item_comment
 
@@ -2179,7 +2179,7 @@ Gets a run for a particular pipeline.
 Gets top 10000 runs for a particular pipeline.
 
 - **Required**: `project`, `pipelineId`
-- **Optional**: None
+- **Optional**: `top`
 
 ### mcp_ado_pipelines_run_pipeline
 
@@ -4995,7 +4995,7 @@ List the available audit action IDs (the catalog of auditable actions), useful f
 List notification subscriptions, optionally filtered by target or subscription IDs.
 
 - **Required**: None
-- **Optional**: `ids`, `targetId`
+- **Optional**: `ids`, `queryFlags` (`IncludeInvalidSubscriptions` \| `IncludeDeletedSubscriptions` \| `IncludeFilterDetails` \| `AlwaysReturnBasicInformation` \| `IncludeSystemSubscriptions`), `targetId`, `top`
 
 ### mcp_ado_notification_get_subscription
 

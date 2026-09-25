@@ -34,7 +34,11 @@ describe("buildServerInstructions", () => {
   // The text is sent with every initialize; it has to stay small enough to be
   // worth it next to the tool schemas.
   it("stays well under the cost of the tool schemas", () => {
-    expect(buildServerInstructions(allDomains, { organization: "contoso" }).length).toBeLessThan(6100);
+    expect(buildServerInstructions(allDomains, { organization: "contoso" }).length).toBeLessThan(6300);
+  });
+
+  it("warns that test plan writes need the Test Plans access level", () => {
+    expect(buildServerInstructions(new Set<string>([Domain.TEST_PLANS]))).toContain("Basic + Test Plans access level");
   });
 
   it("describes every enabled domain's name prefix", () => {

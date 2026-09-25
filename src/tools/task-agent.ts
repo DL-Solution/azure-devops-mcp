@@ -78,6 +78,24 @@ const TASKAGENT_TOOLS = {
   delete_kubernetes_resource: "taskagent_delete_kubernetes_resource",
 };
 
+/**
+ * Azure DevOps ignores a variable group's top-level `description`: the one it
+ * stores and shows lives on each project reference. So a top-level description
+ * is copied into every reference that does not set its own.
+ */
+function withProjectReferenceDescriptions(variableGroup: Record<string, unknown>): Record<string, unknown> {
+  const { description, variableGroupProjectReferences: references } = variableGroup;
+  if (typeof description !== "string" || !description || !Array.isArray(references)) {
+    return variableGroup;
+  }
+  return {
+    ...variableGroup,
+    variableGroupProjectReferences: references.map((reference) =>
+      reference && typeof reference === "object" && !(reference as { description?: unknown }).description ? { ...reference, description } : reference
+    ),
+  };
+}
+
 function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string = () => "") {
   const projectField = optionalProject;
 
@@ -136,7 +154,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
   registerTool(
     server,
     TASKAGENT_TOOLS.add_variable_group,
-    "Create a new variable group. The parameters must include 'variableGroupProjectReferences' specifying the target project(s).",
+    "Create a new variable group. The parameters must include 'variableGroupProjectReferences' specifying the target project(s). The stored description is per project reference; a top-level description fills references that lack one.",
     {
       variableGroup: z
         .record(z.unknown())
@@ -148,7 +166,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       try {
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
-        const result = await taskAgentApi.addVariableGroup(variableGroup as unknown as VariableGroupParameters);
+        const result = await taskAgentApi.addVariableGroup(withProjectReferenceDescriptions(variableGroup) as unknown as VariableGroupParameters);
 
         return jsonResult(result);
       } catch (error) {
@@ -160,7 +178,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
   registerTool(
     server,
     TASKAGENT_TOOLS.update_variable_group,
-    "Update an existing variable group. Obtain the current group via taskagent_get_variable_group, build the parameters, and pass them back.",
+    "Update an existing variable group. Obtain the current group via taskagent_get_variable_group, build the parameters, and pass them back. The stored description is per project reference; a top-level description fills references that lack one.",
     {
       groupId: z.number().describe("The ID of the variable group to update."),
       variableGroup: z.record(z.unknown()).describe("The full variable group parameters (name, description, type, variables, variableGroupProjectReferences)."),
@@ -169,7 +187,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       try {
         const connection = await connectionProvider();
         const taskAgentApi = await connection.getTaskAgentApi();
-        const result = await taskAgentApi.updateVariableGroup(variableGroup as unknown as VariableGroupParameters, groupId);
+        const result = await taskAgentApi.updateVariableGroup(withProjectReferenceDescriptions(variableGroup) as unknown as VariableGroupParameters, groupId);
 
         return jsonResult(result);
       } catch (error) {
