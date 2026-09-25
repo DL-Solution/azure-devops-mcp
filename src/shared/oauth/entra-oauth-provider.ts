@@ -225,6 +225,10 @@ export class EntraOAuthProvider implements OAuthServerProvider {
     url.searchParams.set("response_mode", "query");
     url.searchParams.set("scope", this.scopes.join(" "));
     url.searchParams.set("state", state);
+    // With admin consent and a live SSO session Entra would otherwise complete
+    // the sign-in without showing anything; the account picker makes the user
+    // take a deliberate step before a code is issued to the client.
+    url.searchParams.set("prompt", "select_account");
 
     res.redirect(url.toString());
   }
@@ -308,11 +312,16 @@ export class EntraOAuthProvider implements OAuthServerProvider {
     return entry.tokens;
   }
 
-  async exchangeRefreshToken(_client: OAuthClientInformationFull, refreshToken: string, scopes?: string[]): Promise<OAuthTokens> {
+  async exchangeRefreshToken(_client: OAuthClientInformationFull, refreshToken: string): Promise<OAuthTokens> {
+    // Always our own scopes, never the caller's: the request is signed with our
+    // client secret, so forwarding a requested scope would let anyone holding a
+    // refresh token mint tokens for any other resource our Entra app has consent
+    // for (e.g. Microsoft Graph). Clients legitimately echo back the scope they
+    // were granted, which is this set anyway, so ignoring it breaks no one.
     const tokens = await this.entraTokenRequest({
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-      scope: (scopes && scopes.length > 0 ? scopes : this.scopes).join(" "),
+      scope: this.scopes.join(" "),
     });
     // Entra normally rotates the refresh token, but per RFC 6749 §6 returning a
     // new one is optional. If the response omits it, keep handing back the

@@ -13,6 +13,7 @@ jest.mock("jose", () => ({ createRemoteJWKSet: jest.fn(), jwtVerify: jest.fn() }
 
 import { EntraOAuthProvider } from "../../../src/shared/oauth/entra-oauth-provider";
 import { InMemoryOAuthStateStore } from "../../../src/shared/oauth/state-store";
+import type { OAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 
 const config = {
   tenantId: "tenant-1",
@@ -116,6 +117,7 @@ describe("EntraOAuthProvider", () => {
       expect(url.searchParams.get("redirect_uri")).toBe("https://mcp.example.com/auth/callback");
       expect(url.searchParams.get("scope")).toContain("499b84ac-1321-427f-aa17-267ca6975798/.default");
       expect(url.searchParams.get("state")).toBeTruthy();
+      expect(url.searchParams.get("prompt")).toBe("select_account");
     });
   });
 
@@ -173,6 +175,20 @@ describe("EntraOAuthProvider", () => {
       const [, init] = fetchMock.mock.calls[0] as [string, { body: string }];
       expect(init.body).toContain("grant_type=refresh_token");
       expect(init.body).toContain("old-refresh");
+    });
+
+    it("asks Entra for our own scopes, never the ones the caller requested", async () => {
+      const fetchMock = jest.fn(async () => ({
+        ok: true,
+        json: async () => ({ access_token: "new-access", refresh_token: "new-refresh", expires_in: 3600 }),
+      }));
+      (globalThis as { fetch: unknown }).fetch = fetchMock;
+
+      // The SDK token handler passes the scope from the request body as the third argument.
+      await (provider as OAuthServerProvider).exchangeRefreshToken(client, "old-refresh", ["https://graph.microsoft.com/Mail.Read"]);
+      const [, init] = fetchMock.mock.calls[0] as [string, { body: string }];
+      const scope = new URLSearchParams(init.body).get("scope");
+      expect(scope).toBe("499b84ac-1321-427f-aa17-267ca6975798/.default offline_access");
     });
 
     it("keeps the caller's refresh token when Entra does not return a new one", async () => {
