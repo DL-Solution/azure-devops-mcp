@@ -24,6 +24,10 @@ const CATEGORY_ANNOTATIONS: Record<ToolCategory, ToolAnnotations> = {
 const DESTRUCTIVE_VERBS = new Set(["delete", "remove", "unlink", "destroy"]);
 const READ_VERBS = new Set(["list", "get", "show", "search", "find", "query", "my", "read"]);
 
+// Verbs whose second call with the same arguments changes nothing more: setting
+// or replacing a value, deleting or locking something. Clients may retry these.
+const IDEMPOTENT_VERBS = new Set(["set", "replace", "delete", "remove", "destroy", "unlink", "lock", "unlock"]);
+
 // Explicit overrides for tools whose name does not imply the correct category.
 const CATEGORY_OVERRIDES: Record<string, ToolCategory> = {
   // A connectivity check with no side effects.
@@ -76,5 +80,12 @@ export function categorizeTool(name: string): ToolCategory {
 // the registration. The positional `server.tool(name, description, schema, cb)`
 // overloads this used to call are deprecated in the SDK.
 export function registerTool<Args extends ZodRawShape>(server: McpServer, name: string, description: string, paramsSchema: Args, cb: ToolCallback<Args>): RegisteredTool {
-  return server.registerTool(name, { description, inputSchema: paramsSchema, annotations: CATEGORY_ANNOTATIONS[categorizeTool(name)] }, cb);
+  return server.registerTool(name, { description, inputSchema: paramsSchema, annotations: toolAnnotations(name) }, cb);
+}
+
+export function toolAnnotations(name: string): ToolAnnotations {
+  const category = categorizeTool(name);
+  // The hint only means something for a tool that writes; a read is idempotent by definition.
+  const idempotent = category !== "read" && name.split("_").some((segment) => IDEMPOTENT_VERBS.has(segment));
+  return idempotent ? { ...CATEGORY_ANNOTATIONS[category], idempotentHint: true } : CATEGORY_ANNOTATIONS[category];
 }

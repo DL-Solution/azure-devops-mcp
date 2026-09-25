@@ -93,7 +93,7 @@ jobs:
           ACR_SERVER="${{ vars.ACR_NAME }}.azurecr.io"
           IMAGE="$ACR_SERVER/${{ vars.CONTAINER_APP_NAME }}:${{ steps.meta.outputs.tag }}"
           az acr login -n "${{ vars.ACR_NAME }}"
-          docker build -t "$IMAGE" -f Dockerfile .
+          docker build --build-arg BUILD_SHA="$GITHUB_SHA" -t "$IMAGE" -f Dockerfile .
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 

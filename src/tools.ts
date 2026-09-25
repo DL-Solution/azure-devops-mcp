@@ -39,14 +39,28 @@ import { configureOperationsTools } from "./tools/operations.js";
 import { configureExtensionsTools } from "./tools/extensions.js";
 import { configureFeatureManagementTools } from "./tools/feature-management.js";
 import { configureGalleryTools } from "./tools/gallery.js";
-import { configureProfileTools } from "./tools/profile.js";
+import { configureProfileTools, ServerInfo } from "./tools/profile.js";
 import { configureApprovalsTools } from "./tools/approvals.js";
 import { configureAnalyticsTools } from "./tools/analytics.js";
 
-function configureAllTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, userAgentProvider: () => string, enabledDomains: Set<string>) {
+interface ConfigureOptions {
+  /** Keeps only the tools this returns true for (a preset's selection); all by default. */
+  allowTool?: (tool: string, domain: string) => boolean;
+  /** Facts about this deployment that profile_get_me reports alongside the caller. */
+  serverInfo?: ServerInfo;
+}
+
+function configureAllTools(
+  server: McpServer,
+  tokenProvider: () => Promise<string>,
+  connectionProvider: () => Promise<WebApi>,
+  userAgentProvider: () => string,
+  enabledDomains: Set<string>,
+  options: ConfigureOptions = {}
+) {
   const configureIfDomainEnabled = (domain: string, configureFn: () => void) => {
     if (enabledDomains.has(domain)) {
-      configureToolsWithContentSafety(server, domain, configureFn);
+      configureToolsWithContentSafety(server, domain, configureFn, options.allowTool);
     }
   };
 
@@ -81,7 +95,7 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
   configureIfDomainEnabled(Domain.EXTENSIONS, () => configureExtensionsTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.FEATURE_MANAGEMENT, () => configureFeatureManagementTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.GALLERY, () => configureGalleryTools(server, tokenProvider, connectionProvider));
-  configureIfDomainEnabled(Domain.PROFILE, () => configureProfileTools(server, tokenProvider, connectionProvider));
+  configureIfDomainEnabled(Domain.PROFILE, () => configureProfileTools(server, tokenProvider, connectionProvider, options.serverInfo));
   configureIfDomainEnabled(Domain.APPROVALS, () => configureApprovalsTools(server, tokenProvider, connectionProvider, userAgentProvider));
   configureIfDomainEnabled(Domain.ANALYTICS, () => configureAnalyticsTools(server, tokenProvider, connectionProvider, userAgentProvider));
 }
@@ -93,10 +107,13 @@ function configureAllTools(server: McpServer, tokenProvider: () => Promise<strin
  * method is wrapped for the duration of one domain's configuration, so every
  * handler it registers has its text spotlighted on the way out.
  *
+ * The same wrapper drops the tools `allowTool` rejects, which is how a preset
+ * leaves out single tools of a domain it otherwise serves.
+ *
  * Registration is synchronous, so the original method is back in place before
  * this returns. Ported from upstream microsoft/azure-devops-mcp#1570.
  */
-function configureToolsWithContentSafety(server: McpServer, domain: string, configureFn: () => void): void {
+function configureToolsWithContentSafety(server: McpServer, domain: string, configureFn: () => void, allowTool?: (tool: string, domain: string) => boolean): void {
   const originalTool = server.tool;
   const originalRegisterTool = server.registerTool;
 
@@ -104,6 +121,9 @@ function configureToolsWithContentSafety(server: McpServer, domain: string, conf
     new Proxy(registration, {
       apply(target, thisArg, argumentsList: unknown[]) {
         const toolName = String(argumentsList[0]);
+        if (allowTool && !allowTool(toolName, domain)) {
+          return undefined;
+        }
         const callbackIndex = argumentsList.length - 1;
         const callback = argumentsList[callbackIndex];
         if (typeof callback === "function") {
@@ -135,4 +155,4 @@ function configureToolsWithContentSafety(server: McpServer, domain: string, conf
   }
 }
 
-export { configureAllTools };
+export { configureAllTools, ConfigureOptions };

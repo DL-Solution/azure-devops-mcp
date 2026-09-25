@@ -10,11 +10,23 @@ const PROFILE_TOOLS = {
   get_me: "profile_get_me",
 };
 
-function configureProfileTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>) {
+/** Which deployment answered: lets a caller tell two servers (or two builds of one) apart. */
+interface ServerInfo {
+  version: string;
+  /** Commit the image was built from; absent outside a container build. */
+  build?: string;
+  transport: string;
+  /** How the Azure DevOps token is obtained: oauth / passthrough over HTTP, the --authentication type over stdio. */
+  auth: string;
+  /** The preset endpoint the request came through, if any. */
+  preset?: string;
+}
+
+function configureProfileTools(server: McpServer, tokenProvider: () => Promise<string>, connectionProvider: () => Promise<WebApi>, serverInfo?: ServerInfo) {
   registerTool(
     server,
     PROFILE_TOOLS.get_me,
-    "Get the identity of the currently authenticated user (id, descriptor, display name) and the organization this server is connected to. Use it to resolve 'me'/'my'/'I' in a request before calling tools that take an identity, instead of guessing who the caller is.",
+    "Get the identity of the currently authenticated user (id, descriptor, display name), the organization this server is connected to and which server build answered. Use it to resolve 'me'/'my'/'I' in a request before calling tools that take an identity, instead of guessing who the caller is.",
     {},
     async () => {
       try {
@@ -33,6 +45,7 @@ function configureProfileTools(server: McpServer, tokenProvider: () => Promise<s
           serverUrl: connection.serverUrl,
           deploymentType: connectionData.deploymentType,
           instanceId: connectionData.instanceId,
+          server: serverInfo,
         };
 
         return jsonResult(result);
@@ -43,4 +56,4 @@ function configureProfileTools(server: McpServer, tokenProvider: () => Promise<s
   );
 }
 
-export { PROFILE_TOOLS, configureProfileTools };
+export { PROFILE_TOOLS, configureProfileTools, ServerInfo };

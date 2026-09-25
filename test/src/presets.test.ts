@@ -10,7 +10,7 @@ jest.mock("../../src/logger", () => ({
 }));
 
 import { Domain } from "../../src/shared/domains";
-import { PRESET_NAMES, resolvePreset, TOOL_PRESETS } from "../../src/shared/presets";
+import { ADMIN_ONLY_TOOLS, PRESET_NAMES, resolvePreset, resolvePresetTools, TOOL_PRESETS } from "../../src/shared/presets";
 
 const ALL_DOMAINS = Object.values(Domain) as string[];
 
@@ -69,5 +69,34 @@ describe("resolvePreset", () => {
 
   it("still refuses an unknown preset when narrowing", () => {
     expect(resolvePreset("nope", new Set<string>([Domain.CORE]))).toBeUndefined();
+  });
+});
+
+describe("resolvePresetTools", () => {
+  it.each(["dev", "plan", "ops"])("'%s' leaves out every admin-only tool", (name) => {
+    const tools = resolvePresetTools(name);
+    for (const [tool, domain] of Object.entries(ADMIN_ONLY_TOOLS)) {
+      expect(tools?.allows(tool, domain)).toBe(false);
+    }
+    expect(tools?.allows("core_list_projects", Domain.CORE)).toBe(true);
+    expect(tools?.domains).toEqual(resolvePreset(name));
+  });
+
+  it("gives admin the admin-only tools of domains it does not otherwise serve", () => {
+    const tools = resolvePresetTools("admin");
+    expect(tools?.domains.has(Domain.WORK_ITEMS)).toBe(true);
+    expect(tools?.allows("wit_migrate_project_process", Domain.WORK_ITEMS)).toBe(true);
+    expect(tools?.allows("wit_create_work_item", Domain.WORK_ITEMS)).toBe(false);
+    expect(tools?.allows("core_delete_project", Domain.CORE)).toBe(true);
+    expect(tools?.allows("graph_list_users", Domain.GRAPH)).toBe(true);
+  });
+
+  it("does not borrow a domain the server has not enabled", () => {
+    const tools = resolvePresetTools("admin", new Set<string>([Domain.CORE, Domain.GRAPH]));
+    expect(tools?.domains).toEqual(new Set([Domain.CORE, Domain.GRAPH]));
+  });
+
+  it("returns undefined for an unknown preset", () => {
+    expect(resolvePresetTools("nope")).toBeUndefined();
   });
 });

@@ -33,6 +33,13 @@ COPY --from=build /app/dist ./dist
 COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
+# The commit this image was built from; the server reports it in its User-Agent
+# and in profile_get_me, so a caller can tell which build answered. Declared
+# last: a value that changes every build would otherwise invalidate the layers
+# after it, npm ci included.
+ARG BUILD_SHA=""
+ENV BUILD_SHA=$BUILD_SHA
+
 # Run as the built-in non-root user provided by the node image.
 USER node
 

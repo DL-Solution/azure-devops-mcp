@@ -54,6 +54,17 @@ describe("configureProfileTools", () => {
     expect(payload.instanceId).toBe("instance-1");
   });
 
+  it("reports which server build answered", async () => {
+    const serverInfo = { version: "3.0.0", build: "1a2b3c4d5e6f", transport: "http", auth: "oauth", preset: "dev" };
+    configureProfileTools(server, tokenProvider, connectionProvider, serverInfo);
+    const handler = (server.tool as jest.Mock).mock.calls.filter(([name]) => name === PROFILE_TOOLS.get_me).at(-1)?.[3] as (args?: unknown) => Promise<{ content: { text: string }[] }>;
+    mockConnect.mockResolvedValue({ authenticatedUser: { id: "user-1" } });
+
+    const payload = JSON.parse((await handler({})).content[0].text);
+
+    expect(payload.server).toEqual(serverInfo);
+  });
+
   it("reports an error when the connection carries no authenticated user", async () => {
     const handler = getHandler(PROFILE_TOOLS.get_me);
     mockConnect.mockResolvedValue({});

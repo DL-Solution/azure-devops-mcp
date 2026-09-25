@@ -19,7 +19,7 @@ import { packageVersion } from "./version.js";
 import { DomainsManager } from "./shared/domains.js";
 import { shareAdoMetadata } from "./shared/ado-metadata-cache.js";
 import { reportNotFound } from "./shared/not-found.js";
-import { PRESET_NAMES, resolvePreset } from "./shared/presets.js";
+import { PRESET_NAMES, PresetTools, resolvePreset, resolvePresetTools } from "./shared/presets.js";
 import { buildServerInstructions } from "./shared/server-instructions.js";
 import { instrumentToolUsage, logToolCatalog } from "./shared/usage-stats.js";
 import { slimToolList } from "./shared/tool-list.js";
@@ -117,6 +117,9 @@ const orgUrl = "https://dev.azure.com/" + orgName;
 const domainsManager = new DomainsManager(argv.domains);
 export const enabledDomains = domainsManager.getEnabledDomains();
 
+// Set by the container build (deploy-aca.yml passes the commit); absent for npm/local runs.
+const buildSha = process.env.BUILD_SHA?.trim().slice(0, 12) || undefined;
+
 function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAgentComposer: UserAgentComposer, authType: string): () => Promise<WebApi> {
   return async () => {
     const accessToken = await getAzureDevOpsToken();
@@ -141,7 +144,8 @@ function createConfiguredServer(
   connectionProvider: () => Promise<WebApi>,
   userAgentComposer: UserAgentComposer,
   domains: Set<string> = enabledDomains,
-  presetName?: string
+  presetName?: string,
+  presetTools?: PresetTools
 ): McpServer {
   const server = new McpServer(
     {
@@ -168,13 +172,19 @@ function createConfiguredServer(
   // Also before any tool registers: trims per-tool boilerplate from tools/list.
   slimToolList(server);
 
-  server.server.oninitialized = () => {
-    userAgentComposer.appendMcpClientInfo(server.server.getClientVersion());
-  };
+  // Only stdio has one client for the life of the process. Over HTTP every
+  // request gets a fresh server while the composer is shared, so the first
+  // client to initialize would have been stamped on everyone's requests.
+  if (argv.transport !== "http") {
+    server.server.oninitialized = () => {
+      userAgentComposer.appendMcpClientInfo(server.server.getClientVersion());
+    };
+  }
 
   instrumentToolErrors(server);
 
-  configureAllTools(server, authenticator, connectionProvider, () => userAgentComposer.userAgent, domains);
+  const serverInfo = { version: packageVersion, build: buildSha, transport: argv.transport, auth: argv.transport === "http" ? argv.auth : argv.authentication, preset: presetName };
+  configureAllTools(server, authenticator, connectionProvider, () => userAgentComposer.userAgent, presetTools?.domains ?? domains, { allowTool: presetTools?.allows, serverInfo });
   configureResources(server, connectionProvider, domains);
 
   return server;
@@ -255,7 +265,7 @@ function createOAuthStateStore(): OAuthStateStore | undefined {
  * catalog. Registration only records handlers, so a throwaway server with
  * providers that are never called is enough.
  */
-function toolNames(domains: Set<string>, userAgentComposer: UserAgentComposer): string[] {
+function toolNames(domains: Set<string>, userAgentComposer: UserAgentComposer, allowTool?: PresetTools["allows"]): string[] {
   const server = new McpServer({ name: "tool-count", version: packageVersion });
   const names: string[] = [];
   const register = server.registerTool.bind(server) as (...args: unknown[]) => unknown;
@@ -264,12 +274,12 @@ function toolNames(domains: Set<string>, userAgentComposer: UserAgentComposer): 
     return register(...args);
   };
   const unused = () => Promise.reject(new Error("not used while counting tools"));
-  configureAllTools(server, unused, unused, () => userAgentComposer.userAgent, domains);
+  configureAllTools(server, unused, unused, () => userAgentComposer.userAgent, domains, { allowTool });
   return names;
 }
 
-function countTools(domains: Set<string>, userAgentComposer: UserAgentComposer): number {
-  return toolNames(domains, userAgentComposer).length;
+function countTools(domains: Set<string>, userAgentComposer: UserAgentComposer, allowTool?: PresetTools["allows"]): number {
+  return toolNames(domains, userAgentComposer, allowTool).length;
 }
 
 /** The endpoints listed on the landing page. Counted once at startup; the page itself is rendered per request. */
@@ -277,7 +287,8 @@ function landingEndpoints(userAgentComposer: UserAgentComposer): LandingEndpoint
   const bare: LandingEndpoint = { path: argv.path, domains: Array.from(enabledDomains), toolCount: countTools(enabledDomains, userAgentComposer) };
   const presets = PRESET_NAMES.flatMap((name): LandingEndpoint[] => {
     const domains = resolvePreset(name, enabledDomains);
-    return domains ? [{ path: `${argv.path}/${name}`, preset: name, domains: Array.from(domains), toolCount: countTools(domains, userAgentComposer) }] : [];
+    const tools = resolvePresetTools(name, enabledDomains);
+    return domains && tools ? [{ path: `${argv.path}/${name}`, preset: name, domains: Array.from(domains), toolCount: countTools(tools.domains, userAgentComposer, tools.allows) }] : [];
   });
   return [...presets, bare];
 }
@@ -299,7 +310,7 @@ async function runHttpTransport(userAgentComposer: UserAgentComposer) {
     if (!domains) {
       throw new Error(`Unknown tool preset '${preset}'. Available presets: ${PRESET_NAMES.join(", ")}.`);
     }
-    return createConfiguredServer(authenticator, connectionProvider, userAgentComposer, domains, preset);
+    return createConfiguredServer(authenticator, connectionProvider, userAgentComposer, domains, preset, resolvePresetTools(preset, enabledDomains));
   };
 
   const endpoints = landingEndpoints(userAgentComposer);
@@ -376,10 +387,11 @@ async function main() {
     domains: argv.domains,
     enabledDomains: Array.from(enabledDomains),
     version: packageVersion,
+    build: buildSha,
     isCodespace: isGitHubCodespaceEnv(),
   });
 
-  const userAgentComposer = new UserAgentComposer(packageVersion);
+  const userAgentComposer = new UserAgentComposer(packageVersion, buildSha ? `${argv.transport}; ${buildSha}` : argv.transport);
 
   if (argv.transport === "http") {
     await runHttpTransport(userAgentComposer);
