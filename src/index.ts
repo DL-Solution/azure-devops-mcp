@@ -276,7 +276,7 @@ function countTools(domains: Set<string>, userAgentComposer: UserAgentComposer):
 function landingEndpoints(userAgentComposer: UserAgentComposer): LandingEndpoint[] {
   const bare: LandingEndpoint = { path: argv.path, domains: Array.from(enabledDomains), toolCount: countTools(enabledDomains, userAgentComposer) };
   const presets = PRESET_NAMES.flatMap((name): LandingEndpoint[] => {
-    const domains = resolvePreset(name);
+    const domains = resolvePreset(name, enabledDomains);
     return domains ? [{ path: `${argv.path}/${name}`, preset: name, domains: Array.from(domains), toolCount: countTools(domains, userAgentComposer) }] : [];
   });
   return [...presets, bare];
@@ -295,7 +295,7 @@ async function runHttpTransport(userAgentComposer: UserAgentComposer) {
     if (!preset) {
       return createConfiguredServer(authenticator, connectionProvider, userAgentComposer);
     }
-    const domains = resolvePreset(preset);
+    const domains = resolvePreset(preset, enabledDomains);
     if (!domains) {
       throw new Error(`Unknown tool preset '${preset}'. Available presets: ${PRESET_NAMES.join(", ")}.`);
     }

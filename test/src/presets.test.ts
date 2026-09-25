@@ -60,4 +60,14 @@ describe("resolvePreset", () => {
     expect(resolvePreset("")).toBeUndefined();
     expect(resolvePreset("constructor")).toBeUndefined();
   });
+
+  it("narrows a preset to the domains the server enabled", () => {
+    const enabled = new Set<string>([Domain.CORE, Domain.REPOSITORIES]);
+    expect(resolvePreset("dev", enabled)).toEqual(new Set([Domain.CORE, Domain.REPOSITORIES]));
+    expect(resolvePreset("admin", enabled)).toEqual(new Set([Domain.CORE]));
+  });
+
+  it("still refuses an unknown preset when narrowing", () => {
+    expect(resolvePreset("nope", new Set<string>([Domain.CORE]))).toBeUndefined();
+  });
 });
