@@ -158,12 +158,18 @@ extra resources, and no state kept between requests:
 | URL          | Tools | ~Tokens | Covers                                                          |
 | ------------ | ----: | ------: | --------------------------------------------------------------- |
 | `/mcp`       |   630 |    117k | everything (or whatever `MCP_DOMAINS` sets)                     |
-| `/mcp/dev`   |   237 |     50k | repos, pull requests, work items, pipelines, wiki, search       |
-| `/mcp/plan`  |   235 |     43k | boards, backlogs, sprints, capacity, dashboards, test plans     |
-| `/mcp/ops`   |   237 |     42k | pipelines, releases, agents, service connections, feeds, alerts |
-| `/mcp/admin` |   135 |     24k | process customization, identity, licences, access, audit        |
+| `/mcp/dev`   |   229 |     50k | repos, pull requests, work items, pipelines, wiki, search       |
+| `/mcp/plan`  |   227 |     43k | boards, backlogs, sprints, capacity, dashboards, test plans     |
+| `/mcp/ops`   |   233 |     42k | pipelines, releases, agents, service connections, feeds, alerts |
+| `/mcp/admin` |   139 |     24k | process customization, identity, licences, access, audit        |
 
 Counts as of September 2026; tokens are the `tools/list` JSON divided by four.
+Changes to a whole project or the organization — creating, updating or deleting
+a project, its properties, organization-wide fields, moving a project to another
+process — are served only by `/mcp/admin` (and `/mcp`), not by the role presets
+(`ADMIN_ONLY_TOOLS` in `src/shared/presets.ts`). This narrows what a model can
+reach from a coding or planning session; it is not access control, since every
+caller still acts with their own Azure DevOps permissions.
 The landing page at `https://<app-fqdn>/` (in Ukrainian) always shows the live
 tool count of each endpoint, with step-by-step connection instructions for
 claude.ai, Claude Code and VS Code.
