@@ -66,6 +66,7 @@ module.exports = {
     "^(.+)/common-params\\.js$": "$1/common-params.ts",
     "^(.+)/tool-results\\.js$": "$1/tool-results.ts",
     "^(.+)/continuation\\.js$": "$1/continuation.ts",
+    "^(.+)/enum-names\\.js$": "$1/enum-names.ts",
     // src/tools.ts imports every tool module; only its own "./tools/x.js" specifiers.
     "^\\./tools/(.+)\\.js$": "<rootDir>/src/tools/$1.ts",
     "^(.+)/server-instructions\\.js$": "$1/server-instructions.ts",

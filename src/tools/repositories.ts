@@ -31,6 +31,7 @@ import {
   GitAsyncRefOperation,
   GitAsyncRefOperationFailureStatus,
   GitAsyncRefOperationParameters,
+  TypeInfo as GitTypeInfo,
 } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { z } from "zod";
 import { getCurrentUserDetails, getUserIdFromEmail } from "./auth.js";
@@ -39,6 +40,7 @@ import { WebApiTagDefinition } from "azure-devops-node-api/interfaces/CoreInterf
 import { extractAdoStreamError, getEnumKeys, safeEnumConvert, streamToString } from "../utils.js";
 import { requiredProject } from "../shared/common-params.js";
 import { errorMessage, jsonResult, toolError } from "../shared/tool-results.js";
+import { withEnumNames } from "../shared/enum-names.js";
 
 const REPO_TOOLS = {
   list_repos_by_project: "repo_list_repos_by_project",
@@ -156,16 +158,21 @@ function branchesFilterOutIrrelevantProperties(branches: GitRef[], top: number) 
     .slice(0, top);
 }
 
+// A projection loses the link to the TypeInfo node-api read the thread with, so
+// restore it: the thread status then reaches the model as "active", "fixed", ….
 function trimPullRequestThread(thread: GitPullRequestCommentThread) {
-  return {
-    id: thread.id,
-    publishedDate: thread.publishedDate,
-    lastUpdatedDate: thread.lastUpdatedDate,
-    status: thread.status,
-    comments: trimComments(thread.comments),
-    threadContext: thread.threadContext,
-    pullRequestThreadContext: thread.pullRequestThreadContext,
-  };
+  return withEnumNames(
+    {
+      id: thread.id,
+      publishedDate: thread.publishedDate,
+      lastUpdatedDate: thread.lastUpdatedDate,
+      status: thread.status,
+      comments: trimComments(thread.comments),
+      threadContext: thread.threadContext,
+      pullRequestThreadContext: thread.pullRequestThreadContext,
+    },
+    GitTypeInfo.GitPullRequestCommentThread
+  );
 }
 
 /**

@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonTextResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenParam } from "../shared/common-params.js";
 
 const AUDIT_TOOLS = {
@@ -49,7 +49,7 @@ function configureAuditTools(server: McpServer, tokenProvider: () => Promise<str
           throw new Error(`Failed to query audit log (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("querying audit log", error);
       }
@@ -63,7 +63,7 @@ function configureAuditTools(server: McpServer, tokenProvider: () => Promise<str
         throw new Error(`Failed to list audit actions (${response.status}): ${await response.text()}`);
       }
 
-      return { content: [{ type: "text", text: await response.text() }] };
+      return jsonTextResult(await response.text());
     } catch (error) {
       return toolError("listing audit actions", error);
     }

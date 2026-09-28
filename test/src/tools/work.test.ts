@@ -1500,14 +1500,6 @@ describe("configureWorkTools", () => {
             structureType: "area",
             hasChildren: false,
             path: "\\fabrikam\\fiber\\tfvc\\area",
-            _links: {
-              self: {
-                href: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas/Web",
-              },
-              parent: {
-                href: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas",
-              },
-            },
             url: "https://dev.azure.com/fabrikam/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c/_apis/wit/classificationNodes/Areas/Web",
           },
         ])

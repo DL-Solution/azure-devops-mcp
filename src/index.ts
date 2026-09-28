@@ -20,6 +20,7 @@ import { DomainsManager } from "./shared/domains.js";
 import { shareAdoMetadata } from "./shared/ado-metadata-cache.js";
 import { reportNotFound } from "./shared/not-found.js";
 import { captureContinuationTokens } from "./shared/continuation.js";
+import { captureEnumTypes } from "./shared/enum-names.js";
 import { PRESET_NAMES, PresetTools, resolvePreset, resolvePresetTools } from "./shared/presets.js";
 import { buildServerInstructions } from "./shared/server-instructions.js";
 import { instrumentToolUsage, logToolCatalog } from "./shared/usage-stats.js";
@@ -136,8 +137,10 @@ function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAg
     // metadata it would otherwise re-fetch every time is shared instead.
     // Its clients reject a 404 with Azure DevOps' message rather than
     // resolving null (see shared/not-found.ts), and remember each response's
-    // continuation token (see shared/continuation.ts).
-    return shareAdoMetadata(reportNotFound(captureContinuationTokens(connection)));
+    // continuation token (see shared/continuation.ts) and the TypeInfo each
+    // result was deserialized with, so its enums reach the model as names
+    // (see shared/enum-names.ts).
+    return shareAdoMetadata(reportNotFound(captureEnumTypes(captureContinuationTokens(connection))));
   };
 }
 

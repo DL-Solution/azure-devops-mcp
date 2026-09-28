@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const FEATURE_MANAGEMENT_TOOLS = {
   get_feature_state: "featuremanagement_get_feature_state",
@@ -60,7 +60,7 @@ function configureFeatureManagementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to get feature state (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching feature state", error);
       }
@@ -98,7 +98,7 @@ function configureFeatureManagementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to set feature state (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("setting feature state", error);
       }

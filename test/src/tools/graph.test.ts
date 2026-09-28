@@ -70,6 +70,16 @@ describe("configureGraphTools", () => {
     expect(url).toContain("direction=down");
   });
 
+  it("drops the HAL links from the memberships it returns", async () => {
+    const handler = getHandler(GRAPH_TOOLS.list_memberships);
+    const links = { self: { href: "https://vssps.dev.azure.com/contoso/_apis/Graph/Memberships/aad.abc/vssgp.g" } };
+    mockFetch.mockResolvedValue(ok(JSON.stringify({ count: 1, value: [{ containerDescriptor: "vssgp.g", memberDescriptor: "aad.abc", _links: links }] })));
+
+    const result = await handler({ subjectDescriptor: "aad.abc" });
+
+    expect(result.content[0].text).toBe('{"count":1,"value":[{"containerDescriptor":"vssgp.g","memberDescriptor":"aad.abc"}]}');
+  });
+
   it("adds a membership via PUT", async () => {
     const handler = getHandler(GRAPH_TOOLS.add_membership);
     mockFetch.mockResolvedValue(ok("{}"));

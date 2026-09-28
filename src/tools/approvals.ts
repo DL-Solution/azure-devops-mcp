@@ -7,7 +7,7 @@ import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
 import { requiredProject } from "../shared/common-params.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const APPROVALS_TOOLS = {
   list: "approvals_list",
@@ -75,7 +75,7 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
           throw new Error(`Failed to list approvals (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing approvals", error);
       }
@@ -104,7 +104,7 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
           throw new Error(`Failed to get approval (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching approval", error);
       }
@@ -135,7 +135,7 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
           throw new Error(`Failed to update approval (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("updating approval", error);
       }
@@ -150,7 +150,7 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
       if (!response.ok) {
         throw new Error(`${response.status}: ${text}`);
       }
-      return { content: [{ type: "text" as const, text: text || "Done." }] };
+      return jsonTextResult(text || "Done.");
     } catch (error) {
       return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
     }

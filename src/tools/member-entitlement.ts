@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonTextResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenParam } from "../shared/common-params.js";
 
 const MEMBER_ENTITLEMENT_TOOLS = {
@@ -74,7 +74,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to list user entitlements (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing user entitlements", error);
       }
@@ -98,7 +98,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to get user entitlement (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching user entitlement", error);
       }
@@ -125,7 +125,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to add user entitlement (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("adding user entitlement", error);
       }
@@ -154,7 +154,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to update user entitlement (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("updating user entitlement", error);
       }
@@ -202,7 +202,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to get entitlement summary (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching entitlement summary", error);
       }
@@ -221,7 +221,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to list group entitlements (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing group entitlements", error);
       }
@@ -245,7 +245,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to get group entitlement (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching group entitlement", error);
       }
@@ -271,7 +271,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to update group entitlement (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("updating group entitlement", error);
       }
@@ -298,7 +298,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to list group members (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing group entitlement members", error);
       }
@@ -382,7 +382,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to create group entitlement (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("creating group entitlement", error);
       }
@@ -414,7 +414,7 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           throw new Error(`Failed to delete group entitlement (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("deleting group entitlement", error);
       }

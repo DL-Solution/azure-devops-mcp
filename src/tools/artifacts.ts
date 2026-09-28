@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
-import { errorMessage, toolError } from "../shared/tool-results.js";
+import { errorMessage, jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const ARTIFACTS_TOOLS = {
   list_feeds: "artifacts_list_feeds",
@@ -147,7 +147,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
       if (!response.ok) {
         throw new Error(`${response.status}: ${text}`);
       }
-      return { content: [{ type: "text" as const, text: text || options.empty || "Done." }] };
+      return jsonTextResult(text || options.empty || "Done.");
     } catch (error) {
       return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
     }
@@ -182,7 +182,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
           throw new Error(`Failed to list feeds (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing feeds", error);
       }
@@ -207,7 +207,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
           throw new Error(`Failed to get feed (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching feed", error);
       }
@@ -230,7 +230,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
           throw new Error(`Failed to create feed (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("creating feed", error);
       }
@@ -259,7 +259,7 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
           throw new Error(`Failed to list packages (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing packages", error);
       }

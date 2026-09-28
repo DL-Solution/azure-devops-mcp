@@ -2842,7 +2842,7 @@ describe("repos tools", () => {
           id: 1,
           publishedDate: "2023-01-01T00:00:00Z",
           lastUpdatedDate: "2023-01-01T01:00:00Z",
-          status: CommentThreadStatus.Active,
+          status: "active",
           comments: [
             {
               id: 1,
@@ -2964,7 +2964,7 @@ describe("repos tools", () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult).toHaveLength(1);
       expect(parsedResult[0].id).toBe(1);
-      expect(parsedResult[0].status).toBe(CommentThreadStatus.Active);
+      expect(parsedResult[0].status).toBe("active");
     });
 
     it("should filter threads by status (Closed)", async () => {
@@ -3001,7 +3001,7 @@ describe("repos tools", () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult).toHaveLength(1);
       expect(parsedResult[0].id).toBe(2);
-      expect(parsedResult[0].status).toBe(CommentThreadStatus.Closed);
+      expect(parsedResult[0].status).toBe("closed");
     });
 
     it("should filter threads by status (Fixed)", async () => {
@@ -3038,7 +3038,7 @@ describe("repos tools", () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult).toHaveLength(1);
       expect(parsedResult[0].id).toBe(2);
-      expect(parsedResult[0].status).toBe(CommentThreadStatus.Fixed);
+      expect(parsedResult[0].status).toBe("fixed");
     });
 
     it("should filter threads by author email", async () => {
@@ -3241,7 +3241,7 @@ describe("repos tools", () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult).toHaveLength(1);
       expect(parsedResult[0].id).toBe(1);
-      expect(parsedResult[0].status).toBe(CommentThreadStatus.Active);
+      expect(parsedResult[0].status).toBe("active");
       expect(parsedResult[0].comments[0].author.uniqueName).toBe("john@example.com");
     });
 
@@ -3285,7 +3285,7 @@ describe("repos tools", () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult).toHaveLength(1);
       expect(parsedResult[0].id).toBe(1);
-      expect(parsedResult[0].status).toBe(CommentThreadStatus.Active);
+      expect(parsedResult[0].status).toBe("active");
       expect(parsedResult[0].comments[0].author.displayName).toContain("John");
     });
 
@@ -3330,7 +3330,7 @@ describe("repos tools", () => {
       const parsedResult = JSON.parse(result.content[0].text);
       expect(parsedResult).toHaveLength(1);
       expect(parsedResult[0].id).toBe(1);
-      expect(parsedResult[0].status).toBe(CommentThreadStatus.Active);
+      expect(parsedResult[0].status).toBe("active");
       expect(parsedResult[0].comments[0].author.uniqueName).toBe("john@example.com");
       expect(parsedResult[0].comments[0].author.displayName).toContain("Doe");
     });
@@ -5562,7 +5562,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
+      expect(result.content[0].text).toBe(JSON.stringify({ ...mockThread, status: "active" }));
     });
 
     it("should create pull request thread with file context and position", async () => {
@@ -5732,7 +5732,7 @@ describe("repos tools", () => {
         id: 123,
         publishedDate: "2023-01-01T00:00:00Z",
         lastUpdatedDate: "2023-01-02T00:00:00Z",
-        status: CommentThreadStatus.Active,
+        status: "active",
         comments: [
           {
             id: 1,
@@ -5784,7 +5784,7 @@ describe("repos tools", () => {
         id: 456,
         publishedDate: "2023-01-01T00:00:00Z",
         lastUpdatedDate: "2023-01-03T00:00:00Z",
-        status: CommentThreadStatus.Fixed,
+        status: "fixed",
         comments: [],
         threadContext: null,
       };
@@ -5824,7 +5824,7 @@ describe("repos tools", () => {
         id: 789,
         publishedDate: "2023-01-01T00:00:00Z",
         lastUpdatedDate: "2023-01-04T00:00:00Z",
-        status: CommentThreadStatus.WontFix,
+        status: "wontFix",
         comments: [],
         threadContext: null,
       };
@@ -5864,7 +5864,7 @@ describe("repos tools", () => {
         id: 100,
         publishedDate: "2023-01-01T00:00:00Z",
         lastUpdatedDate: "2023-01-05T00:00:00Z",
-        status: CommentThreadStatus.Closed,
+        status: "closed",
         comments: [],
         threadContext: null,
       };
@@ -5904,7 +5904,7 @@ describe("repos tools", () => {
         id: 200,
         publishedDate: "2023-01-01T00:00:00Z",
         lastUpdatedDate: "2023-01-06T00:00:00Z",
-        status: CommentThreadStatus.ByDesign,
+        status: "byDesign",
         comments: [],
         threadContext: null,
       };
@@ -5944,7 +5944,7 @@ describe("repos tools", () => {
         id: 300,
         publishedDate: "2023-01-01T00:00:00Z",
         lastUpdatedDate: "2023-01-07T00:00:00Z",
-        status: CommentThreadStatus.Pending,
+        status: "pending",
         comments: [],
         threadContext: null,
       };
@@ -7116,7 +7116,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
+      expect(result.content[0].text).toBe(JSON.stringify({ ...mockThread, status: "active" }));
     });
 
     it("should handle rightFileEndOffset without validation error", async () => {
@@ -7157,7 +7157,7 @@ describe("repos tools", () => {
         undefined
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
+      expect(result.content[0].text).toBe(JSON.stringify({ ...mockThread, status: "active" }));
     });
 
     it("should handle search_commits with version parameter", async () => {
@@ -7832,7 +7832,7 @@ describe("repos tools", () => {
         456,
         undefined
       );
-      expect(result.content[0].text).toBe(JSON.stringify(mockThread));
+      expect(result.content[0].text).toBe(JSON.stringify({ ...mockThread, status: "active" }));
     });
   });
 
