@@ -77,9 +77,12 @@ describe("registerTool", () => {
 
   it.each([
     ["wit_get_work_item", { readOnlyHint: true }],
-    ["core_delete_project", { readOnlyHint: false, destructiveHint: true }],
+    ["core_delete_project", { readOnlyHint: false, destructiveHint: true, idempotentHint: true }],
     ["wit_create_work_item", { readOnlyHint: false, destructiveHint: false }],
-    ["permissions_set_access_control_entries", { readOnlyHint: false, destructiveHint: true }],
+    ["wit_update_work_item", { readOnlyHint: false, destructiveHint: false }],
+    ["work_set_team_days_off", { readOnlyHint: false, destructiveHint: false, idempotentHint: true }],
+    ["repo_lock_branch", { readOnlyHint: false, destructiveHint: false, idempotentHint: true }],
+    ["permissions_set_access_control_entries", { readOnlyHint: false, destructiveHint: true, idempotentHint: true }],
   ])("passes the annotations for %s in the registration itself", (name, annotations) => {
     const { server, registerTool: register } = makeServer();
 

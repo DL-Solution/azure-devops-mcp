@@ -10,8 +10,9 @@ class UserAgentComposer {
   private _userAgent: string;
   private _mcpClientInfoAppended: boolean;
 
-  constructor(packageVersion: string) {
-    this._userAgent = `AzureDevOps.MCP/${packageVersion} (local)`;
+  /** `label` says where the server runs, e.g. "stdio" or "http; <build>", so Azure DevOps audit entries tell deployments apart. */
+  constructor(packageVersion: string, label = "local") {
+    this._userAgent = `AzureDevOps.MCP/${packageVersion} (${label})`;
     this._mcpClientInfoAppended = false;
   }
 

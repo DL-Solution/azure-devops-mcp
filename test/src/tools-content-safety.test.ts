@@ -11,6 +11,7 @@ jest.mock("../../src/logger", () => ({
 
 import { configureAllTools } from "../../src/tools";
 import { Domain } from "../../src/shared/domains";
+import { ADMIN_ONLY_TOOLS } from "../../src/shared/presets";
 import { createToolServer } from "../mocks/tool-server";
 
 type Handler = (args: Record<string, unknown>, extra?: unknown) => Promise<{ content: { type: string; text: string }[]; isError?: boolean }>;
@@ -75,6 +76,33 @@ describe("configureAllTools content safety", () => {
     const { server } = configure(Object.values(Domain) as string[]);
 
     expect(server.tool.mock.calls.length).toBeGreaterThan(370);
+  });
+
+  it("leaves out the tools a preset does not allow", () => {
+    const server = createToolServer();
+    const unused = async () => ({}) as WebApi;
+    configureAllTools(
+      server as unknown as McpServer,
+      async () => "t",
+      unused,
+      () => "Jest",
+      new Set([Domain.CORE]),
+      {
+        allowTool: (tool) => tool !== "core_delete_project",
+      }
+    );
+
+    const names = server.tool.mock.calls.map(([name]) => name);
+    expect(names).toContain("core_list_projects");
+    expect(names).not.toContain("core_delete_project");
+  });
+
+  // A name in ADMIN_ONLY_TOOLS that no longer exists would silently stop being filtered.
+  it("knows every admin-only tool under the domain the preset table gives it", () => {
+    for (const [tool, domain] of Object.entries(ADMIN_ONLY_TOOLS)) {
+      const { server } = configure([domain]);
+      expect(server.tool.mock.calls.map(([name]) => name)).toContain(tool);
+    }
   });
 
   // Registration is synchronous, so the temporary wrapper must not outlive it.
