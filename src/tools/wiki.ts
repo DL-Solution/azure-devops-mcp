@@ -11,7 +11,8 @@ import { apiVersion, extractAdoStreamError, getOrgFromUrl } from "../utils.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { adoFetch } from "../shared/ado-rest.js";
 import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
-import { jsonResult, toolError } from "../shared/tool-results.js";
+import { jsonResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
+import { continuationTokenOf } from "../shared/continuation.js";
 
 // The wikis resource (288d122c-…) is at version 2; the shared "7.2-preview.1" asks for version 1, which rejects DELETE with 405. node-api's WikiApi uses this.
 const WIKI_RESOURCE_API_VERSION = "7.2-preview.2";
@@ -95,7 +96,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     WIKI_TOOLS.list_wiki_pages,
-    "Retrieve a list of wiki pages for a specific wiki and project.",
+    `Retrieve a list of wiki pages for a specific wiki and project. ${PAGED_RESULT_NOTE}`,
     {
       wikiIdentifier: z.string().describe("The unique identifier of the wiki."),
       project: z.string().describe("The project name or ID where the wiki is located."),
@@ -120,7 +121,7 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           return { content: [{ type: "text", text: "No wiki pages found" }], isError: true };
         }
 
-        return jsonResult(pages);
+        return pagedResult(pages, continuationTokenOf(pages));
       } catch (error) {
         return toolError("fetching wiki pages", error);
       }

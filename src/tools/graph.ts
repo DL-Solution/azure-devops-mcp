@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenParam } from "../shared/common-params.js";
 
 const GRAPH_TOOLS = {
@@ -44,29 +44,34 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
     return adoFetch({ url: `${baseUrl}/_apis/graph/${pathAndQuery}`, method, token, userAgent: userAgentProvider(), body });
   }
 
+  /** One page of a Graph list. Graph sends the next page's token as a header, not in the body. */
+  async function listPage(action: string, failure: string, pathAndQuery: string) {
+    try {
+      const response = await request("GET", pathAndQuery);
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`${failure} (${response.status}): ${text}`);
+      }
+      const body = text ? (JSON.parse(text) as { value?: unknown }) : {};
+      return pagedResult(body.value ?? [], response.headers.get("x-ms-continuationtoken") ?? undefined);
+    } catch (error) {
+      return toolError(action, error);
+    }
+  }
+
   registerTool(
     server,
     GRAPH_TOOLS.list_users,
-    "List users in the organization via the Graph API. Results are paged; pass the continuationToken from a prior response to get the next page.",
+    `List users in the organization via the Graph API. ${PAGED_RESULT_NOTE}`,
     {
       subjectTypes: z.string().optional().describe("Comma-separated subject types to filter by, e.g. 'aad,msa,svc'."),
       continuationToken: continuationTokenParam,
     },
     async ({ subjectTypes, continuationToken }) => {
-      try {
-        const params = new URLSearchParams({ "api-version": graphApiVersion });
-        if (subjectTypes) params.append("subjectTypes", subjectTypes);
-        if (continuationToken) params.append("continuationToken", continuationToken);
-
-        const response = await request("GET", `users?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list users (${response.status}): ${await response.text()}`);
-        }
-
-        return { content: [{ type: "text", text: await response.text() }] };
-      } catch (error) {
-        return toolError("listing users", error);
-      }
+      const params = new URLSearchParams({ "api-version": graphApiVersion });
+      if (subjectTypes) params.append("subjectTypes", subjectTypes);
+      if (continuationToken) params.append("continuationToken", continuationToken);
+      return listPage("listing users", "Failed to list users", `users?${params.toString()}`);
     }
   );
 
@@ -97,26 +102,16 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
   registerTool(
     server,
     GRAPH_TOOLS.list_groups,
-    "List groups in the organization via the Graph API. Results are paged; pass the continuationToken from a prior response to get the next page.",
+    `List groups in the organization via the Graph API. ${PAGED_RESULT_NOTE}`,
     {
       scopeDescriptor: z.string().optional().describe("Limit to groups within this scope descriptor (e.g. a project's scope)."),
       continuationToken: continuationTokenParam,
     },
     async ({ scopeDescriptor, continuationToken }) => {
-      try {
-        const params = new URLSearchParams({ "api-version": graphApiVersion });
-        if (scopeDescriptor) params.append("scopeDescriptor", scopeDescriptor);
-        if (continuationToken) params.append("continuationToken", continuationToken);
-
-        const response = await request("GET", `groups?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list groups (${response.status}): ${await response.text()}`);
-        }
-
-        return { content: [{ type: "text", text: await response.text() }] };
-      } catch (error) {
-        return toolError("listing groups", error);
-      }
+      const params = new URLSearchParams({ "api-version": graphApiVersion });
+      if (scopeDescriptor) params.append("scopeDescriptor", scopeDescriptor);
+      if (continuationToken) params.append("continuationToken", continuationToken);
+      return listPage("listing groups", "Failed to list groups", `groups?${params.toString()}`);
     }
   );
 
@@ -398,12 +393,12 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
   registerTool(
     server,
     GRAPH_TOOLS.list_service_principals,
-    "List the service principals and managed identities added to the organization. Results are paged; pass the continuationToken from a prior response to get the next page.",
+    `List the service principals and managed identities added to the organization. ${PAGED_RESULT_NOTE}`,
     {
       scopeDescriptor: z.string().optional().describe("Limit to this scope, e.g. a project's scope descriptor."),
       continuationToken: continuationTokenParam,
     },
-    async ({ scopeDescriptor, continuationToken }) => call("listing service principals", "GET", query("_apis/graph/serviceprincipals", { scopeDescriptor, continuationToken }))
+    async ({ scopeDescriptor, continuationToken }) => listPage("listing service principals", "Failed to list service principals", query("serviceprincipals", { scopeDescriptor, continuationToken }))
   );
 
   registerTool(

@@ -28,13 +28,20 @@ describe("configureGraphTools", () => {
     return call[3] as (args: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
   }
 
-  const ok = (body: string, status = 200) => ({ ok: status >= 200 && status < 300, status, text: () => Promise.resolve(body) });
+  const ok = (body: string, status = 200, headers: Record<string, string> = {}) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: () => Promise.resolve(body),
+    headers: new Headers(headers),
+  });
 
   it("lists users on the vssps host", async () => {
     const handler = getHandler(GRAPH_TOOLS.list_users);
-    mockFetch.mockResolvedValue(ok('{"value":[]}'));
+    mockFetch.mockResolvedValue(ok('{"value":[{"principalName":"a@contoso.com"}]}', 200, { "x-ms-continuationtoken": "u2" }));
 
-    await handler({ subjectTypes: "aad,msa" });
+    const result = await handler({ subjectTypes: "aad,msa" });
+
+    expect(JSON.parse(result.content[0].text)).toEqual({ hasMore: true, continuationToken: "u2", items: [{ principalName: "a@contoso.com" }] });
 
     const [url, init] = mockFetch.mock.calls[0];
     expect(url).toContain("https://vssps.dev.azure.com/contoso/_apis/graph/users?");
@@ -97,7 +104,16 @@ describe("configureGraphTools", () => {
       expect(url).toContain("scopeDescriptor=scp.abc");
       expect(url).toContain("continuationToken=tok");
       expect(init.method).toBe("GET");
-      expect(result.content[0].text).toContain("Contributors");
+      expect(JSON.parse(result.content[0].text)).toEqual({ hasMore: false, items: [{ displayName: "Contributors" }] });
+    });
+
+    it("returns the continuation token Graph sends as a response header", async () => {
+      const handler = getHandler(GRAPH_TOOLS.list_groups);
+      mockFetch.mockResolvedValue(ok('{"count":1,"value":[{"displayName":"Readers"}]}', 200, { "X-MS-ContinuationToken": "page2" }));
+
+      const result = await handler({});
+
+      expect(JSON.parse(result.content[0].text)).toEqual({ hasMore: true, continuationToken: "page2", items: [{ displayName: "Readers" }] });
     });
 
     it("omits the optional parameters when they are not given", async () => {

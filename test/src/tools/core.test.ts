@@ -6,6 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { configureCoreTools } from "../../../src/tools/core";
 import { WebApi } from "azure-devops-node-api";
 import { createToolServer } from "../../mocks/tool-server";
+import { rememberContinuationToken } from "../../../src/shared/continuation";
 
 type TokenProviderMock = () => Promise<string>;
 type ConnectionProviderMock = () => Promise<WebApi>;
@@ -114,28 +115,31 @@ describe("configureCoreTools", () => {
       expect(mockCoreApi.getProjects).toHaveBeenCalledWith("wellFormed", undefined, undefined, undefined, false);
 
       expect(result.content[0].text).toBe(
-        JSON.stringify([
-          {
-            id: "eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
-            name: "Fabrikam-Fiber-TFVC",
-            description: "Team Foundation Version Control projects.",
-            url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
-            state: "wellFormed",
-          },
-          {
-            id: "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
-            name: "Fabrikam-Fiber-Git",
-            description: "Git projects",
-            url: "https://dev.azure.com/fabrikam/_apis/projects/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
-            state: "wellFormed",
-          },
-          {
-            id: "281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
-            name: "TestGit",
-            url: "https://dev.azure.com/fabrikam/_apis/projects/281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
-            state: "wellFormed",
-          },
-        ])
+        JSON.stringify({
+          hasMore: false,
+          items: [
+            {
+              id: "eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
+              name: "Fabrikam-Fiber-TFVC",
+              description: "Team Foundation Version Control projects.",
+              url: "https://dev.azure.com/fabrikam/_apis/projects/eb6e4656-77fc-42a1-9181-4c6d8e9da5d1",
+              state: "wellFormed",
+            },
+            {
+              id: "6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
+              name: "Fabrikam-Fiber-Git",
+              description: "Git projects",
+              url: "https://dev.azure.com/fabrikam/_apis/projects/6ce954b1-ce1f-45d1-b94d-e6bf2464ba2c",
+              state: "wellFormed",
+            },
+            {
+              id: "281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
+              name: "TestGit",
+              url: "https://dev.azure.com/fabrikam/_apis/projects/281f9a5b-af0d-49b4-a1df-fe6f5e5f84d0",
+              state: "wellFormed",
+            },
+          ],
+        })
       );
     });
 
@@ -255,7 +259,7 @@ describe("configureCoreTools", () => {
 
       expect(mockCoreApi.getProjects).toHaveBeenCalledWith("wellFormed", undefined, undefined, undefined, false);
 
-      const filteredProjects = JSON.parse(result.content[0].text);
+      const filteredProjects = JSON.parse(result.content[0].text).items;
       expect(filteredProjects).toHaveLength(2);
       expect(filteredProjects[0].name).toBe("Fabrikam-Fiber-Git");
       expect(filteredProjects[1].name).toBe("TestGit");
@@ -296,8 +300,21 @@ describe("configureCoreTools", () => {
 
       const result = await handler(params);
 
-      const filteredProjects = JSON.parse(result.content[0].text);
+      const filteredProjects = JSON.parse(result.content[0].text).items;
       expect(filteredProjects).toHaveLength(2);
+    });
+
+    it("returns the continuation token of the page and passes one back", async () => {
+      configureCoreTools(server, tokenProvider, connectionProvider, userAgentProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "core_list_projects");
+      if (!call) throw new Error("core_list_projects tool not registered");
+      const [, , , handler] = call;
+      (mockCoreApi.getProjects as jest.Mock).mockResolvedValue(rememberContinuationToken([{ id: "p1", name: "Alpha" }], "100"));
+
+      const result = await handler({ stateFilter: "wellFormed", continuationToken: 50, projectNameFilter: "alpha" });
+
+      expect(mockCoreApi.getProjects).toHaveBeenCalledWith("wellFormed", undefined, undefined, 50, false);
+      expect(JSON.parse(result.content[0].text)).toEqual({ hasMore: true, continuationToken: "100", items: [{ id: "p1", name: "Alpha" }] });
     });
   });
 

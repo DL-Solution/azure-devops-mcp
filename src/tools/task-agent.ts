@@ -17,7 +17,8 @@ import {
 import { resolveProject } from "../shared/elicitations.js";
 import { optionalProject, continuationTokenParam } from "../shared/common-params.js";
 import { adoFetch } from "../shared/ado-rest.js";
-import { jsonResult, toolError } from "../shared/tool-results.js";
+import { jsonResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
+import { continuationTokenOf } from "../shared/continuation.js";
 import { Readable } from "stream";
 
 const TASKAGENT_TOOLS = {
@@ -1220,7 +1221,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
   registerTool(
     server,
     TASKAGENT_TOOLS.list_environment_deployments,
-    "List the deployment history of an environment: which pipeline run deployed what, to which resource, when, and with what result.",
+    `List the deployment history of an environment: which pipeline run deployed what, to which resource, when, and with what result. ${PAGED_RESULT_NOTE}`,
     {
       project: projectField,
       environmentId: environmentIdParam,
@@ -1234,7 +1235,8 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
         if ("response" in ctx) return ctx.response;
 
         const taskAgentApi = await connection.getTaskAgentApi();
-        return jsonResult((await taskAgentApi.getEnvironmentDeploymentExecutionRecords(ctx.project, environmentId, continuationToken, top)) ?? []);
+        const deployments = await taskAgentApi.getEnvironmentDeploymentExecutionRecords(ctx.project, environmentId, continuationToken, top);
+        return pagedResult(deployments ?? [], continuationTokenOf(deployments));
       } catch (error) {
         return toolError(`listing deployments of environment ${environmentId}`, error);
       }

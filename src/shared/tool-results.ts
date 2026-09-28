@@ -27,3 +27,15 @@ export function errorMessage(error: unknown): string {
 export function toolError(action: string, error: unknown): CallToolResult {
   return { content: [{ type: "text", text: `Error ${action}: ${errorMessage(error)}` }], isError: true };
 }
+
+/** The sentence a paged tool's description ends with, so the model knows to ask for the next page. */
+export const PAGED_RESULT_NOTE = "Returns {hasMore, continuationToken, items}; while hasMore is true, pass continuationToken back to get the next page.";
+
+/**
+ * One page of a paged list: `{hasMore, continuationToken?, items}`. The token
+ * comes first so a reader sees it even when a long page gets cut off; pass it
+ * back as the tool's `continuationToken` for the next page.
+ */
+export function pagedResult(items: unknown, continuationToken?: string): CallToolResult {
+  return jsonResult(continuationToken ? { hasMore: true, continuationToken, items } : { hasMore: false, items });
+}

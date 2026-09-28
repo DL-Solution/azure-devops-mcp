@@ -12,7 +12,8 @@ import type { ProjectInfo, TeamProject, WebApiTeam } from "azure-devops-node-api
 import { ProjectVisibility } from "azure-devops-node-api/interfaces/CoreInterfaces.js";
 import { IdentityBase } from "azure-devops-node-api/interfaces/IdentitiesInterfaces.js";
 import { optionalProject, optionalProjectWith, optionalTeam } from "../shared/common-params.js";
-import { jsonResult, toolError } from "../shared/tool-results.js";
+import { jsonResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
+import { continuationTokenOf } from "../shared/continuation.js";
 
 const CORE_TOOLS = {
   list_project_teams: "core_list_project_teams",
@@ -81,12 +82,12 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
   registerTool(
     server,
     CORE_TOOLS.list_projects,
-    "Retrieve a list of projects in your Azure DevOps organization.",
+    `Retrieve a list of projects in your Azure DevOps organization. ${PAGED_RESULT_NOTE}`,
     {
       stateFilter: z.enum(["all", "wellFormed", "createPending", "deleted"]).default("wellFormed").describe("Filter projects by their state. Defaults to 'wellFormed'."),
       top: z.coerce.number().optional().describe("The maximum number of projects to return. Defaults to 100."),
       skip: z.coerce.number().optional().describe("The number of projects to skip for pagination. Defaults to 0."),
-      continuationToken: z.coerce.number().optional().describe("Continuation token for pagination. Used to fetch the next set of results if available."),
+      continuationToken: z.coerce.number().optional().describe("The continuationToken from the previous page's result, to fetch the next page."),
       projectNameFilter: z.string().optional().describe("Filter projects by name. Supports partial matches."),
     },
     async ({ stateFilter, top, skip, continuationToken, projectNameFilter }) => {
@@ -101,7 +102,7 @@ function configureCoreTools(server: McpServer, tokenProvider: () => Promise<stri
 
         const filteredProject = projectNameFilter ? filterProjectsByName(projects, projectNameFilter) : projects;
 
-        return jsonResult(filteredProject);
+        return pagedResult(filteredProject, continuationTokenOf(projects));
       } catch (error) {
         return toolError("fetching projects", error);
       }
