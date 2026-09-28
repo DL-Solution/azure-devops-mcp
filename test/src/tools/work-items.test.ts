@@ -4,6 +4,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { configureWorkItemTools } from "../../../src/tools/work-items";
+import { shapeForOutput } from "../../../src/shared/tool-results";
 import { WebApi } from "azure-devops-node-api";
 import { Readable } from "stream";
 import * as fs from "fs";
@@ -760,7 +761,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, params.expand, params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem]));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput([_mockWorkItem])));
     });
 
     it("should call getWorkItem with fields and no expand when fields are provided but expand is empty", async () => {
@@ -785,7 +786,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, undefined, params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput(_mockWorkItem)));
     });
 
     it("should call getWorkItem with expand and no fields when expand is provided but fields are empty", async () => {
@@ -810,7 +811,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, "relations", params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput(_mockWorkItem)));
     });
 
     it("should override expand to 'none' when both fields and expand are provided", async () => {
@@ -836,7 +837,7 @@ describe("configureWorkItemTools", () => {
       // expand should be overridden to "none" because fields takes precedence
       expect(mockWorkItemTrackingApi.getWorkItem).toHaveBeenCalledWith(params.id, params.fields, params.asOf, "none", params.project);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput(_mockWorkItem)));
     });
   });
 
@@ -861,7 +862,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getComments).toHaveBeenCalledWith(params.project, params.workItemId, params.top, undefined);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemComments]));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput([_mockWorkItemComments])));
     });
 
     it("passes the continuation token and returns the next one", async () => {
@@ -1407,7 +1408,7 @@ describe("configureWorkItemTools", () => {
         params.iterationId
       );
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItemsForIteration]));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput([_mockWorkItemsForIteration])));
     });
   });
 
@@ -1585,7 +1586,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalledWith(null, expectedUpdates, params.id);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem]));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput([_mockWorkItem])));
     });
   });
 
@@ -1644,7 +1645,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.createWorkItem).toHaveBeenCalledWith(null, expectedDocument, params.project, params.workItemType);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput(_mockWorkItem)));
     });
 
     it("should handle Markdown format for long fields", async () => {
@@ -1678,7 +1679,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.createWorkItem).toHaveBeenCalledWith(null, expectedDocument, params.project, params.workItemType);
 
-      expect(result.content[0].text).toBe(JSON.stringify(_mockWorkItem));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput(_mockWorkItem)));
     });
 
     // A short Markdown value used to skip the format op and was stored as HTML (upstream #1446).
@@ -1793,7 +1794,7 @@ describe("configureWorkItemTools", () => {
 
       expect(mockWorkItemTrackingApi.getQuery).toHaveBeenCalledWith(params.project, params.query, QueryExpand.None, params.depth, params.includeDeleted, params.useIsoDateFormat);
 
-      expect(result.content[0].text).toBe(JSON.stringify([_mockQuery]));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput([_mockQuery])));
     });
   });
 
@@ -3419,7 +3420,7 @@ describe("configureWorkItemTools", () => {
 
       // The operation value is kept as-is per the implementation
       expect(mockWorkItemTrackingApi.updateWorkItem).toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify([_mockWorkItem]));
+      expect(result.content[0].text).toBe(JSON.stringify(shapeForOutput([_mockWorkItem])));
     });
 
     it("should handle get_work_item_type errors", async () => {

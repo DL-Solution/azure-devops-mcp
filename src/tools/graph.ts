@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
-import { PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
+import { jsonTextResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenParam } from "../shared/common-params.js";
 
 const GRAPH_TOOLS = {
@@ -92,7 +92,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
           throw new Error(`Failed to get user (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching user", error);
       }
@@ -132,7 +132,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
           throw new Error(`Failed to get group (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching group", error);
       }
@@ -155,7 +155,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
           throw new Error(`Failed to list memberships (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing memberships", error);
       }
@@ -177,7 +177,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
           throw new Error(`Failed to add membership (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("adding membership", error);
       }
@@ -219,7 +219,7 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
       if (!response.ok) {
         throw new Error(`${response.status}: ${text}`);
       }
-      return { content: [{ type: "text" as const, text: text || "Done." }] };
+      return jsonTextResult(text || "Done.");
     } catch (error) {
       return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
     }

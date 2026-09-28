@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const OPERATIONS_TOOLS = {
   get_operation: "operations_get_operation",
@@ -45,7 +45,7 @@ function configureOperationsTools(server: McpServer, tokenProvider: () => Promis
           throw new Error(`Failed to get operation (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching operation", error);
       }

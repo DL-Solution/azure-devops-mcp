@@ -7,7 +7,7 @@ import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
 import { requiredProject } from "../shared/common-params.js";
-import { toolError } from "../shared/tool-results.js";
+import { compactJsonText, jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const SERVICE_ENDPOINT_TOOLS = {
   list_service_endpoints: "serviceendpoint_list_service_endpoints",
@@ -53,7 +53,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
           throw new Error(`Failed to list service endpoints (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing service endpoints", error);
       }
@@ -78,7 +78,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
           throw new Error(`Failed to get service endpoint (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching service endpoint", error);
       }
@@ -99,7 +99,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
           throw new Error(`Failed to create service endpoint (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("creating service endpoint", error);
       }
@@ -137,7 +137,7 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
         throw new Error(`${response.status}: ${text}`);
       }
       const continuationToken = response.headers?.get("x-ms-continuationtoken");
-      const result = continuationToken ? `${text}\n\nMore records: pass continuationToken ${continuationToken}.` : text;
+      const result = continuationToken ? `${compactJsonText(text)}\n\nMore records: pass continuationToken ${continuationToken}.` : compactJsonText(text);
       return { content: [{ type: "text" as const, text: result || "Done." }] };
     } catch (error) {
       return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };

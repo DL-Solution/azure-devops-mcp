@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
-import { jsonResult, toolError } from "../shared/tool-results.js";
+import { jsonResult, jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const EXTENSIONS_TOOLS = {
   list_installed: "extension_list_installed",
@@ -94,7 +94,7 @@ function configureExtensionsTools(server: McpServer, tokenProvider: () => Promis
           throw new Error(`Failed to get installed extension (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching installed extension", error);
       }

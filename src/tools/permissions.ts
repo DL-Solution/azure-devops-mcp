@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const PERMISSIONS_TOOLS = {
   list_security_namespaces: "permissions_list_security_namespaces",
@@ -42,7 +42,7 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
       if (!response.ok) {
         throw new Error(`${response.status}: ${text}`);
       }
-      return { content: [{ type: "text" as const, text: text || JSON.stringify({ ok: true }) }] };
+      return jsonTextResult(text || JSON.stringify({ ok: true }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       return { content: [{ type: "text" as const, text: `Error ${action}: ${errorMessage}` }], isError: true };
@@ -68,7 +68,7 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
           throw new Error(`Failed to list security namespaces (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing security namespaces", error);
       }
@@ -99,7 +99,7 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
           throw new Error(`Failed to get access control lists (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching access control lists", error);
       }

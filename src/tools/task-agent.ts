@@ -17,7 +17,7 @@ import {
 import { resolveProject } from "../shared/elicitations.js";
 import { optionalProject, continuationTokenParam } from "../shared/common-params.js";
 import { adoFetch } from "../shared/ado-rest.js";
-import { jsonResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
+import { jsonResult, jsonTextResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenOf } from "../shared/continuation.js";
 import { Readable } from "stream";
 
@@ -714,7 +714,7 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       if (!response.ok) {
         throw new Error(`${response.status}: ${text}`);
       }
-      return { content: [{ type: "text" as const, text: text || "Done." }] };
+      return jsonTextResult(text || "Done.");
     } catch (error) {
       return toolError(action, error);
     }

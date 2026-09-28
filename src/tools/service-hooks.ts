@@ -6,7 +6,7 @@ import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 import { adoFetch } from "../shared/ado-rest.js";
-import { toolError } from "../shared/tool-results.js";
+import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const SERVICE_HOOKS_TOOLS = {
   list_subscriptions: "servicehook_list_subscriptions",
@@ -56,7 +56,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
           throw new Error(`Failed to list subscriptions (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("listing service hook subscriptions", error);
       }
@@ -80,7 +80,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
           throw new Error(`Failed to get subscription (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("fetching service hook subscription", error);
       }
@@ -101,7 +101,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
           throw new Error(`Failed to create subscription (${response.status}): ${await response.text()}`);
         }
 
-        return { content: [{ type: "text", text: await response.text() }] };
+        return jsonTextResult(await response.text());
       } catch (error) {
         return toolError("creating service hook subscription", error);
       }
@@ -136,7 +136,7 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
       if (!response.ok) {
         throw new Error(`${response.status}: ${text}`);
       }
-      return { content: [{ type: "text" as const, text: text || "Done." }] };
+      return jsonTextResult(text || "Done.");
     } catch (error) {
       return { content: [{ type: "text" as const, text: `Error ${action}: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
     }
