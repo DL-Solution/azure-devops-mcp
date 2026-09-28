@@ -113,11 +113,24 @@ describe("TableOAuthStateStore", () => {
   it("stores a client registration without an expiry", async () => {
     await store.saveClient(client);
 
-    const entity = table.upsertEntity.mock.calls[0][0] as { partitionKey: string; rowKey: string; payload: string; expiresAt: number };
+    const entity = table.upsertEntity.mock.calls[0][0] as { partitionKey: string; rowKey: string; payload: string; expiresAt: unknown };
     expect(entity.partitionKey).toBe("client");
     expect(entity.rowKey).toBe("c1");
     expect(JSON.parse(entity.payload)).toEqual(client);
-    expect(entity.expiresAt).toBe(0);
+    expect(entity.expiresAt).toEqual({ value: "0", type: "Int64" });
+  });
+
+  it("stores the expiry as Int64, since epoch millis overflow Int32", async () => {
+    await store.saveCode("c", issued);
+
+    const entity = table.upsertEntity.mock.calls[0][0] as { expiresAt: unknown };
+    expect(entity.expiresAt).toEqual({ value: String(issued.expiresAt), type: "Int64" });
+  });
+
+  it("reads back an Int64 expiry, which the SDK returns as a bigint", async () => {
+    table.getEntity.mockResolvedValue({ partitionKey: "code", rowKey: "c", payload: JSON.stringify(issued), expiresAt: BigInt(issued.expiresAt) });
+
+    await expect(store.getCode("c")).resolves.toEqual(issued);
   });
 
   it("creates the table once and reuses the result", async () => {
@@ -184,6 +197,15 @@ describe("TableOAuthStateStore", () => {
     // Once per swept partition: pending and code. Clients are never swept.
     expect(table.listEntities).toHaveBeenCalledTimes(2);
     expect(table.deleteEntity).toHaveBeenCalledWith("code", "stale");
+  });
+
+  it("compares the expiry against an Int64 literal", async () => {
+    await store.evictExpired();
+
+    // Without the L suffix Table Storage parses the literal as Int32 and
+    // rejects every current timestamp as out of range.
+    const filter = (table.listEntities.mock.calls[0] as [{ queryOptions: { filter: string } }])[0].queryOptions.filter;
+    expect(filter).toMatch(/ and expiresAt lt \d{13}L$/);
   });
 
   it("never lets an eviction failure escape", async () => {
