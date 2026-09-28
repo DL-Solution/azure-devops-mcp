@@ -12,6 +12,7 @@ import { Readable } from "stream";
 
 import { configureTaskAgentTools, TASKAGENT_TOOLS as T } from "../../../src/tools/task-agent";
 import { createToolServer } from "../../mocks/tool-server";
+import { rememberContinuationToken } from "../../../src/shared/continuation";
 
 type Handler = (args: Record<string, unknown>) => Promise<{ content: { text: string }[]; isError?: boolean }>;
 
@@ -266,8 +267,14 @@ describe("task agent administration tools", () => {
     it("lists deployments of an environment", async () => {
       api.getEnvironmentDeploymentExecutionRecords.mockResolvedValue(null);
 
-      expect(parsed(await handlerFor(T.list_environment_deployments)({ ...P, environmentId: 2, top: 5, continuationToken: "t" }))).toEqual([]);
+      expect(parsed(await handlerFor(T.list_environment_deployments)({ ...P, environmentId: 2, top: 5, continuationToken: "t" }))).toEqual({ hasMore: false, items: [] });
       expect(api.getEnvironmentDeploymentExecutionRecords).toHaveBeenCalledWith("Contoso", 2, "t", 5);
+    });
+
+    it("returns the continuation token of a page of deployments", async () => {
+      api.getEnvironmentDeploymentExecutionRecords.mockResolvedValue(rememberContinuationToken([{ id: 1 }], "u"));
+
+      expect(parsed(await handlerFor(T.list_environment_deployments)({ ...P, environmentId: 2 }))).toEqual({ hasMore: true, continuationToken: "u", items: [{ id: 1 }] });
     });
 
     it("lists and removes virtual machine resources over REST", async () => {

@@ -12,6 +12,7 @@ import { Readable } from "stream";
 import { resolve } from "path";
 import { mkdirSync, createWriteStream } from "fs";
 import { createToolServer } from "../../mocks/tool-server";
+import { rememberContinuationToken } from "../../../src/shared/continuation";
 
 // Mock fetch globally
 global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
@@ -439,12 +440,13 @@ describe("configurePipelineTools", () => {
         undefined // yamlFilename
       );
 
-      expect(result.content[0].text).toBe(
-        JSON.stringify([
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        hasMore: false,
+        items: [
           { id: 1, name: "Build Definition 1" },
           { id: 2, name: "Build Definition 2" },
-        ])
-      );
+        ],
+      });
     });
 
     it("should handle API errors for get_definitions", async () => {
@@ -700,10 +702,15 @@ describe("configurePipelineTools", () => {
       const [, , , handler] = call;
 
       const mockBuildApi = {
-        getBuilds: jest.fn().mockResolvedValue([
-          { id: 1, buildNumber: "20241201.1", status: "completed" },
-          { id: 2, buildNumber: "20241201.2", status: "inProgress" },
-        ]),
+        getBuilds: jest.fn().mockResolvedValue(
+          rememberContinuationToken(
+            [
+              { id: 1, buildNumber: "20241201.1", status: "completed" },
+              { id: 2, buildNumber: "20241201.2", status: "inProgress" },
+            ],
+            "next-builds"
+          )
+        ),
       };
       mockConnection.getBuildApi.mockResolvedValue(mockBuildApi);
 
@@ -740,12 +747,14 @@ describe("configurePipelineTools", () => {
         undefined // repositoryType
       );
 
-      expect(result.content[0].text).toBe(
-        JSON.stringify([
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        hasMore: true,
+        continuationToken: "next-builds",
+        items: [
           { id: 1, buildNumber: "20241201.1", status: "completed" },
           { id: 2, buildNumber: "20241201.2", status: "inProgress" },
-        ])
-      );
+        ],
+      });
     });
 
     it("should handle API errors for get_builds", async () => {
@@ -1114,10 +1123,15 @@ describe("configurePipelineTools", () => {
       const [, , , handler] = call;
 
       const mockBuildApi = {
-        getBuildChanges: jest.fn().mockResolvedValue([
-          { id: "abc123", message: "Fixed bug in login" },
-          { id: "def456", message: "Added new feature" },
-        ]),
+        getBuildChanges: jest.fn().mockResolvedValue(
+          rememberContinuationToken(
+            [
+              { id: "abc123", message: "Fixed bug in login" },
+              { id: "def456", message: "Added new feature" },
+            ],
+            "token456"
+          )
+        ),
       };
       mockConnection.getBuildApi.mockResolvedValue(mockBuildApi);
 
@@ -1132,12 +1146,14 @@ describe("configurePipelineTools", () => {
       const result = await handler(params);
 
       expect(mockBuildApi.getBuildChanges).toHaveBeenCalledWith("test-project", 123, "token123", 50, true);
-      expect(result.content[0].text).toBe(
-        JSON.stringify([
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        hasMore: true,
+        continuationToken: "token456",
+        items: [
           { id: "abc123", message: "Fixed bug in login" },
           { id: "def456", message: "Added new feature" },
-        ])
-      );
+        ],
+      });
     });
 
     it("should use default top value when not provided", async () => {

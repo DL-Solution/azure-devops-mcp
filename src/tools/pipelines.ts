@@ -13,7 +13,8 @@ import { mkdirSync, createWriteStream } from "fs";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { join, posix, resolve, win32 } from "path";
 import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
-import { jsonResult, toolError } from "../shared/tool-results.js";
+import { jsonResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
+import { continuationTokenOf } from "../shared/continuation.js";
 
 // node-api deserializes status/result into numeric enums; the REST API itself answers with names, so give the model those.
 function buildOutcome(build: Build) {
@@ -88,7 +89,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     PIPELINE_TOOLS.pipelines_get_build_definitions,
-    "Retrieves a list of build definitions for a given project.",
+    `Retrieves a list of build definitions for a given project. ${PAGED_RESULT_NOTE}`,
     {
       project: z.string().describe("Project ID or name to get build definitions for"),
       repositoryId: z
@@ -176,7 +177,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         yamlFilename
       );
 
-      return jsonResult(buildDefinitions);
+      return pagedResult(buildDefinitions, continuationTokenOf(buildDefinitions));
     }
   );
 
@@ -258,7 +259,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     PIPELINE_TOOLS.pipelines_get_builds,
-    "Retrieves a list of builds for a given project.",
+    `Retrieves a list of builds for a given project. ${PAGED_RESULT_NOTE}`,
     {
       project: z.string().describe("Project ID or name to get builds for"),
       definitions: z.array(z.coerce.number().min(1)).optional().describe("Array of build definition IDs to filter builds"),
@@ -335,7 +336,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         repositoryType
       );
 
-      return jsonResult(builds);
+      return pagedResult(builds, continuationTokenOf(builds));
     }
   );
 
@@ -379,7 +380,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
   registerTool(
     server,
     PIPELINE_TOOLS.pipelines_get_build_changes,
-    "Get the changes associated with a specific build.",
+    `Get the changes associated with a specific build. ${PAGED_RESULT_NOTE}`,
     {
       project: z.string().describe("Project ID or name to get the build changes for"),
       buildId: z.coerce.number().min(1).describe("ID of the build to get changes for"),
@@ -392,7 +393,7 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
       const buildApi = await connection.getBuildApi();
       const changes = await buildApi.getBuildChanges(project, buildId, continuationToken, top, includeSourceChange);
 
-      return jsonResult(changes);
+      return pagedResult(changes, continuationTokenOf(changes));
     }
   );
 

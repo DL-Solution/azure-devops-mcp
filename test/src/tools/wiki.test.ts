@@ -6,6 +6,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { configureWikiTools } from "../../../src/tools/wiki";
 import { createToolServer } from "../../mocks/tool-server";
+import { rememberContinuationToken } from "../../../src/shared/continuation";
 
 type TokenProviderMock = () => Promise<string>;
 type ConnectionProviderMock = () => Promise<WebApi>;
@@ -230,7 +231,7 @@ describe("configureWikiTools", () => {
       const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "wiki_list_pages");
       if (!call) throw new Error("wiki_list_pages tool not registered");
       const [, , , handler] = call;
-      mockWikiApi.getPagesBatch.mockResolvedValue({ value: ["page1", "page2"] });
+      mockWikiApi.getPagesBatch.mockResolvedValue(rememberContinuationToken(["page1", "page2"], "token456"));
 
       const params = {
         wikiIdentifier: "wiki2",
@@ -251,7 +252,7 @@ describe("configureWikiTools", () => {
         "proj2",
         "wiki2"
       );
-      expect(parsedResult.value).toEqual(["page1", "page2"]);
+      expect(parsedResult).toEqual({ hasMore: true, continuationToken: "token456", items: ["page1", "page2"] });
       expect(result.isError).toBeUndefined();
     });
 

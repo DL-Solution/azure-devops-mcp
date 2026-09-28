@@ -214,6 +214,20 @@ describe("service hooks, service connections and graph administration", () => {
       ]);
     });
 
+    it("pages service principals by the continuation token header", async () => {
+      respond('{"count":1,"value":[{"displayName":"sp"}]}', 200, { "x-ms-continuationtoken": "more" });
+      const page = await graph(GRAPH_TOOLS.list_service_principals)({});
+      expect(JSON.parse(page.content[0].text)).toEqual({ hasMore: true, continuationToken: "more", items: [{ displayName: "sp" }] });
+
+      respond("");
+      const empty = await graph(GRAPH_TOOLS.list_service_principals)({});
+      expect(JSON.parse(empty.content[0].text)).toEqual({ hasMore: false, items: [] });
+
+      respond("denied", 403);
+      const failed = await graph(GRAPH_TOOLS.list_service_principals)({});
+      expect(failed).toMatchObject({ isError: true, content: [{ text: "Error listing service principals: Failed to list service principals (403): denied" }] });
+    });
+
     it("searches users and groups by default", async () => {
       respond('{"value":[]}');
 
