@@ -17,6 +17,7 @@ import { createExternalContentResponse } from "../shared/content-safety.js";
 import { getUserIdentityFromEmail } from "./auth.js";
 import { continuationTokenParam, optionalProject, optionalTeam, optionalTeamWith, requiredProjectWith } from "../shared/common-params.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
+import { adoErrorText, isHtmlResponse } from "../shared/ado-rest.js";
 
 const WORKITEM_TOOLS = {
   my_work_items: "wit_my_work_items",
@@ -2728,8 +2729,8 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           body: JSON.stringify({ ids, destroy, skipNotifications }),
         });
         const text = await response.text();
-        if (!response.ok) {
-          throw new Error(`${response.status}: ${text}`);
+        if (!response.ok || isHtmlResponse(response, text)) {
+          throw new Error(adoErrorText(response, text));
         }
         // Usually 204 with no body: the request was accepted as a whole.
         if (!text.trim()) {
@@ -2773,7 +2774,7 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
           headers: { "Authorization": `Bearer ${accessToken}`, "User-Agent": userAgentProvider() },
         });
         if (!response.ok) {
-          throw new Error(`${response.status}: ${await response.text()}`);
+          throw new Error(adoErrorText(response, await response.text()));
         }
         return jsonResult({ deleted: attachmentId });
       } catch (error) {

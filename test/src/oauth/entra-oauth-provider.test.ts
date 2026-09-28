@@ -12,6 +12,7 @@ jest.mock("../../../src/logger", () => ({
 jest.mock("jose", () => ({ createRemoteJWKSet: jest.fn(), jwtVerify: jest.fn() }));
 
 import { EntraOAuthProvider } from "../../../src/shared/oauth/entra-oauth-provider";
+import { logger } from "../../../src/logger";
 import { InMemoryOAuthStateStore } from "../../../src/shared/oauth/state-store";
 import type { OAuthServerProvider } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 
@@ -97,6 +98,14 @@ describe("EntraOAuthProvider", () => {
       "not a url",
     ])("refuses to register the redirect URI %s", async (uri) => {
       await expect(provider.clientsStore.registerClient?.({ redirect_uris: [uri] } as never)).rejects.toThrow("redirect_uri not allowed");
+    });
+
+    it("logs a refused registration with the URI it asked for", async () => {
+      await provider.clientsStore.registerClient?.({ redirect_uris: ["https://global.consent.azure-apim.net/redirect/x"], client_name: "Copilot Studio" } as never).catch(() => undefined);
+      expect(logger.warn).toHaveBeenCalledWith("OAuth client registration refused: redirect URI not allowed", {
+        redirectUris: ["https://global.consent.azure-apim.net/redirect/x"],
+        clientName: "Copilot Studio",
+      });
     });
 
     it("refuses a registration that mixes an allowed and a foreign redirect URI", async () => {

@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoErrorText, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const PERMISSIONS_TOOLS = {
@@ -39,8 +39,8 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
     try {
       const response = await request(pathAndQuery, method, body);
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       return jsonTextResult(text || JSON.stringify({ ok: true }));
     } catch (error) {
@@ -64,8 +64,8 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
 
         const path = namespaceId ? `securitynamespaces/${encodeURIComponent(namespaceId)}` : "securitynamespaces";
         const response = await request(`${path}?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list security namespaces (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list security namespaces (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -95,8 +95,8 @@ function configurePermissionsTools(server: McpServer, tokenProvider: () => Promi
         if (recurse !== undefined) params.append("recurse", String(recurse));
 
         const response = await request(`accesscontrollists/${encodeURIComponent(namespaceId)}?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to get access control lists (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get access control lists (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());

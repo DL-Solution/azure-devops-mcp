@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoErrorText, adoFetch, isHtmlResponse, subdomainBaseUrl } from "../shared/ado-rest.js";
 import { jsonTextResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenParam } from "../shared/common-params.js";
 
@@ -49,8 +49,8 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
     try {
       const response = await request("GET", pathAndQuery);
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${failure} (${response.status}): ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(`${failure} (${response.status}): ${adoErrorMessage(response, text)}`);
       }
       const body = text ? (JSON.parse(text) as { value?: unknown }) : {};
       return pagedResult(body.value ?? [], response.headers.get("x-ms-continuationtoken") ?? undefined);
@@ -88,8 +88,8 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
         if (response.status === 404) {
           return { content: [{ type: "text", text: `User '${userDescriptor}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get user (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get user (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -128,8 +128,8 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Group '${groupDescriptor}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get group (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get group (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -151,8 +151,8 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
       try {
         const params = new URLSearchParams({ "api-version": graphApiVersion, direction });
         const response = await request("GET", `memberships/${encodeURIComponent(subjectDescriptor)}?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list memberships (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list memberships (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -173,8 +173,8 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
     async ({ subjectDescriptor, containerDescriptor }) => {
       try {
         const response = await request("PUT", `memberships/${encodeURIComponent(subjectDescriptor)}/${encodeURIComponent(containerDescriptor)}?api-version=${graphApiVersion}`);
-        if (!response.ok) {
-          throw new Error(`Failed to add membership (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to add membership (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -195,8 +195,8 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
     async ({ subjectDescriptor, containerDescriptor }) => {
       try {
         const response = await request("DELETE", `memberships/${encodeURIComponent(subjectDescriptor)}/${encodeURIComponent(containerDescriptor)}?api-version=${graphApiVersion}`);
-        if (!response.ok) {
-          throw new Error(`Failed to remove membership (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to remove membership (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return { content: [{ type: "text", text: `Membership removed: '${subjectDescriptor}' from '${containerDescriptor}'.` }] };
@@ -216,8 +216,8 @@ function configureGraphTools(server: McpServer, tokenProvider: () => Promise<str
       if (response.status === 404 && options.notFound) {
         return { content: [{ type: "text" as const, text: options.notFound }] };
       }
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       return jsonTextResult(text || "Done.");
     } catch (error) {

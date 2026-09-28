@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoErrorText, adoFetch, isHtmlResponse, subdomainBaseUrl } from "../shared/ado-rest.js";
 import { errorMessage, jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const ARTIFACTS_TOOLS = {
@@ -144,8 +144,8 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
         return { content: [{ type: "text" as const, text: options.notFound }], isError: true };
       }
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       return jsonTextResult(text || options.empty || "Done.");
     } catch (error) {
@@ -178,8 +178,8 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
         if (feedRole) params.append("feedRole", feedRole);
 
         const response = await request("GET", project, `feeds?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list feeds (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list feeds (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -203,8 +203,8 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Feed '${feedId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get feed (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get feed (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -226,8 +226,8 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
     async ({ name, description, project }) => {
       try {
         const response = await request("POST", project, `feeds?api-version=${artifactsApiVersion}`, { name, description });
-        if (!response.ok) {
-          throw new Error(`Failed to create feed (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to create feed (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -255,8 +255,8 @@ function configureArtifactsTools(server: McpServer, tokenProvider: () => Promise
         if (packageNameQuery) params.append("packageNameQuery", packageNameQuery);
 
         const response = await request("GET", project, `feeds/${encodeURIComponent(feedId)}/packages?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list packages (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list packages (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());

@@ -4,6 +4,7 @@
 import { WebApi } from "azure-devops-node-api";
 import { apiVersion } from "../utils.js";
 import { IdentityBase } from "azure-devops-node-api/interfaces/IdentitiesInterfaces.js";
+import { adoErrorMessage, isHtmlResponse } from "../shared/ado-rest.js";
 
 interface IdentitiesResponse {
   value: IdentityBase[];
@@ -38,9 +39,9 @@ async function fetchVssps<T>(url: string, token: string, userAgent: string, body
     },
   });
 
-  if (!response.ok) {
+  if (!response.ok || isHtmlResponse(response)) {
     const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText}`);
+    throw new Error(`HTTP ${response.status}: ${adoErrorMessage(response, errorText)}`);
   }
 
   return await response.json();

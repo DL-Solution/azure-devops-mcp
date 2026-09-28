@@ -9,6 +9,7 @@ import { z } from "zod";
 import { apiVersion, safeEnumConvert } from "../utils.js";
 import { requiredProject, requiredProjectWith, continuationTokenParam } from "../shared/common-params.js";
 import { jsonResult, toolError, errorMessage } from "../shared/tool-results.js";
+import { adoErrorMessage, isHtmlResponse } from "../shared/ado-rest.js";
 
 const Test_Plan_Tools = {
   create_test_plan: "testplan_create_test_plan",
@@ -110,9 +111,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           headers,
         });
 
-        if (!response.ok) {
+        if (!response.ok || isHtmlResponse(response)) {
           const errorText = await response.text();
-          throw new Error(`Failed to list test plans (${response.status}): ${errorText}`);
+          throw new Error(`Failed to list test plans (${response.status}): ${adoErrorMessage(response, errorText)}`);
         }
 
         const body = await response.json();
@@ -415,9 +416,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           headers,
         });
 
-        if (!response.ok) {
+        if (!response.ok || isHtmlResponse(response)) {
           const errorText = await response.text();
-          throw new Error(`Failed to list test cases (${response.status}): ${errorText}`);
+          throw new Error(`Failed to list test cases (${response.status}): ${adoErrorMessage(response, errorText)}`);
         }
 
         const body = await response.json();
@@ -531,9 +532,9 @@ function configureTestPlanTools(server: McpServer, tokenProvider: () => Promise<
           headers,
         });
 
-        if (!response.ok) {
+        if (!response.ok || isHtmlResponse(response)) {
           const errorText = await response.text();
-          throw new Error(`Failed to list test suites (${response.status}): ${errorText}`);
+          throw new Error(`Failed to list test suites (${response.status}): ${adoErrorMessage(response, errorText)}`);
         }
 
         const body = await response.json();

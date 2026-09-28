@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoFetch, isHtmlResponse, subdomainBaseUrl } from "../shared/ado-rest.js";
 import { jsonTextResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenParam } from "../shared/common-params.js";
 
@@ -70,8 +70,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         if (continuationToken) params.append("continuationToken", continuationToken);
 
         const response = await memberEntitlementFetch("GET", `userentitlements?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list user entitlements (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list user entitlements (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -94,8 +94,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         if (response.status === 404) {
           return { content: [{ type: "text", text: `User entitlement '${userId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get user entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get user entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -121,8 +121,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         };
 
         const response = await memberEntitlementFetch("POST", `userentitlements?api-version=${memberEntitlementApiVersion}`, body);
-        if (!response.ok) {
-          throw new Error(`Failed to add user entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to add user entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -150,8 +150,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
           patchDocument,
           "application/json-patch+json"
         );
-        if (!response.ok) {
-          throw new Error(`Failed to update user entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to update user entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -174,8 +174,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         if (response.status === 404) {
           return { content: [{ type: "text", text: `User entitlement '${userId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to delete user entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to delete user entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return { content: [{ type: "text", text: `User '${userId}' was removed from the organization.` }] };
@@ -198,8 +198,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         if (select) params.append("select", select);
 
         const response = await memberEntitlementFetch("GET", `userentitlementsummary?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to get entitlement summary (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get entitlement summary (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -217,8 +217,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
     async () => {
       try {
         const response = await memberEntitlementFetch("GET", `groupentitlements?api-version=${groupEntitlementApiVersion}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list group entitlements (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list group entitlements (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -241,8 +241,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Group entitlement '${groupId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get group entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get group entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -267,8 +267,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         const patch = [{ op: "replace", path: "/licenseRule", from: "", value: { accountLicenseType, licensingSource: "account" } }];
 
         const response = await memberEntitlementFetch("PATCH", `groupentitlements/${encodeURIComponent(groupId)}?${params.toString()}`, patch, "application/json-patch+json");
-        if (!response.ok) {
-          throw new Error(`Failed to update group entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to update group entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -294,8 +294,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         if (continuationToken) params.append("continuationToken", continuationToken);
 
         const response = await memberEntitlementFetch("GET", `groupentitlements/${encodeURIComponent(groupId)}/members?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list group members (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list group members (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -316,8 +316,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
     async ({ groupId, memberId }) => {
       try {
         const response = await memberEntitlementFetch("PUT", `groupentitlements/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}?api-version=${groupMembersApiVersion}`);
-        if (!response.ok) {
-          throw new Error(`Failed to add group member (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to add group member (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return { content: [{ type: "text", text: `User '${memberId}' was added to group entitlement '${groupId}'.` }] };
@@ -338,8 +338,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
     async ({ groupId, memberId }) => {
       try {
         const response = await memberEntitlementFetch("DELETE", `groupentitlements/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}?api-version=${groupMembersApiVersion}`);
-        if (!response.ok) {
-          throw new Error(`Failed to remove group member (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to remove group member (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return { content: [{ type: "text", text: `User '${memberId}' was removed from group entitlement '${groupId}'.` }] };
@@ -378,8 +378,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         };
 
         const response = await memberEntitlementFetch("POST", `groupentitlements?${params.toString()}`, body);
-        if (!response.ok) {
-          throw new Error(`Failed to create group entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to create group entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -410,8 +410,8 @@ function configureMemberEntitlementTools(server: McpServer, tokenProvider: () =>
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Group entitlement '${groupId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to delete group entitlement (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to delete group entitlement (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());

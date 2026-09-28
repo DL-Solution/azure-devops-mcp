@@ -15,6 +15,7 @@ import { join, posix, resolve, win32 } from "path";
 import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
 import { jsonResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenOf } from "../shared/continuation.js";
+import { adoErrorMessage, isHtmlResponse } from "../shared/ado-rest.js";
 
 // node-api deserializes status/result into numeric enums; the REST API itself answers with names, so give the model those.
 function buildOutcome(build: Build) {
@@ -635,9 +636,9 @@ function configurePipelineTools(server: McpServer, tokenProvider: () => Promise<
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) {
+      if (!response.ok || isHtmlResponse(response)) {
         const errorText = await response.text();
-        throw new Error(`Failed to update build stage: ${response.status} ${errorText}`);
+        throw new Error(`Failed to update build stage: ${response.status} ${adoErrorMessage(response, errorText)}`);
       }
 
       // The body is JSON text already (or empty): parse it, so the model gets the object and not a quoted string.

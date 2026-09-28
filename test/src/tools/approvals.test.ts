@@ -262,12 +262,12 @@ describe("configureApprovalsTools", () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("surfaces an API error with its status and body", async () => {
+    it("surfaces an API error with its status and message", async () => {
       mockFetch.mockResolvedValue(ok('{"message":"does not exist"}', 404));
 
       const result = await getHandler(APPROVALS_TOOLS.get_check_configuration)({ project: "Contoso", checkId: 99 });
 
-      expect(result).toEqual({ content: [{ type: "text", text: 'Error getting check configuration 99: 404: {"message":"does not exist"}' }], isError: true });
+      expect(result).toEqual({ content: [{ type: "text", text: "Error getting check configuration 99: 404: does not exist" }], isError: true });
     });
 
     it("surfaces a network failure", async () => {

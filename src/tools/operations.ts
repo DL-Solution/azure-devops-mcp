@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const OPERATIONS_TOOLS = {
@@ -41,8 +41,8 @@ function configureOperationsTools(server: McpServer, tokenProvider: () => Promis
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Operation '${operationId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get operation (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get operation (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());

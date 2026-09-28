@@ -16,7 +16,7 @@ import {
 } from "azure-devops-node-api/interfaces/TaskAgentInterfaces.js";
 import { resolveProject } from "../shared/elicitations.js";
 import { optionalProject, continuationTokenParam } from "../shared/common-params.js";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorText, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { jsonResult, jsonTextResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenOf } from "../shared/continuation.js";
 import { Readable } from "stream";
@@ -711,8 +711,8 @@ function configureTaskAgentTools(server: McpServer, tokenProvider: () => Promise
       const connection = await connectionProvider();
       const response = await adoFetch({ url: `${connection.serverUrl}/${path}`, method, token: await tokenProvider(), userAgent: userAgentProvider(), body });
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       return jsonTextResult(text || "Done.");
     } catch (error) {

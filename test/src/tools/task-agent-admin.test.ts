@@ -259,7 +259,7 @@ describe("task agent administration tools", () => {
 
       const result = await handlerFor(T.get_elastic_pool)({ poolId: 1 });
 
-      expect(result).toEqual({ content: [{ type: "text", text: 'Error getting elastic pool 1: 404: {"message":"Elastic pool not found"}' }], isError: true });
+      expect(result).toEqual({ content: [{ type: "text", text: "Error getting elastic pool 1: 404: Elastic pool not found" }], isError: true });
     });
   });
 
