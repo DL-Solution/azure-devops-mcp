@@ -159,6 +159,10 @@ class StateBackedClientsStore implements OAuthRegisteredClientsStore {
   async registerClient(client: Omit<OAuthClientInformationFull, "client_id" | "client_id_issued_at">): Promise<OAuthClientInformationFull> {
     const disallowed = disallowedRedirectUris(client);
     if (disallowed.length > 0) {
+      // Logged because the refusal is otherwise invisible: the client only shows
+      // its user a generic "could not connect". The URI is what to add to
+      // ALLOWED_REDIRECT_URIS if the client turns out to be a legitimate one.
+      logger.warn("OAuth client registration refused: redirect URI not allowed", { redirectUris: disallowed, clientName: client.client_name });
       throw new InvalidClientMetadataError(`redirect_uri not allowed: ${disallowed.join(", ")}`);
     }
     const registered: OAuthClientInformationFull = {
