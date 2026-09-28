@@ -121,9 +121,14 @@ const ADO_DEFAULT_SCOPE = "499b84ac-1321-427f-aa17-267ca6975798/.default";
 // from the MCP security best practices. Claude's connector callback, VS Code's
 // (stable and Insiders) and loopback (RFC 8252: local clients such as Claude
 // Code or MCP Inspector, any port) are the only destinations; a code sent to
-// someone else's localhost reaches no one.
+// someone else's localhost reaches no one. Copilot Studio (Power Platform)
+// gives every connector its own callback on Microsoft's consent service,
+// https://global.consent.azure-apim.net/redirect/<connector id>, so that one is
+// matched by host and path shape rather than listed.
 const ALLOWED_REDIRECT_URIS = new Set(["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback", "https://vscode.dev/redirect", "https://insiders.vscode.dev/redirect"]);
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+const POWER_PLATFORM_CONSENT_HOST = "global.consent.azure-apim.net";
+const POWER_PLATFORM_CONSENT_PATH = /^\/redirect\/[a-z0-9-]+$/i;
 
 export function isAllowedRedirectUri(uri: string): boolean {
   let url: URL;
@@ -133,6 +138,17 @@ export function isAllowedRedirectUri(uri: string): boolean {
     return false;
   }
   if (url.protocol === "http:" && url.username === "" && url.password === "" && LOOPBACK_HOSTS.has(url.hostname)) {
+    return true;
+  }
+  if (
+    url.protocol === "https:" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.host === POWER_PLATFORM_CONSENT_HOST &&
+    POWER_PLATFORM_CONSENT_PATH.test(url.pathname) &&
+    url.search === "" &&
+    url.hash === ""
+  ) {
     return true;
   }
   return ALLOWED_REDIRECT_URIS.has(url.href);

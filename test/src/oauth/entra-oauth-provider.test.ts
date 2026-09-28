@@ -79,6 +79,7 @@ describe("EntraOAuthProvider", () => {
       "https://claude.com/api/mcp/auth_callback",
       "https://vscode.dev/redirect",
       "https://insiders.vscode.dev/redirect",
+      "https://global.consent.azure-apim.net/redirect/cr8cf-5fado-2ddl-2dsol-5fb73101f538449b05",
       "http://localhost:33418/callback",
       "http://127.0.0.1:6274/oauth/callback",
       "http://[::1]:8080/cb",
@@ -95,16 +96,24 @@ describe("EntraOAuthProvider", () => {
       "http://localhost.evil.example/cb",
       "http://user:pass@localhost/cb",
       "https://vscode.dev/other",
+      "https://global.consent.azure-apim.net/redirect",
+      "https://global.consent.azure-apim.net/redirect/a/b",
+      "https://global.consent.azure-apim.net/redirect/abc?next=https://evil.example",
+      "https://global.consent.azure-apim.net:8443/redirect/abc",
+      "https://user@global.consent.azure-apim.net/redirect/abc",
+      "https://evil.consent.azure-apim.net/redirect/abc",
+      "https://global.consent.azure-apim.net.evil.example/redirect/abc",
+      "http://global.consent.azure-apim.net/redirect/abc",
       "not a url",
     ])("refuses to register the redirect URI %s", async (uri) => {
       await expect(provider.clientsStore.registerClient?.({ redirect_uris: [uri] } as never)).rejects.toThrow("redirect_uri not allowed");
     });
 
     it("logs a refused registration with the URI it asked for", async () => {
-      await provider.clientsStore.registerClient?.({ redirect_uris: ["https://global.consent.azure-apim.net/redirect/x"], client_name: "Copilot Studio" } as never).catch(() => undefined);
+      await provider.clientsStore.registerClient?.({ redirect_uris: ["https://evil.example/cb"], client_name: "Unknown client" } as never).catch(() => undefined);
       expect(logger.warn).toHaveBeenCalledWith("OAuth client registration refused: redirect URI not allowed", {
-        redirectUris: ["https://global.consent.azure-apim.net/redirect/x"],
-        clientName: "Copilot Studio",
+        redirectUris: ["https://evil.example/cb"],
+        clientName: "Unknown client",
       });
     });
 
