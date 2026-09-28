@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoErrorText, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { requiredProject } from "../shared/common-params.js";
 import { compactJsonText, jsonTextResult, toolError } from "../shared/tool-results.js";
 
@@ -49,8 +49,8 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
         if (includeFailed !== undefined) params.append("includeFailed", String(includeFailed));
 
         const response = await request("GET", `${encodeURIComponent(project)}/_apis/serviceendpoint/endpoints?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list service endpoints (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list service endpoints (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -74,8 +74,8 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Service endpoint '${endpointId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get service endpoint (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get service endpoint (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -95,8 +95,8 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
     async ({ endpoint }) => {
       try {
         const response = await request("POST", `_apis/serviceendpoint/endpoints?api-version=${serviceEndpointApiVersion}`, endpoint);
-        if (!response.ok) {
-          throw new Error(`Failed to create service endpoint (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to create service endpoint (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -118,8 +118,8 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
       try {
         const params = new URLSearchParams({ "api-version": serviceEndpointApiVersion, "projectIds": projectIds.join(",") });
         const response = await request("DELETE", `_apis/serviceendpoint/endpoints/${encodeURIComponent(endpointId)}?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to delete service endpoint (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to delete service endpoint (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return { content: [{ type: "text", text: `Service endpoint '${endpointId}' deleted from project(s): ${projectIds.join(", ")}.` }] };
@@ -133,8 +133,8 @@ function configureServiceEndpointTools(server: McpServer, tokenProvider: () => P
     try {
       const response = await request(method, pathAndQuery, body);
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       const continuationToken = response.headers?.get("x-ms-continuationtoken");
       const result = continuationToken ? `${compactJsonText(text)}\n\nMore records: pass continuationToken ${continuationToken}.` : compactJsonText(text);

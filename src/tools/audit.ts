@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoFetch, isHtmlResponse, subdomainBaseUrl } from "../shared/ado-rest.js";
 import { jsonTextResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenParam } from "../shared/common-params.js";
 
@@ -45,8 +45,8 @@ function configureAuditTools(server: McpServer, tokenProvider: () => Promise<str
         if (skipAggregation !== undefined) params.append("skipAggregation", String(skipAggregation));
 
         const response = await request(`auditlog?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to query audit log (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to query audit log (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -59,8 +59,8 @@ function configureAuditTools(server: McpServer, tokenProvider: () => Promise<str
   registerTool(server, AUDIT_TOOLS.list_actions, "List the available audit action IDs (the catalog of auditable actions), useful for understanding or filtering audit log entries.", {}, async () => {
     try {
       const response = await request(`actions?api-version=${auditApiVersion}`);
-      if (!response.ok) {
-        throw new Error(`Failed to list audit actions (${response.status}): ${await response.text()}`);
+      if (!response.ok || isHtmlResponse(response)) {
+        throw new Error(`Failed to list audit actions (${response.status}): ${adoErrorMessage(response, await response.text())}`);
       }
 
       return jsonTextResult(await response.text());

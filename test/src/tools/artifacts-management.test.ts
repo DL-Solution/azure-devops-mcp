@@ -207,12 +207,24 @@ describe("artifacts management tools", () => {
       expect(request().url).toBe(`${FEEDS}/_apis/packaging/feeds/shared/packagechanges?${V}&continuationToken=120&batchSize=50`);
     });
 
-    it("surfaces an API error with its status and body", async () => {
+    it("surfaces an API error with its status and message", async () => {
       respond('{"message":"VS800075: no permission"}', 403);
 
       const result = await handlerFor(ARTIFACTS_TOOLS.list_feed_views)({ feedId: "shared" });
 
-      expect(result).toEqual({ content: [{ type: "text", text: 'Error listing views of feed \'shared\': 403: {"message":"VS800075: no permission"}' }], isError: true });
+      expect(result).toEqual({ content: [{ type: "text", text: "Error listing views of feed 'shared': 403: VS800075: no permission" }], isError: true });
+    });
+
+    it("reports a sign-in page served with 200 as an error", async () => {
+      // No content type: the body alone gives the page away.
+      respond("<!DOCTYPE html>\n<html><head><title>Sign in</title></head></html>");
+
+      const result = await handlerFor(ARTIFACTS_TOOLS.list_feed_views)({ feedId: "shared" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toBe(
+        "Error listing views of feed 'shared': 200: Azure DevOps returned an HTML page instead of JSON (usually a sign-in page: the token is missing, expired or lacks access)"
+      );
     });
 
     it("surfaces a network failure", async () => {

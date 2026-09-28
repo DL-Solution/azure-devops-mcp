@@ -17,7 +17,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
 
-import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { adoErrorText, adoFetch, isHtmlResponse, subdomainBaseUrl } from "../shared/ado-rest.js";
 import { optionalProjectWith } from "../shared/common-params.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
 import { registerTool } from "../shared/tool-registration.js";
@@ -44,16 +44,10 @@ function configureAnalyticsTools(server: McpServer, tokenProvider: () => Promise
     const token = await tokenProvider();
     const response = await adoFetch({ url, method: "GET", token, userAgent: userAgentProvider() });
     const body = await response.text();
-    if (!response.ok) {
+    if (!response.ok || isHtmlResponse(response, body)) {
       // OData reports a malformed query as {"error":{"code":..,"message":..}};
       // the message names the offending property, which is what the model needs.
-      let message = body;
-      try {
-        message = JSON.parse(body)?.error?.message ?? body;
-      } catch {
-        // not JSON — keep the raw body
-      }
-      return { ok: false, message: `${response.status}: ${message}` };
+      return { ok: false, message: adoErrorText(response, body) };
     }
     return { ok: true, body };
   }

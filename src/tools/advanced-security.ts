@@ -8,7 +8,7 @@ import { AlertType, AlertValidityStatus, Confidence, Severity, State } from "azu
 import { z } from "zod";
 import { getEnumKeys, mapStringArrayToEnum, mapStringToEnum } from "../utils.js";
 import { continuationTokenParam, optionalProjectWith, requiredProject } from "../shared/common-params.js";
-import { adoFetch, subdomainBaseUrl } from "../shared/ado-rest.js";
+import { adoErrorText, adoFetch, isHtmlResponse, subdomainBaseUrl } from "../shared/ado-rest.js";
 import { jsonResult, toolError } from "../shared/tool-results.js";
 
 const ADVSEC_TOOLS = {
@@ -178,8 +178,8 @@ function configureAdvSecTools(server: McpServer, tokenProvider: () => Promise<st
       const baseUrl = subdomainBaseUrl(connection.serverUrl, "advsec");
       const response = await adoFetch({ url: `${baseUrl}/${pathAndQuery}`, method, token, userAgent: userAgentProvider(), body });
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       const continuationToken = response.headers?.get("x-ms-continuationtoken");
       const result = continuationToken ? `${text}\n\nMore results: pass continuationToken ${continuationToken}.` : text;

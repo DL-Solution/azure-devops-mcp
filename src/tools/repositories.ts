@@ -40,7 +40,9 @@ import { WebApiTagDefinition } from "azure-devops-node-api/interfaces/CoreInterf
 import { extractAdoStreamError, getEnumKeys, safeEnumConvert, streamToString } from "../utils.js";
 import { requiredProject } from "../shared/common-params.js";
 import { errorMessage, jsonResult, toolError } from "../shared/tool-results.js";
-import { withEnumNames } from "../shared/enum-names.js";
+import { type TypeInfoLike, withEnumNames } from "../shared/enum-names.js";
+import { IdentityRef } from "azure-devops-node-api/interfaces/common/VSSInterfaces.js";
+import { logger } from "../logger.js";
 
 const REPO_TOOLS = {
   list_repos_by_project: "repo_list_repos_by_project",
@@ -246,6 +248,66 @@ function trimPullRequest(pr: GitPullRequest | null | undefined, includeDescripti
     targetRefName: pr.targetRefName,
     project: pr.repository?.project?.name,
   };
+}
+
+function trimIdentity(identity: IdentityRef | undefined) {
+  return identity ? { displayName: identity.displayName, uniqueName: identity.uniqueName } : undefined;
+}
+
+// A reviewer's vote is a plain number in the API (no enum in TypeInfo), so name it here.
+const REVIEWER_VOTE_NAMES: Record<number, string> = {
+  10: "approved",
+  5: "approvedWithSuggestions",
+  0: "noVote",
+  [-5]: "waitingForAuthor",
+  [-10]: "rejected",
+};
+
+// The enum fields detailPullRequest lifts out of the DTO, so jsonResult names them.
+const PULL_REQUEST_DETAIL_TYPE_INFO: TypeInfoLike = {
+  fields: {
+    mergeStatus: { enumType: GitTypeInfo.PullRequestAsyncStatus },
+    mergeFailureType: { enumType: GitTypeInfo.PullRequestMergeFailureType },
+    completionOptions: { typeInfo: GitTypeInfo.GitPullRequestCompletionOptions },
+  },
+};
+
+/**
+ * The single-PR view: everything `trimPullRequest(pr, true)` gives, plus what a
+ * reviewer or a merge needs — votes, merge state, the merge commits, completion
+ * settings, linked work items and labels. Identities are cut to name and
+ * uniqueName, as in the list view.
+ */
+function detailPullRequest(pr: GitPullRequest): Record<string, unknown> {
+  return withEnumNames(
+    {
+      ...trimPullRequest(pr, true),
+      reviewers: pr.reviewers?.map((reviewer) => ({
+        id: reviewer.id,
+        displayName: reviewer.displayName,
+        uniqueName: reviewer.uniqueName,
+        vote: reviewer.vote,
+        voteName: typeof reviewer.vote === "number" ? REVIEWER_VOTE_NAMES[reviewer.vote] : undefined,
+        isRequired: reviewer.isRequired,
+        hasDeclined: reviewer.hasDeclined,
+        isFlagged: reviewer.isFlagged,
+      })),
+      mergeStatus: pr.mergeStatus,
+      mergeFailureType: pr.mergeFailureType,
+      mergeFailureMessage: pr.mergeFailureMessage,
+      lastMergeSourceCommit: pr.lastMergeSourceCommit?.commitId,
+      lastMergeTargetCommit: pr.lastMergeTargetCommit?.commitId,
+      lastMergeCommit: pr.lastMergeCommit?.commitId,
+      autoCompleteSetBy: trimIdentity(pr.autoCompleteSetBy),
+      completionOptions: pr.completionOptions,
+      closedBy: trimIdentity(pr.closedBy),
+      workItemRefs: pr.workItemRefs?.map((ref) => ref.id),
+      labels: pr.labels?.map((label) => label.name),
+      supportsIterations: pr.supportsIterations,
+      webUrl: (pr._links as { web?: { href?: string } } | undefined)?.web?.href,
+    },
+    PULL_REQUEST_DETAIL_TYPE_INFO
+  );
 }
 
 /**
@@ -1124,7 +1186,8 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         const gitApi = await connection.getGitApi();
         const pullRequest = await gitApi.getPullRequest(repositoryId, pullRequestId, project, undefined, undefined, undefined, undefined, includeWorkItemRefs);
 
-        let enhancedResponse: Record<string, unknown> = { ...pullRequest };
+        // Extras are added in place: a copy would lose the enum TypeInfo detailPullRequest attached.
+        const enhancedResponse = detailPullRequest(pullRequest);
 
         if (includeLabels) {
           try {
@@ -1134,63 +1197,40 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
 
             const labelNames = labels.map((label) => label.name).filter((name) => name !== undefined);
 
-            enhancedResponse = {
-              ...enhancedResponse,
-              labelSummary: {
-                labels: labelNames,
-                labelCount: labelNames.length,
-              },
+            enhancedResponse.labelSummary = {
+              labels: labelNames,
+              labelCount: labelNames.length,
             };
           } catch (error) {
-            console.warn(`Error fetching PR labels: ${errorMessage(error)}`);
-            enhancedResponse = {
-              ...enhancedResponse,
-              labelSummary: {},
-            };
+            logger.warn(`Error fetching PR labels: ${errorMessage(error)}`);
+            enhancedResponse.labelSummary = {};
           }
         }
 
         if (includeChangedFiles) {
           try {
             const iterations = await gitApi.getPullRequestIterations(repositoryId, pullRequestId, project);
+            const latestIteration = iterations?.length ? iterations[iterations.length - 1] : undefined;
 
-            if (iterations?.length) {
-              const latestIteration = iterations[iterations.length - 1];
+            if (latestIteration?.id != null) {
+              const changes = await gitApi.getPullRequestIterationChanges(repositoryId, pullRequestId, latestIteration.id, project);
 
-              if (latestIteration.id != null) {
-                const changes = await gitApi.getPullRequestIterationChanges(repositoryId, pullRequestId, latestIteration.id, project);
-
-                enhancedResponse = {
-                  ...enhancedResponse,
-                  changedFilesSummary: {
-                    changeEntries: changes?.changeEntries ?? [],
-                    fileCount: changes?.changeEntries?.length ?? 0,
-                    // What repo_create_pull_request_thread needs to anchor a comment to this diff.
-                    // The changes above are the full diff from the base (no compareTo), i.e. iterations 1..N.
-                    firstComparingIteration: 1,
-                    secondComparingIteration: latestIteration.id,
-                    nextSkip: changes?.nextSkip,
-                    nextTop: changes?.nextTop,
-                  },
-                };
-              } else {
-                enhancedResponse = {
-                  ...enhancedResponse,
-                  changedFilesSummary: { changeEntries: [], fileCount: 0 },
-                };
-              }
-            } else {
-              enhancedResponse = {
-                ...enhancedResponse,
-                changedFilesSummary: { changeEntries: [], fileCount: 0 },
+              enhancedResponse.changedFilesSummary = {
+                changeEntries: changes?.changeEntries ?? [],
+                fileCount: changes?.changeEntries?.length ?? 0,
+                // What repo_create_pull_request_thread needs to anchor a comment to this diff.
+                // The changes above are the full diff from the base (no compareTo), i.e. iterations 1..N.
+                firstComparingIteration: 1,
+                secondComparingIteration: latestIteration.id,
+                nextSkip: changes?.nextSkip,
+                nextTop: changes?.nextTop,
               };
+            } else {
+              enhancedResponse.changedFilesSummary = { changeEntries: [], fileCount: 0 };
             }
           } catch (error) {
-            console.warn(`Error fetching PR changed files: ${errorMessage(error)}`);
-            enhancedResponse = {
-              ...enhancedResponse,
-              changedFilesSummary: {},
-            };
+            logger.warn(`Error fetching PR changed files: ${errorMessage(error)}`);
+            enhancedResponse.changedFilesSummary = {};
           }
         }
 

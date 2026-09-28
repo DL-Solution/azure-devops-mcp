@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoErrorText, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const SERVICE_HOOKS_TOOLS = {
@@ -52,8 +52,8 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
         if (consumerId) params.append("consumerId", consumerId);
 
         const response = await request("GET", `_apis/hooks/subscriptions?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`Failed to list subscriptions (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list subscriptions (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -76,8 +76,8 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Subscription '${subscriptionId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get subscription (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get subscription (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -97,8 +97,8 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
     async ({ subscription }) => {
       try {
         const response = await request("POST", `_apis/hooks/subscriptions?api-version=${serviceHooksApiVersion}`, subscription);
-        if (!response.ok) {
-          throw new Error(`Failed to create subscription (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to create subscription (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -118,8 +118,8 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
     async ({ subscriptionId }) => {
       try {
         const response = await request("DELETE", `_apis/hooks/subscriptions/${encodeURIComponent(subscriptionId)}?api-version=${serviceHooksApiVersion}`);
-        if (!response.ok) {
-          throw new Error(`Failed to delete subscription (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to delete subscription (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return { content: [{ type: "text", text: `Service hook subscription '${subscriptionId}' deleted.` }] };
@@ -133,8 +133,8 @@ function configureServiceHooksTools(server: McpServer, tokenProvider: () => Prom
     try {
       const response = await request(method, pathAndQuery, body);
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       return jsonTextResult(text || "Done.");
     } catch (error) {

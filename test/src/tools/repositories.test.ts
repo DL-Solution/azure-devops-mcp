@@ -15,6 +15,7 @@ import {
 } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { getCurrentUserDetails, getUserIdFromEmail } from "../../../src/tools/auth";
 import { createToolServer } from "../../mocks/tool-server";
+import { logger } from "../../../src/logger";
 
 interface GitChangeShape {
   changeType?: VersionControlChangeType;
@@ -3767,6 +3768,17 @@ describe("repos tools", () => {
   });
 
   describe("repo_get_pull_request_by_id", () => {
+    // What detailPullRequest makes of the minimal mocks below: trimPullRequest's fields, nothing raw.
+    const expectedDetail = (extra: Record<string, unknown> = {}) => ({
+      pullRequestId: 123,
+      status: 1,
+      statusName: "Active",
+      createdBy: {},
+      title: "Test PR",
+      description: "",
+      ...extra,
+    });
+
     it("should get pull request by ID", async () => {
       configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
 
@@ -3790,7 +3802,120 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, false);
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedDetail());
+    });
+
+    it("should return the detail projection instead of the raw DTO", async () => {
+      configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === REPO_TOOLS.get_pull_request_by_id);
+      if (!call) throw new Error("repo_get_pull_request_by_id tool not registered");
+      const [, , , handler] = call;
+
+      const identity = (name: string) => ({
+        id: `${name}-id`,
+        displayName: name,
+        uniqueName: `${name}@contoso.com`,
+        imageUrl: "https://img",
+        descriptor: "aad.xyz",
+        _links: { avatar: { href: "https://a" } },
+      });
+      mockGitApi.getPullRequest.mockResolvedValue({
+        pullRequestId: 123,
+        codeReviewId: 123,
+        title: "Test PR",
+        description: "Body",
+        status: PullRequestStatus.Completed,
+        createdBy: identity("alice"),
+        closedBy: identity("bob"),
+        autoCompleteSetBy: identity("carol"),
+        closedDate: "2026-09-01T00:00:00Z",
+        isDraft: false,
+        supportsIterations: true,
+        sourceRefName: "refs/heads/feature",
+        targetRefName: "refs/heads/main",
+        repository: { id: "repo-guid", name: "repo", project: { id: "p1", name: "proj" } },
+        reviewers: [
+          { ...identity("dave"), vote: 10, isRequired: true, hasDeclined: false, isFlagged: false, votedFor: [], reviewerUrl: "https://r" },
+          { ...identity("erin"), vote: -5 },
+          { ...identity("frank"), vote: 0 },
+          { ...identity("grace"), vote: 5 },
+          { ...identity("heidi"), vote: -10 },
+          { ...identity("ivan"), vote: 7 },
+        ],
+        mergeStatus: 3, // PullRequestAsyncStatus.Succeeded
+        mergeFailureType: 0,
+        mergeFailureMessage: "none",
+        lastMergeSourceCommit: { commitId: "src-sha", url: "https://c1" },
+        lastMergeTargetCommit: { commitId: "tgt-sha", url: "https://c2" },
+        lastMergeCommit: { commitId: "merge-sha", url: "https://c3", author: { name: "x" } },
+        completionOptions: { mergeStrategy: 2, deleteSourceBranch: true },
+        workItemRefs: [
+          { id: "42", url: "https://w42" },
+          { id: "43", url: "https://w43" },
+        ],
+        labels: [{ id: "l1", name: "bug", active: true }],
+        url: "https://api/pr/123",
+        _links: { web: { href: "https://dev.azure.com/org/proj/_git/repo/pullrequest/123" }, self: { href: "https://api/pr/123" } },
+      });
+
+      const result = await handler({ repositoryId: "repo123", pullRequestId: 123 });
+
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        pullRequestId: 123,
+        codeReviewId: 123,
+        repository: "repo",
+        status: PullRequestStatus.Completed,
+        statusName: "Completed",
+        createdBy: { displayName: "alice", uniqueName: "alice@contoso.com" },
+        closedDate: "2026-09-01T00:00:00Z",
+        title: "Test PR",
+        description: "Body",
+        isDraft: false,
+        sourceRefName: "refs/heads/feature",
+        targetRefName: "refs/heads/main",
+        project: "proj",
+        reviewers: [
+          { id: "dave-id", displayName: "dave", uniqueName: "dave@contoso.com", vote: 10, voteName: "approved", isRequired: true, hasDeclined: false, isFlagged: false },
+          { id: "erin-id", displayName: "erin", uniqueName: "erin@contoso.com", vote: -5, voteName: "waitingForAuthor" },
+          { id: "frank-id", displayName: "frank", uniqueName: "frank@contoso.com", vote: 0, voteName: "noVote" },
+          { id: "grace-id", displayName: "grace", uniqueName: "grace@contoso.com", vote: 5, voteName: "approvedWithSuggestions" },
+          { id: "heidi-id", displayName: "heidi", uniqueName: "heidi@contoso.com", vote: -10, voteName: "rejected" },
+          { id: "ivan-id", displayName: "ivan", uniqueName: "ivan@contoso.com", vote: 7 },
+        ],
+        mergeStatus: "succeeded",
+        mergeFailureType: "none",
+        mergeFailureMessage: "none",
+        lastMergeSourceCommit: "src-sha",
+        lastMergeTargetCommit: "tgt-sha",
+        lastMergeCommit: "merge-sha",
+        autoCompleteSetBy: { displayName: "carol", uniqueName: "carol@contoso.com" },
+        completionOptions: { mergeStrategy: "squash", deleteSourceBranch: true },
+        closedBy: { displayName: "bob", uniqueName: "bob@contoso.com" },
+        workItemRefs: ["42", "43"],
+        labels: ["bug"],
+        supportsIterations: true,
+        webUrl: "https://dev.azure.com/org/proj/_git/repo/pullrequest/123",
+      });
+    });
+
+    it("should keep enum names when labels and changed files are added", async () => {
+      configureRepoTools(server, tokenProvider, connectionProvider, userAgentProvider);
+
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === REPO_TOOLS.get_pull_request_by_id);
+      if (!call) throw new Error("repo_get_pull_request_by_id tool not registered");
+      const [, , , handler] = call;
+
+      mockGitApi.getPullRequest.mockResolvedValue({ pullRequestId: 123, title: "Test PR", status: 1, mergeStatus: 2 });
+      mockGitApi.getPullRequestLabels.mockResolvedValue([]);
+      mockGitApi.getPullRequestIterations.mockResolvedValue([]);
+
+      const result = await handler({ repositoryId: "repo123", pullRequestId: 123, includeLabels: true, includeChangedFiles: true });
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.mergeStatus).toBe("conflicts");
+      expect(data.labelSummary).toEqual({ labels: [], labelCount: 0 });
+      expect(data.changedFilesSummary).toEqual({ changeEntries: [], fileCount: 0 });
     });
 
     it("should pass project parameter when provided", async () => {
@@ -3817,7 +3942,7 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("my-repo-name", 456, "my-project", undefined, undefined, undefined, undefined, false);
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedDetail({ pullRequestId: 456, title: "Test PR with project" }));
     });
 
     it("should include work item refs when requested", async () => {
@@ -3878,15 +4003,15 @@ describe("repos tools", () => {
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, false);
       expect(mockGitApi.getPullRequestLabels).toHaveBeenCalledWith("repo123", 123, "testproject", "project123");
 
-      const expectedResponse = {
-        ...mockPR,
+      const expectedResponse = expectedDetail({
+        project: "testproject",
         labelSummary: {
           labels: ["bug", "enhancement"],
           labelCount: 2,
         },
-      };
+      });
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedResponse);
     });
 
     it("should not include labels when includeLabels parameter is not specified and defaults are not applied", async () => {
@@ -3915,7 +4040,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, undefined);
       expect(mockGitApi.getPullRequestLabels).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedDetail());
     });
 
     it("should include labels by default when includeLabels is explicitly set to default value true", async () => {
@@ -3953,15 +4078,15 @@ describe("repos tools", () => {
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, false);
       expect(mockGitApi.getPullRequestLabels).toHaveBeenCalledWith("repo123", 123, "testproject", "project123");
 
-      const expectedResponse = {
-        ...mockPR,
+      const expectedResponse = expectedDetail({
+        project: "testproject",
         labelSummary: {
           labels: ["documentation"],
           labelCount: 1,
         },
-      };
+      });
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedResponse);
     });
 
     it("should not include labels when includeLabels is false", async () => {
@@ -3990,7 +4115,7 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, false);
       expect(mockGitApi.getPullRequestLabels).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedDetail());
     });
 
     it("should handle empty labels array", async () => {
@@ -4026,15 +4151,15 @@ describe("repos tools", () => {
 
       expect(mockGitApi.getPullRequestLabels).toHaveBeenCalledWith("repo123", 123, "testproject", "project123");
 
-      const expectedResponse = {
-        ...mockPR,
+      const expectedResponse = expectedDetail({
+        project: "testproject",
         labelSummary: {
           labels: [],
           labelCount: 0,
         },
-      };
+      });
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedResponse);
     });
 
     it("should handle labels with undefined names", async () => {
@@ -4072,15 +4197,15 @@ describe("repos tools", () => {
 
       const result = await handler(params);
 
-      const expectedResponse = {
-        ...mockPR,
+      const expectedResponse = expectedDetail({
+        project: "testproject",
         labelSummary: {
           labels: ["bug", "feature"], // undefined name filtered out
           labelCount: 2,
         },
-      };
+      });
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedResponse);
     });
 
     it("should handle getPullRequestLabels API error gracefully", async () => {
@@ -4105,8 +4230,7 @@ describe("repos tools", () => {
       mockGitApi.getPullRequest.mockResolvedValue(mockPR);
       mockGitApi.getPullRequestLabels.mockRejectedValue(new Error("API Error: Labels not accessible"));
 
-      // Mock console.warn to verify warning is logged
-      const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+      const warnSpy = jest.spyOn(logger, "warn").mockImplementation();
 
       const params = {
         repositoryId: "repo123",
@@ -4117,17 +4241,17 @@ describe("repos tools", () => {
       const result = await handler(params);
 
       expect(mockGitApi.getPullRequestLabels).toHaveBeenCalledWith("repo123", 123, "testproject", "project123");
-      expect(consoleSpy).toHaveBeenCalledWith("Error fetching PR labels: API Error: Labels not accessible");
+      expect(warnSpy).toHaveBeenCalledWith("Error fetching PR labels: API Error: Labels not accessible");
 
       // Should fall back to empty labelSummary
-      const expectedResponse = {
-        ...mockPR,
+      const expectedResponse = expectedDetail({
+        project: "testproject",
         labelSummary: {},
-      };
+      });
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedResponse);
 
-      consoleSpy.mockRestore();
+      warnSpy.mockRestore();
     });
 
     it("should work with both includeLabels and includeWorkItemRefs enabled", async () => {
@@ -4165,15 +4289,15 @@ describe("repos tools", () => {
       expect(mockGitApi.getPullRequest).toHaveBeenCalledWith("repo123", 123, undefined, undefined, undefined, undefined, undefined, true);
       expect(mockGitApi.getPullRequestLabels).toHaveBeenCalledWith("repo123", 123, "testproject", "project123");
 
-      const expectedResponse = {
-        ...mockPR,
+      const expectedResponse = expectedDetail({
+        project: "testproject",
         labelSummary: {
           labels: ["urgent"],
           labelCount: 1,
         },
-      };
+      });
 
-      expect(result.content[0].text).toBe(JSON.stringify(expectedResponse));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedResponse);
     });
 
     it("should include changed files when includeChangedFiles is true", async () => {
@@ -4231,7 +4355,7 @@ describe("repos tools", () => {
       const result = await handler({ repositoryId: "repo123", pullRequestId: 123, includeChangedFiles: false });
 
       expect(mockGitApi.getPullRequestIterations).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedDetail({ status: undefined, statusName: "Unknown" }));
     });
 
     it("should not fetch changed files when includeChangedFiles is not specified", async () => {
@@ -4246,7 +4370,7 @@ describe("repos tools", () => {
       const result = await handler({ repositoryId: "repo123", pullRequestId: 123 });
 
       expect(mockGitApi.getPullRequestIterations).not.toHaveBeenCalled();
-      expect(result.content[0].text).toBe(JSON.stringify(mockPR));
+      expect(JSON.parse(result.content[0].text)).toEqual(expectedDetail({ status: undefined, statusName: "Unknown" }));
     });
 
     it("should handle empty iterations when includeChangedFiles is true", async () => {
@@ -4277,17 +4401,17 @@ describe("repos tools", () => {
       mockGitApi.getPullRequestIterations.mockResolvedValue([{ id: 1 }]);
       mockGitApi.getPullRequestIterationChanges.mockRejectedValue(new Error("API Error: Changes not accessible"));
 
-      const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+      const warnSpy = jest.spyOn(logger, "warn").mockImplementation();
 
       const result = await handler({ repositoryId: "repo123", pullRequestId: 123, includeChangedFiles: true });
 
-      expect(consoleSpy).toHaveBeenCalledWith("Error fetching PR changed files: API Error: Changes not accessible");
+      expect(warnSpy).toHaveBeenCalledWith("Error fetching PR changed files: API Error: Changes not accessible");
 
       const resultData = JSON.parse(result.content[0].text);
       expect(resultData.pullRequestId).toBe(123);
       expect(resultData.changedFilesSummary).toEqual({});
 
-      consoleSpy.mockRestore();
+      warnSpy.mockRestore();
     });
 
     it("should handle iteration with null id when includeChangedFiles is true", async () => {

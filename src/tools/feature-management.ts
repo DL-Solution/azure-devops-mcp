@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
 const FEATURE_MANAGEMENT_TOOLS = {
@@ -56,8 +56,8 @@ function configureFeatureManagementTools(server: McpServer, tokenProvider: () =>
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Feature '${featureId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get feature state (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get feature state (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -94,8 +94,8 @@ function configureFeatureManagementTools(server: McpServer, tokenProvider: () =>
 
         const path = featureStatePath(featureId, userScope, scopeName, scopeValue);
         const response = await request("PATCH", `${path}?api-version=${featureManagementApiVersion}`, body);
-        if (!response.ok) {
-          throw new Error(`Failed to set feature state (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to set feature state (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());

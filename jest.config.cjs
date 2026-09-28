@@ -55,7 +55,8 @@ module.exports = {
     "^(.+)/version\\.js$": "$1/version.ts",
     "^(.+)/utils\\.js$": "$1/utils.ts",
     "^(.+)/auth\\.js$": "$1/auth.ts",
-    "^(.+)/logger\\.js$": "$1/logger.ts",
+    // A dependency's own "./logger.js" (@azure/logger's runtime has one) falls through to the .js file.
+    "^(.+)/logger\\.js$": ["$1/logger.ts", "$1/logger.js"],
     "^(.+)/elicitations\\.js$": "$1/elicitations.ts",
     "^(.+)/content-safety\\.js$": "$1/content-safety.ts",
     "^(.+)/tool-registration\\.js$": "$1/tool-registration.ts",

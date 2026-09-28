@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTool } from "../shared/tool-registration.js";
 import { WebApi } from "azure-devops-node-api";
 import { z } from "zod";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoErrorText, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { requiredProject } from "../shared/common-params.js";
 import { jsonTextResult, toolError } from "../shared/tool-results.js";
 
@@ -71,8 +71,8 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
         if (expand) params.append("$expand", expand);
 
         const response = await request(project, `approvals?${params.toString()}`, "GET");
-        if (!response.ok) {
-          throw new Error(`Failed to list approvals (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to list approvals (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -100,8 +100,8 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
         if (response.status === 404) {
           return { content: [{ type: "text", text: `Approval '${approvalId}' not found` }], isError: true };
         }
-        if (!response.ok) {
-          throw new Error(`Failed to get approval (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to get approval (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -131,8 +131,8 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
         if (reassignTo !== undefined) update.reassignTo = { id: reassignTo };
 
         const response = await request(project, `approvals?api-version=${approvalsApiVersion}`, "PATCH", [update]);
-        if (!response.ok) {
-          throw new Error(`Failed to update approval (${response.status}): ${await response.text()}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(`Failed to update approval (${response.status}): ${adoErrorMessage(response, await response.text())}`);
         }
 
         return jsonTextResult(await response.text());
@@ -147,8 +147,8 @@ function configureApprovalsTools(server: McpServer, tokenProvider: () => Promise
     try {
       const response = await request(project, pathAndQuery, method, body);
       const text = await response.text();
-      if (!response.ok) {
-        throw new Error(`${response.status}: ${text}`);
+      if (!response.ok || isHtmlResponse(response, text)) {
+        throw new Error(adoErrorText(response, text));
       }
       return jsonTextResult(text || "Done.");
     } catch (error) {

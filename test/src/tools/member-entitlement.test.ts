@@ -91,6 +91,18 @@ describe("configureMemberEntitlementTools", () => {
     expect(JSON.parse(init.body)).toEqual([{ op: "replace", path: "/accessLevel", value: { accountLicenseType: "express" } }]);
   });
 
+  it("reports a 203 sign-in page as an error instead of returning it", async () => {
+    const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.list_users);
+    mockFetch.mockResolvedValue({ ok: true, status: 203, headers: new Headers({ "content-type": "text/html; charset=utf-8" }), text: () => Promise.resolve("<!DOCTYPE html><html>sign in</html>") });
+
+    const result = await handler({});
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe(
+      "Error listing user entitlements: Failed to list user entitlements (203): Azure DevOps returned an HTML page instead of JSON (usually a sign-in page: the token is missing, expired or lacks access)"
+    );
+  });
+
   it("surfaces non-OK responses as errors", async () => {
     const handler = getHandler(MEMBER_ENTITLEMENT_TOOLS.add_user);
     mockFetch.mockResolvedValue(ok("forbidden", 403));

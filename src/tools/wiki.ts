@@ -9,7 +9,7 @@ import { WikiPagesBatchRequest, WikiCreateParametersV2, WikiType } from "azure-d
 import { GitVersionType } from "azure-devops-node-api/interfaces/GitInterfaces.js";
 import { apiVersion, extractAdoStreamError, getOrgFromUrl } from "../utils.js";
 import { createExternalContentResponse } from "../shared/content-safety.js";
-import { adoFetch } from "../shared/ado-rest.js";
+import { adoErrorMessage, adoErrorText, adoFetch, isHtmlResponse } from "../shared/ado-rest.js";
 import { requiredProject, continuationTokenParam } from "../shared/common-params.js";
 import { jsonResult, PAGED_RESULT_NOTE, pagedResult, toolError } from "../shared/tool-results.js";
 import { continuationTokenOf } from "../shared/continuation.js";
@@ -170,9 +170,9 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           },
         });
 
-        if (!response.ok) {
+        if (!response.ok || isHtmlResponse(response)) {
           const errorText = await response.text();
-          throw new Error(`Failed to get wiki page (${response.status}): ${errorText}`);
+          throw new Error(`Failed to get wiki page (${response.status}): ${adoErrorMessage(response, errorText)}`);
         }
 
         const pageData = await response.json();
@@ -421,11 +421,11 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
               };
             } else {
               const errorText = await updateResponse.text();
-              throw new Error(`Failed to update page (${updateResponse.status}): ${errorText}`);
+              throw new Error(`Failed to update page (${updateResponse.status}): ${adoErrorMessage(updateResponse, errorText)}`);
             }
           } else {
             const errorText = await createResponse.text();
-            throw new Error(`Failed to create page (${createResponse.status}): ${errorText}`);
+            throw new Error(`Failed to create page (${createResponse.status}): ${adoErrorMessage(createResponse, errorText)}`);
           }
         } catch (fetchError) {
           throw fetchError;
@@ -510,8 +510,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
     const baseUrl = connection.serverUrl.replace(/\/$/, "");
     const response = await adoFetch({ url: `${baseUrl}/${pathAndQuery}`, method, token, userAgent: userAgentProvider(), body });
     const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`${response.status}: ${text}`);
+    if (!response.ok || isHtmlResponse(response, text)) {
+      throw new Error(adoErrorText(response, text));
     }
     return text;
   }
@@ -648,8 +648,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           body: contentBase64.replace(/\s/g, ""),
         });
         const text = await response.text();
-        if (!response.ok) {
-          throw new Error(`${response.status}: ${text}`);
+        if (!response.ok || isHtmlResponse(response, text)) {
+          throw new Error(adoErrorText(response, text));
         }
         return text;
       });
@@ -845,8 +845,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
           body: Buffer.from(contentBase64.replace(/\s/g, ""), "base64"),
         });
         const text = await response.text();
-        if (!response.ok) {
-          throw new Error(`${response.status}: ${text}`);
+        if (!response.ok || isHtmlResponse(response, text)) {
+          throw new Error(adoErrorText(response, text));
         }
         return text;
       })
@@ -872,9 +872,8 @@ function configureWikiTools(server: McpServer, tokenProvider: () => Promise<stri
         const response = await fetch(url, {
           headers: { "Authorization": `Bearer ${token}`, "User-Agent": userAgentProvider() },
         });
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(`${response.status}: ${text}`);
+        if (!response.ok || isHtmlResponse(response)) {
+          throw new Error(adoErrorText(response, await response.text()));
         }
         const buffer = Buffer.from(await response.arrayBuffer());
         const mimeType = attachmentMimeType(fileName);
