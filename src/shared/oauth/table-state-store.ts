@@ -13,7 +13,7 @@
 // storage account key is stored anywhere; the account has shared-key access
 // disabled entirely.
 
-import { TableClient, TableEntity, odata } from "@azure/data-tables";
+import { Edm, TableClient, TableEntity, odata } from "@azure/data-tables";
 import type { TokenCredential } from "@azure/identity";
 import { OAuthClientInformationFull } from "@modelcontextprotocol/sdk/shared/auth.js";
 
@@ -34,8 +34,13 @@ interface StateEntity {
   rowKey: string;
   /** The entry itself, serialized. Table Storage has no nested types. */
   payload: string;
-  /** Epoch millis after which the entry is garbage. 0 for entries that never expire. */
-  expiresAt: number;
+  /**
+   * Epoch millis after which the entry is garbage. 0 for entries that never
+   * expire. Stored as Int64: epoch millis overflow Int32, which is what Table
+   * Storage infers for an untyped JSON integer. The SDK reads an Int64 back as
+   * a bigint.
+   */
+  expiresAt: number | bigint;
 }
 
 /**
@@ -67,11 +72,11 @@ export class TableOAuthStateStore implements OAuthStateStore {
 
   private async put(partitionKey: string, key: string, value: unknown, expiresAt: number): Promise<void> {
     await this.ensureTable();
-    const entity: TableEntity<Omit<StateEntity, "partitionKey" | "rowKey">> = {
+    const entity: TableEntity<Pick<StateEntity, "payload"> & { expiresAt: Edm<"Int64"> }> = {
       partitionKey,
       rowKey: toRowKey(key),
       payload: JSON.stringify(value),
-      expiresAt,
+      expiresAt: { value: String(expiresAt), type: "Int64" },
     };
     await this.client.upsertEntity(entity, "Replace");
   }
@@ -147,7 +152,9 @@ export class TableOAuthStateStore implements OAuthStateStore {
     try {
       for (const partitionKey of [PARTITION.pending, PARTITION.code]) {
         const stale = this.client.listEntities<StateEntity>({
-          queryOptions: { filter: odata`PartitionKey eq ${partitionKey} and expiresAt lt ${now}` },
+          // The L suffix makes the literal Int64; bare, it is parsed as Int32
+          // and every current timestamp is rejected as out of range.
+          queryOptions: { filter: odata`PartitionKey eq ${partitionKey} and expiresAt lt ${now}L` },
         });
         for await (const entity of stale) {
           await this.client.deleteEntity(entity.partitionKey, entity.rowKey).catch(() => undefined);
