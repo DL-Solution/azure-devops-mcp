@@ -191,6 +191,7 @@
 | Repositories       | [mcp_ado_repo_restore_repository](#mcp_ado_repo_restore_repository)                                           | Restore a deleted repository from the project's recycle bin, with its history, branches and pull requests                                             |
 | Repositories       | [mcp_ado_repo_lock_branch](#mcp_ado_repo_lock_branch)                                                         | Lock a branch so only its locker can push and pull requests into it cannot complete                                                                   |
 | Repositories       | [mcp_ado_repo_unlock_branch](#mcp_ado_repo_unlock_branch)                                                     | Unlock a branch locked with repo_lock_branch or from the web UI                                                                                       |
+| Repositories       | [mcp_ado_repo_delete_branch](#mcp_ado_repo_delete_branch)                                                     | Delete a branch                                                                                                                                       |
 | Repositories       | [mcp_ado_repo_get_commit](#mcp_ado_repo_get_commit)                                                           | Get one commit                                                                                                                                        |
 | Repositories       | [mcp_ado_repo_list_commit_changes](#mcp_ado_repo_list_commit_changes)                                         | List the files a commit added, edited, renamed or deleted, with counts per change type                                                                |
 | Repositories       | [mcp_ado_repo_compare_commits](#mcp_ado_repo_compare_commits)                                                 | Compare two branches, tags or commits                                                                                                                 |
@@ -1605,7 +1606,7 @@ Replace the capacities of all team members for an iteration (overwrites the enti
 
 ### mcp_ado_work_update_automation_rule
 
-Enable or disable a team's backlog automation rules for a backlog level.
+Set a team's work item automation rules for one backlog level — activate the parent when a child starts, close or resolve it when all children are done. The call replaces every rule of the level; the rules cannot be read back through the REST API.
 
 - **Required**: `rulesStates`
 - **Optional**: `backlogLevelName`, `project`, `team`
@@ -1937,6 +1938,13 @@ Lock a branch: nobody but the person who locked it can push to it, and pull requ
 ### mcp_ado_repo_unlock_branch
 
 Unlock a branch locked with repo_lock_branch or from the web UI.
+
+- **Required**: `repositoryId`, `project`, `branch`
+- **Optional**: None
+
+### mcp_ado_repo_delete_branch
+
+Delete a branch. Refuses the repository's default branch and returns the commit the branch pointed to, so it can be recreated with repo_create_branch.
 
 - **Required**: `repositoryId`, `project`, `branch`
 - **Optional**: None

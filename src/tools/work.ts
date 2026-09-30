@@ -2213,12 +2213,26 @@ function configureWorkTools(server: McpServer, _: () => Promise<string>, connect
   registerTool(
     server,
     WORK_TOOLS.update_automation_rule,
-    "Enable or disable a team's backlog automation rules (e.g. auto state updates) for a backlog level. If a project or team is not specified, you will be prompted to select one.",
+    "Set a team's work item automation rules for one backlog level: parent state updates driven by the states of its children. The call replaces every rule of that level, so a rule left out is turned off. The rules fire only for changes made on boards, backlogs and taskboards, and only when parent and child share the same area path. Azure DevOps has no REST API to read them back. If a project or team is not specified, you will be prompted to select one.",
     {
       project: optionalProject,
       team: optionalTeam,
-      backlogLevelName: z.string().optional().describe("The name of the backlog level the rules apply to (e.g. 'Stories')."),
-      rulesStates: z.record(z.boolean()).describe("Map of automation rule name to enabled/disabled state."),
+      backlogLevelName: z.string().optional().describe("The backlog level whose items are the parents: 'Stories', 'Features' or 'Epics' (the backlog name from work_list_backlogs)."),
+      // Azure DevOps stores any key it is sent and silently ignores the ones it does not know,
+      // so the names are fixed here; they come from the Boards web UI.
+      rulesStates: z
+        .object({
+          ActivateParentWhenAnyChildActivated: z.boolean().default(false).describe("Move the parent from a Proposed state to the first In Progress state when a child becomes In Progress."),
+          CompleteParentWhenAllChildrenCompleted: z.boolean().default(false).describe("Move the parent to its first Completed state (e.g. Closed) when all children are Completed."),
+          ResolveParentWhenAllChildrenResolved: z
+            .boolean()
+            .default(false)
+            .describe(
+              "Move the parent to its first Resolved-category state when all children are Completed. Does nothing for a type without such a state (in Agile, only Bug has one). The web UI allows only one of this and CompleteParentWhenAllChildrenCompleted."
+            ),
+        })
+        .strict()
+        .describe("Which rules are on."),
     },
     async ({ project, team, backlogLevelName, rulesStates }) => {
       try {

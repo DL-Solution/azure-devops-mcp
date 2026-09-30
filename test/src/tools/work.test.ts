@@ -7,6 +7,7 @@ import { configureWorkTools } from "../../../src/tools/work";
 import { WebApi } from "azure-devops-node-api";
 import { TreeStructureGroup, TreeNodeStructureType } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces";
 import { createToolServer } from "../../mocks/tool-server";
+import type { ZodTypeAny } from "zod";
 
 type TokenProviderMock = () => Promise<string>;
 type ConnectionProviderMock = () => Promise<WebApi>;
@@ -4003,11 +4004,29 @@ describe("configureWorkTools", () => {
     it("update_automation_rule builds the request model", async () => {
       const handler = getPlanHandler("work_update_automation_rule");
       mockWorkApi.updateAutomationRule.mockResolvedValue(undefined);
+      const rulesStates = { ActivateParentWhenAnyChildActivated: true, CompleteParentWhenAllChildrenCompleted: false, ResolveParentWhenAllChildrenResolved: false };
 
-      const result = await handler({ project: "Proj", team: "Team", backlogLevelName: "Stories", rulesStates: { ClosedParentRule: true } });
+      const result = await handler({ project: "Proj", team: "Team", backlogLevelName: "Stories", rulesStates });
 
-      expect(mockWorkApi.updateAutomationRule).toHaveBeenCalledWith({ backlogLevelName: "Stories", rulesStates: { ClosedParentRule: true } }, { project: "Proj", team: "Team" });
+      expect(mockWorkApi.updateAutomationRule).toHaveBeenCalledWith({ backlogLevelName: "Stories", rulesStates }, { project: "Proj", team: "Team" });
       expect(result.content[0].text).toContain("Automation rules updated");
+    });
+
+    // Azure DevOps stores an unknown rule name without complaint, which leaves
+    // the caller believing a rule was set. The schema rejects it instead, and
+    // fills a rule left out as off, since the call replaces the whole level.
+    it("update_automation_rule accepts only the known rule names and defaults the rest to off", () => {
+      configureWorkTools(server, tokenProvider, connectionProvider);
+      const call = (server.tool as jest.Mock).mock.calls.find(([toolName]) => toolName === "work_update_automation_rule");
+      if (!call) throw new Error("work_update_automation_rule not registered");
+      const rulesStates = (call[2] as Record<string, ZodTypeAny>).rulesStates;
+
+      expect(rulesStates.safeParse({ ClosedParentRule: true }).success).toBe(false);
+      expect(rulesStates.parse({ ActivateParentWhenAnyChildActivated: true })).toEqual({
+        ActivateParentWhenAnyChildActivated: true,
+        CompleteParentWhenAllChildrenCompleted: false,
+        ResolveParentWhenAllChildrenResolved: false,
+      });
     });
   });
 
