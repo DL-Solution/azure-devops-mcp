@@ -34,6 +34,7 @@ describe("repo git tools", () => {
     gitApi = {
       getRefs: jest.fn(),
       updateRefs: jest.fn(),
+      getRepository: jest.fn(),
       getAnnotatedTag: jest.fn(),
       createAnnotatedTag: jest.fn(),
       getStatuses: jest.fn(),
@@ -124,6 +125,7 @@ describe("repo git tools", () => {
         REPO_TOOLS.restore_repository,
         REPO_TOOLS.lock_branch,
         REPO_TOOLS.unlock_branch,
+        REPO_TOOLS.delete_branch,
       ])
     );
   });
@@ -660,6 +662,64 @@ describe("repo git tools", () => {
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain(`Error ${verb} branch 'main'`);
+    });
+  });
+
+  describe("repo_delete_branch", () => {
+    beforeEach(() => {
+      gitApi.getRepository.mockResolvedValue({ defaultBranch: "refs/heads/main" });
+    });
+
+    it("deletes the exact branch, not a longer one matched by the prefix filter", async () => {
+      gitApi.getRefs.mockResolvedValue([
+        { name: "refs/heads/probe/rules-2", objectId: "sha-2" },
+        { name: "refs/heads/probe/rules", objectId: "sha-1" },
+      ]);
+      gitApi.updateRefs.mockResolvedValue([{ success: true }]);
+
+      const result = await handlerFor(REPO_TOOLS.delete_branch)({ repositoryId: "repo", project: "Contoso", branch: "probe/rules" });
+
+      expect(gitApi.getRefs).toHaveBeenCalledWith("repo", "Contoso", "heads/probe/rules");
+      expect(gitApi.updateRefs).toHaveBeenCalledWith([{ name: "refs/heads/probe/rules", oldObjectId: "sha-1", newObjectId: DELETED }], "repo", "Contoso");
+      expect(parsed(result)).toEqual({ deleted: "refs/heads/probe/rules", previousObjectId: "sha-1" });
+    });
+
+    it("refuses the default branch, however it is written", async () => {
+      const result = await handlerFor(REPO_TOOLS.delete_branch)({ repositoryId: "repo", project: "Contoso", branch: "refs/heads/main" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("default branch");
+      expect(gitApi.updateRefs).not.toHaveBeenCalled();
+    });
+
+    it("errors when the branch does not exist", async () => {
+      gitApi.getRefs.mockResolvedValue([{ name: "refs/heads/ghost-2", objectId: "x" }]);
+
+      const result = await handlerFor(REPO_TOOLS.delete_branch)({ repositoryId: "repo", project: "Contoso", branch: "ghost" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("not found");
+      expect(gitApi.updateRefs).not.toHaveBeenCalled();
+    });
+
+    // updateRefs reports per-ref failures in its result instead of throwing.
+    it("reports a rejected ref update as an error", async () => {
+      gitApi.getRefs.mockResolvedValue([{ name: "refs/heads/old", objectId: "sha-1" }]);
+      gitApi.updateRefs.mockResolvedValue([{ success: false, updateStatus: 9 }]);
+
+      const result = await handlerFor(REPO_TOOLS.delete_branch)({ repositoryId: "repo", project: "Contoso", branch: "old" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Failed to delete branch");
+    });
+
+    it("surfaces an API failure as an error result", async () => {
+      gitApi.getRepository.mockRejectedValue(new Error("TF401019"));
+
+      const result = await handlerFor(REPO_TOOLS.delete_branch)({ repositoryId: "repo", project: "Contoso", branch: "old" });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Error deleting branch 'old'");
     });
   });
 

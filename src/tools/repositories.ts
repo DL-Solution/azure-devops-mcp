@@ -92,6 +92,7 @@ const REPO_TOOLS = {
   restore_repository: "repo_restore_repository",
   lock_branch: "repo_lock_branch",
   unlock_branch: "repo_unlock_branch",
+  delete_branch: "repo_delete_branch",
   get_commit: "repo_get_commit",
   list_commit_changes: "repo_list_commit_changes",
   compare_commits: "repo_compare_commits",
@@ -2971,6 +2972,44 @@ function configureRepoTools(server: McpServer, tokenProvider: () => Promise<stri
         return await setBranchLock(repositoryId, project, branch, false);
       } catch (error) {
         return toolError(`unlocking branch '${branch}'`, error);
+      }
+    }
+  );
+
+  registerTool(
+    server,
+    REPO_TOOLS.delete_branch,
+    "Delete a branch. Refuses the repository's default branch. Returns the commit the branch pointed to: pass it to repo_create_branch as sourceCommitId to recreate the branch.",
+    {
+      repositoryId: repositoryIdParam,
+      project: requiredProject,
+      branch: z.string().describe("The branch to delete, e.g. 'feature/login' or 'refs/heads/feature/login'."),
+    },
+    async ({ repositoryId, project, branch }) => {
+      try {
+        const refName = branchRef(branch);
+        const connection = await connectionProvider();
+        const gitApi = await connection.getGitApi();
+        const repository = await gitApi.getRepository(repositoryId, project);
+        if (repository.defaultBranch === refName) {
+          return { content: [{ type: "text", text: `'${refName}' is the default branch of repository ${repositoryId} and cannot be deleted` }], isError: true };
+        }
+
+        // The filter is a prefix match, so 'heads/fix' also returns 'heads/fix-2'.
+        const refs = await gitApi.getRefs(repositoryId, project, refName.replace(/^refs\//, ""));
+        const ref = refs.find((candidate) => candidate.name === refName);
+        if (!ref?.objectId) {
+          return { content: [{ type: "text", text: `Branch '${refName}' not found in repository ${repositoryId}` }], isError: true };
+        }
+
+        const [result] = await gitApi.updateRefs([{ name: refName, oldObjectId: ref.objectId, newObjectId: DELETED_OBJECT_ID }], repositoryId, project);
+        // updateRefs reports per-ref failures in the result rather than throwing.
+        if (!result?.success) {
+          return { content: [{ type: "text", text: `Failed to delete branch '${refName}': ${JSON.stringify(result)}` }], isError: true };
+        }
+        return jsonResult({ deleted: refName, previousObjectId: ref.objectId });
+      } catch (error) {
+        return toolError(`deleting branch '${branch}'`, error);
       }
     }
   );
